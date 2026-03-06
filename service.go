@@ -8,7 +8,7 @@ import (
 	"time"
 
 	core "forge.lthn.ai/core/go/pkg/framework/core"
-	"forge.lthn.ai/core/go/pkg/io"
+	io "forge.lthn.ai/core/go-io"
 	"forge.lthn.ai/core/go/pkg/manifest"
 	"forge.lthn.ai/core/go/pkg/marketplace"
 	"forge.lthn.ai/core/go/pkg/store"

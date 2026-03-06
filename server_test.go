@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	pb "forge.lthn.ai/core/ts/proto"
-	"forge.lthn.ai/core/go/pkg/io"
+	io "forge.lthn.ai/core/go-io"
 	"forge.lthn.ai/core/go/pkg/manifest"
 	"forge.lthn.ai/core/go/pkg/store"
 	"github.com/stretchr/testify/assert"
