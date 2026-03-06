@@ -11,8 +11,8 @@ import (
 	"time"
 
 	pb "forge.lthn.ai/core/ts/proto"
-	core "forge.lthn.ai/core/go/pkg/framework/core"
-	"forge.lthn.ai/core/go/pkg/marketplace"
+	core "forge.lthn.ai/core/go/pkg/core"
+	"forge.lthn.ai/core/go-scm/marketplace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

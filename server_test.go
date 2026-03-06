@@ -7,8 +7,8 @@ import (
 
 	pb "forge.lthn.ai/core/ts/proto"
 	io "forge.lthn.ai/core/go-io"
-	"forge.lthn.ai/core/go/pkg/manifest"
-	"forge.lthn.ai/core/go/pkg/store"
+	"forge.lthn.ai/core/go-scm/manifest"
+	"forge.lthn.ai/core/go-io/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"

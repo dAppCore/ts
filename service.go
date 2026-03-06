@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
-	core "forge.lthn.ai/core/go/pkg/framework/core"
+	core "forge.lthn.ai/core/go/pkg/core"
 	io "forge.lthn.ai/core/go-io"
-	"forge.lthn.ai/core/go/pkg/manifest"
-	"forge.lthn.ai/core/go/pkg/marketplace"
-	"forge.lthn.ai/core/go/pkg/store"
+	"forge.lthn.ai/core/go-scm/manifest"
+	"forge.lthn.ai/core/go-scm/marketplace"
+	"forge.lthn.ai/core/go-io/store"
 )
 
 // Service wraps the CoreDeno sidecar as a framework service.
