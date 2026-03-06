@@ -1,0 +1,81 @@
+syntax = "proto3";
+package coredeno;
+option go_package = "forge.lthn.ai/core/ts/proto";
+
+// CoreService is implemented by CoreGO — Deno calls this for I/O.
+service CoreService {
+  // Filesystem (gated by manifest permissions)
+  rpc FileRead(FileReadRequest) returns (FileReadResponse);
+  rpc FileWrite(FileWriteRequest) returns (FileWriteResponse);
+  rpc FileList(FileListRequest) returns (FileListResponse);
+  rpc FileDelete(FileDeleteRequest) returns (FileDeleteResponse);
+
+  // Object store
+  rpc StoreGet(StoreGetRequest) returns (StoreGetResponse);
+  rpc StoreSet(StoreSetRequest) returns (StoreSetResponse);
+
+  // Process management
+  rpc ProcessStart(ProcessStartRequest) returns (ProcessStartResponse);
+  rpc ProcessStop(ProcessStopRequest) returns (ProcessStopResponse);
+}
+
+// DenoService is implemented by CoreDeno — Go calls this for module lifecycle.
+service DenoService {
+  rpc LoadModule(LoadModuleRequest) returns (LoadModuleResponse);
+  rpc UnloadModule(UnloadModuleRequest) returns (UnloadModuleResponse);
+  rpc ModuleStatus(ModuleStatusRequest) returns (ModuleStatusResponse);
+}
+
+// --- Core (Go-side) messages ---
+
+message FileReadRequest { string path = 1; string module_code = 2; }
+message FileReadResponse { string content = 1; }
+
+message FileWriteRequest { string path = 1; string content = 2; string module_code = 3; }
+message FileWriteResponse { bool ok = 1; }
+
+message FileListRequest { string path = 1; string module_code = 2; }
+message FileListResponse {
+  repeated FileEntry entries = 1;
+}
+message FileEntry {
+  string name = 1;
+  bool is_dir = 2;
+  int64 size = 3;
+}
+
+message FileDeleteRequest { string path = 1; string module_code = 2; }
+message FileDeleteResponse { bool ok = 1; }
+
+message StoreGetRequest { string group = 1; string key = 2; }
+message StoreGetResponse { string value = 1; bool found = 2; }
+
+message StoreSetRequest { string group = 1; string key = 2; string value = 3; }
+message StoreSetResponse { bool ok = 1; }
+
+message ProcessStartRequest { string command = 1; repeated string args = 2; string module_code = 3; }
+message ProcessStartResponse { string process_id = 1; }
+
+message ProcessStopRequest { string process_id = 1; }
+message ProcessStopResponse { bool ok = 1; }
+
+// --- Deno-side messages ---
+
+message LoadModuleRequest { string code = 1; string entry_point = 2; repeated string permissions = 3; }
+message LoadModuleResponse { bool ok = 1; string error = 2; }
+
+message UnloadModuleRequest { string code = 1; }
+message UnloadModuleResponse { bool ok = 1; }
+
+message ModuleStatusRequest { string code = 1; }
+message ModuleStatusResponse {
+  string code = 1;
+  enum Status {
+    UNKNOWN = 0;
+    LOADING = 1;
+    RUNNING = 2;
+    STOPPED = 3;
+    ERRORED = 4;
+  }
+  Status status = 2;
+}

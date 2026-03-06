@@ -1,0 +1,76 @@
+package ts
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+)
+
+// Start launches the Deno sidecar process with the given entrypoint args.
+func (s *Sidecar) Start(ctx context.Context, args ...string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.cmd != nil {
+		return errors.New("coredeno: already running")
+	}
+
+	// Ensure socket directory exists with owner-only permissions
+	sockDir := filepath.Dir(s.opts.SocketPath)
+	if err := os.MkdirAll(sockDir, 0700); err != nil {
+		return fmt.Errorf("coredeno: mkdir %s: %w", sockDir, err)
+	}
+
+	// Remove stale Deno socket (the Core socket is managed by ListenGRPC)
+	if s.opts.DenoSocketPath != "" {
+		os.Remove(s.opts.DenoSocketPath)
+	}
+
+	s.ctx, s.cancel = context.WithCancel(ctx)
+	s.cmd = exec.CommandContext(s.ctx, s.opts.DenoPath, args...)
+	s.cmd.Env = append(os.Environ(),
+		"CORE_SOCKET="+s.opts.SocketPath,
+		"DENO_SOCKET="+s.opts.DenoSocketPath,
+	)
+	s.done = make(chan struct{})
+	if err := s.cmd.Start(); err != nil {
+		s.cmd = nil
+		s.cancel()
+		return fmt.Errorf("coredeno: start: %w", err)
+	}
+
+	// Monitor in background — waits for exit, then signals done
+	go func() {
+		s.cmd.Wait()
+		s.mu.Lock()
+		s.cmd = nil
+		s.mu.Unlock()
+		close(s.done)
+	}()
+	return nil
+}
+
+// Stop cancels the context and waits for the process to exit.
+func (s *Sidecar) Stop() error {
+	s.mu.RLock()
+	if s.cmd == nil {
+		s.mu.RUnlock()
+		return nil
+	}
+	done := s.done
+	s.mu.RUnlock()
+
+	s.cancel()
+	<-done
+	return nil
+}
+
+// IsRunning returns true if the sidecar process is alive.
+func (s *Sidecar) IsRunning() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.cmd != nil
+}
