@@ -4,8 +4,8 @@ go 1.26.0
 
 require (
 	forge.lthn.ai/core/go v0.3.1
-	forge.lthn.ai/core/go-io v0.1.2
-	forge.lthn.ai/core/go-scm v0.3.1
+	forge.lthn.ai/core/go-io v0.1.5
+	forge.lthn.ai/core/go-scm v0.3.4
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.79.2
 	google.golang.org/protobuf v1.36.11
@@ -25,10 +25,10 @@ require (
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.35.0 // indirect
 	gonum.org/v1/gonum v0.17.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260311181403-84a4fc48630c // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260316180232-0b37fe3546d5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.70.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.46.1 // indirect
+	modernc.org/sqlite v1.46.2 // indirect
 )
