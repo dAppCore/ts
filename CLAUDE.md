@@ -57,7 +57,7 @@ All Go code lives in a single `ts` package (no subpackages).
 - **UK English** in docs and comments (colour, organisation)
 - **Error wrapping:** `fmt.Errorf("coredeno: <context>: %w", err)`
 - **Test naming:** `_Good`, `_Bad`, `_Ugly` suffixes for test functions
-- **Thread safety:** `Sidecar` and `DenoClient` use `sync.RWMutex`
+- **Thread safety:** `Sidecar` uses `sync.RWMutex`; `DenoClient` uses `sync.Mutex`
 - **Security model:** Empty permission lists deny all access; reserved store namespaces (prefixed `_`) blocked from modules; path matching uses boundary checks to prevent `"data"` matching `"data-secrets"`
 
 ## Testing

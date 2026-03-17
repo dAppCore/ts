@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	pb "forge.lthn.ai/core/ts/proto"
 	io "forge.lthn.ai/core/go-io"
-	"forge.lthn.ai/core/go-scm/manifest"
 	"forge.lthn.ai/core/go-io/store"
+	"forge.lthn.ai/core/go-scm/manifest"
+	pb "forge.lthn.ai/core/ts/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

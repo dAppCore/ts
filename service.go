@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
-	core "forge.lthn.ai/core/go/pkg/core"
 	io "forge.lthn.ai/core/go-io"
+	"forge.lthn.ai/core/go-io/store"
 	"forge.lthn.ai/core/go-scm/manifest"
 	"forge.lthn.ai/core/go-scm/marketplace"
-	"forge.lthn.ai/core/go-io/store"
+	core "forge.lthn.ai/core/go/pkg/core"
 )
 
 // Service wraps the CoreDeno sidecar as a framework service.
@@ -134,7 +134,7 @@ func (s *Service) OnStartup(ctx context.Context) error {
 	// 8. Create installer and auto-load installed modules
 	if opts.AppRoot != "" {
 		modulesDir := filepath.Join(opts.AppRoot, "modules")
-		s.installer = marketplace.NewInstaller(modulesDir, s.store)
+		s.installer = marketplace.NewInstaller(medium, modulesDir, s.store)
 
 		if s.denoClient != nil {
 			installed, listErr := s.installer.Installed()

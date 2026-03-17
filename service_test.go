@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	pb "forge.lthn.ai/core/ts/proto"
 	core "forge.lthn.ai/core/go/pkg/core"
+	pb "forge.lthn.ai/core/ts/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
