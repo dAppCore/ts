@@ -3,9 +3,9 @@ module forge.lthn.ai/core/ts
 go 1.26.0
 
 require (
-	forge.lthn.ai/core/go v0.3.2
-	forge.lthn.ai/core/go-io v0.1.6
-	forge.lthn.ai/core/go-scm v0.3.5
+	forge.lthn.ai/core/go v0.3.3
+	forge.lthn.ai/core/go-io v0.1.7
+	forge.lthn.ai/core/go-scm v0.3.6
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.79.2
 	google.golang.org/protobuf v1.36.11

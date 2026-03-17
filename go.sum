@@ -1,11 +1,11 @@
-forge.lthn.ai/core/go v0.3.2 h1:VB9pW6ggqBhe438cjfE2iSI5Lg+62MmRbaOFglZM+nQ=
-forge.lthn.ai/core/go v0.3.2/go.mod h1:f7/zb3Labn4ARfwTq5Bi2AFHY+uxyPHozO+hLb54eFo=
-forge.lthn.ai/core/go-io v0.1.6 h1:RByYeP829HFqR2yLg5iBM5dGHKzPFYc+udl/Y1DZIRs=
-forge.lthn.ai/core/go-io v0.1.6/go.mod h1:3MSuQZuzhCi6aefECQ/LxhM8ooVLam1KgEvgeEjYZVc=
+forge.lthn.ai/core/go v0.3.3 h1:kYYZ2nRYy0/Be3cyuLJspRjLqTMxpckVyhb/7Sw2gd0=
+forge.lthn.ai/core/go v0.3.3/go.mod h1:Cp4ac25pghvO2iqOu59t1GyngTKVOzKB5/VPdhRi9CQ=
+forge.lthn.ai/core/go-io v0.1.7 h1:Tdb6sqh+zz1lsGJaNX9RFWM6MJ/RhSAyxfulLXrJsbk=
+forge.lthn.ai/core/go-io v0.1.7/go.mod h1:8lRLFk4Dnp5cR/Cyzh9WclD5566TbpdRgwcH7UZLWn4=
 forge.lthn.ai/core/go-log v0.0.4 h1:KTuCEPgFmuM8KJfnyQ8vPOU1Jg654W74h8IJvfQMfv0=
 forge.lthn.ai/core/go-log v0.0.4/go.mod h1:r14MXKOD3LF/sI8XUJQhRk/SZHBE7jAFVuCfgkXoZPw=
-forge.lthn.ai/core/go-scm v0.3.5 h1:3x6o/7RBvx37xmd/qJIptS2+2hlp6O7DGZDNPEHmaeE=
-forge.lthn.ai/core/go-scm v0.3.5/go.mod h1:IIqKnzcEw0wLnRo2D1bx6ZOQ+xaaILcNJ8J2j/eeBso=
+forge.lthn.ai/core/go-scm v0.3.6 h1:LFNx8Fs82mrpxro/MPUM6tMiD4DqPmdu83UknXztQjc=
+forge.lthn.ai/core/go-scm v0.3.6/go.mod h1:IWFIYDfRH0mtRdqY5zV06l/RkmkPpBM6FcbKWhg1Qa8=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
