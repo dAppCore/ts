@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	pb "forge.lthn.ai/core/ts/proto"
 	io "forge.lthn.ai/core/go-io"
-	"forge.lthn.ai/core/go-scm/manifest"
 	"forge.lthn.ai/core/go-io/store"
+	"forge.lthn.ai/core/go-scm/manifest"
+	pb "forge.lthn.ai/core/ts/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -163,7 +163,7 @@ func TestProcessStart_Bad_PermissionDenied(t *testing.T) {
 func TestProcessStart_Bad_NoProcessService(t *testing.T) {
 	srv := newTestServer(t)
 	srv.RegisterModule(&manifest.Manifest{
-		Code: "no-proc-mod",
+		Code:        "no-proc-mod",
 		Permissions: manifest.Permissions{Run: []string{"echo"}},
 	})
 	_, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{

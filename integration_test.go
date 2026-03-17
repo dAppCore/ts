@@ -10,17 +10,14 @@ import (
 	"testing"
 	"time"
 
-	pb "forge.lthn.ai/core/ts/proto"
-	core "forge.lthn.ai/core/go/pkg/core"
 	"forge.lthn.ai/core/go-scm/marketplace"
+	core "forge.lthn.ai/core/go/pkg/core"
+	pb "forge.lthn.ai/core/ts/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
-
-// unused import guard
-var _ = pb.NewCoreServiceClient
 
 func findDeno(t *testing.T) string {
 	t.Helper()
@@ -38,7 +35,7 @@ func findDeno(t *testing.T) string {
 // runtimeEntryPoint returns the absolute path to runtime/main.ts.
 func runtimeEntryPoint(t *testing.T) string {
 	t.Helper()
-	// We're in pkg/coredeno/ during test, runtime is a subdir
+	// runtime/ is a subdir of the package root
 	abs, err := filepath.Abs("runtime/main.ts")
 	require.NoError(t, err)
 	require.FileExists(t, abs)

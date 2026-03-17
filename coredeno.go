@@ -18,7 +18,7 @@ type Options struct {
 	DenoSocketPath string            // Unix socket path for Deno's gRPC server (DenoService)
 	AppRoot        string            // app root directory (sandboxed I/O)
 	StoreDBPath    string            // SQLite DB path (default: AppRoot/.core/store.db)
-	PublicKey      ed25519.PublicKey  // ed25519 public key for manifest verification (optional)
+	PublicKey      ed25519.PublicKey // ed25519 public key for manifest verification (optional)
 	SidecarArgs    []string          // args passed to the sidecar process
 }
 
