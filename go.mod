@@ -3,9 +3,9 @@ module forge.lthn.ai/core/ts
 go 1.26.0
 
 require (
-	forge.lthn.ai/core/go v0.3.1
-	forge.lthn.ai/core/go-io v0.1.5
-	forge.lthn.ai/core/go-scm v0.3.4
+	forge.lthn.ai/core/go v0.3.2
+	forge.lthn.ai/core/go-io v0.1.6
+	forge.lthn.ai/core/go-scm v0.3.5
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.79.2
 	google.golang.org/protobuf v1.36.11
@@ -30,5 +30,5 @@ require (
 	modernc.org/libc v1.70.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.46.2 // indirect
+	modernc.org/sqlite v1.47.0 // indirect
 )
