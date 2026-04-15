@@ -1,3 +1,5 @@
+import * as openpgp from "npm:openpgp@^6.1.0";
+
 export interface LocalAuthMaterial {
   root: string;
   fingerprint: string;
@@ -12,14 +14,13 @@ export interface LocalAuthEnvelope {
   fingerprint: string;
   algorithm: string;
   rootPassword?: string;
-  iv: string;
-  key: string;
   cipherText: string;
 }
 
 interface LocalAuthState {
   material: LocalAuthMaterial;
-  keyPair: CryptoKeyPair;
+  publicKey: Promise<any>;
+  privateKey: Promise<any>;
 }
 
 const localAuthCache = new Map<string, Promise<LocalAuthState>>();
@@ -47,25 +48,12 @@ export async function sealLocalMessage(
   root = defaultAuthRoot(),
 ): Promise<string> {
   const state = await getLocalAuthState(root);
-  const aesKey = await crypto.subtle.generateKey(
-    { name: "AES-GCM", length: 256 },
-    true,
-    ["encrypt", "decrypt"],
-  );
-  const exportedAesKey = new Uint8Array(
-    await crypto.subtle.exportKey("raw", aesKey),
-  );
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const cipher = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    aesKey,
-    new TextEncoder().encode(payload),
-  );
-  const encryptedKey = await crypto.subtle.encrypt(
-    { name: "RSA-OAEP" },
-    state.keyPair.publicKey,
-    exportedAesKey,
-  );
+  const message = await openpgp.createMessage({ text: payload });
+  const cipherText = await openpgp.encrypt({
+    message,
+    encryptionKeys: (await state.publicKey) as any,
+    format: "armored",
+  });
 
   const envelope: LocalAuthEnvelope = {
     version: 1,
@@ -73,9 +61,7 @@ export async function sealLocalMessage(
     fingerprint: state.material.fingerprint,
     algorithm: state.material.algorithm,
     rootPassword: state.material.rootPassword,
-    iv: bytesToBase64Url(iv),
-    key: bytesToBase64Url(new Uint8Array(encryptedKey)),
-    cipherText: bytesToBase64Url(new Uint8Array(cipher)),
+    cipherText,
   };
   return `core-auth:${bytesToBase64Url(
     new TextEncoder().encode(JSON.stringify(envelope)),
@@ -108,29 +94,17 @@ export async function openLocalMessage(
     throw new Error("local auth password mismatch");
   }
 
-  const encryptedKey = base64UrlToBytes(envelope.key);
-  const rawAesKey = await crypto.subtle.decrypt(
-    { name: "RSA-OAEP" },
-    state.keyPair.privateKey,
-    encryptedKey,
-  );
-  const aesKey = await crypto.subtle.importKey(
-    "raw",
-    rawAesKey,
-    "AES-GCM",
-    false,
-    ["decrypt"],
-  );
-  const plain = await crypto.subtle.decrypt(
-    {
-      name: "AES-GCM",
-      iv: base64UrlToBytes(envelope.iv),
-    },
-    aesKey,
-    base64UrlToBytes(envelope.cipherText),
-  );
+  const message = await openpgp.readMessage({
+    armoredMessage: envelope.cipherText,
+  });
+  const decrypted = await openpgp.decrypt({
+    message,
+    decryptionKeys: (await state.privateKey) as any,
+  });
 
-  return new TextDecoder().decode(plain);
+  return typeof decrypted.data === "string"
+    ? decrypted.data
+    : new TextDecoder().decode(decrypted.data as Uint8Array);
 }
 
 // Example:
@@ -175,30 +149,36 @@ async function getLocalAuthState(root: string): Promise<LocalAuthState> {
 }
 
 async function buildLocalAuthState(root: string): Promise<LocalAuthState> {
-  const keyPair = await crypto.subtle.generateKey(
-    {
-      name: "RSA-OAEP",
-      modulusLength: 2048,
-      publicExponent: new Uint8Array([1, 0, 1]),
-      hash: "SHA-256",
-    },
-    true,
-    ["encrypt", "decrypt"],
-  );
-  const publicKey = new Uint8Array(
-    await crypto.subtle.exportKey("spki", keyPair.publicKey),
-  );
-  const fingerprint = bytesToHex(await sha256Bytes(publicKey)).slice(0, 32);
   const rootPassword = await buildLocalAuthPassword(root);
+  const keyPair = await openpgp.generateKey({
+    type: "rsa",
+    rsaBits: 2048,
+    userIDs: [{ name: `CoreTS ${root}` }],
+    passphrase: rootPassword,
+    format: "armored",
+  });
+
+  const publicKeyBytes = new TextEncoder().encode(keyPair.publicKey);
+  const fingerprint = bytesToHex(await sha256Bytes(publicKeyBytes)).slice(0, 32);
+
   return {
     material: {
       root,
       fingerprint,
-      algorithm: "RSA-OAEP+AES-GCM",
-      publicKey: bytesToBase64Url(publicKey),
+      algorithm: "PGP-RSA2048",
+      publicKey: keyPair.publicKey,
       rootPassword,
     },
-    keyPair,
+    publicKey: openpgp.readKey({ armoredKey: keyPair.publicKey }),
+    privateKey: (async () => {
+      const privateKey = await openpgp.readPrivateKey({
+        armoredKey: keyPair.privateKey,
+      });
+      return openpgp.decryptKey({
+        privateKey,
+        passphrase: rootPassword,
+      });
+    })(),
   };
 }
 
@@ -226,8 +206,6 @@ function parseLocalEnvelope(token: string): LocalAuthEnvelope {
     typeof value.fingerprint !== "string" ||
     typeof value.algorithm !== "string" ||
     (value.rootPassword !== undefined && typeof value.rootPassword !== "string") ||
-    typeof value.iv !== "string" ||
-    typeof value.key !== "string" ||
     typeof value.cipherText !== "string"
   ) {
     throw new Error("invalid local auth envelope");

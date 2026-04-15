@@ -42,6 +42,9 @@ Deno.test("Local auth dance exposes a reusable helper", async () => {
 
   assert(opened === "payload", "dance helper should round-trip payloads");
   assert(material.root === "/tmp/corets", "material should preserve the configured root");
-  assert(material.algorithm === "RSA-OAEP+AES-GCM", "material should expose the hybrid algorithm");
-  assert(material.publicKey.length > 0, "material should expose the public key");
+  assert(material.algorithm === "PGP-RSA2048", "material should expose the PGP algorithm");
+  assert(
+    material.publicKey.includes("BEGIN PGP PUBLIC KEY BLOCK"),
+    "material should expose an armoured PGP public key",
+  );
 });
