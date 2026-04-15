@@ -45,6 +45,7 @@ export interface ElectronShim {
     showSaveDialog(options: unknown): Promise<unknown> | unknown;
     showMessageBox(options: unknown): Promise<unknown> | unknown;
   };
+  notification(options: unknown): Promise<unknown> | unknown;
   Notification: new (options: unknown) => { show(): Promise<unknown> | unknown };
   fs: ElectronFileProxy;
   path: ElectronPathProxy;
@@ -121,6 +122,7 @@ export function buildElectronShim(
       showSaveDialog: (options: unknown) => bridge.query("gui.dialog.save", options),
       showMessageBox: (options: unknown) => bridge.query("gui.dialog.message", options),
     },
+    notification: (options: unknown) => bridge.action("gui.notification.send", options),
     Notification: class CoreNotification {
       constructor(private readonly options: unknown) {}
 

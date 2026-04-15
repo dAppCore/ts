@@ -54,6 +54,9 @@ export async function openLocalMessage(
   const envelope = parseLocalEnvelope(token);
   const material = await deriveLocalAuthMaterial(root);
 
+  if (envelope.root !== material.root) {
+    throw new Error("local auth root mismatch");
+  }
   if (envelope.fingerprint !== material.fingerprint) {
     throw new Error("local auth fingerprint mismatch");
   }

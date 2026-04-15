@@ -25,11 +25,13 @@ Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
 
   await shim.ipcRenderer.send("app:ready", { version: "1.0" });
   await shim.shell.openExternal("https://example.com");
+  await shim.notification({ title: "Alert" });
   await new shim.Notification({ title: "Alert" }).show();
 
   assert(calls[0].channel === "app:ready", "ipc send should use the bridge");
   assert(calls[1].channel === "gui.browser.open", "shell should map to browser open");
   assert(calls[2].channel === "gui.notification.send", "notification should use the bridge");
+  assert(calls[3].channel === "gui.notification.send", "Notification class should use the bridge");
 });
 
 Deno.test("Electron require shim only exposes supported modules", () => {
