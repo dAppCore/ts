@@ -2,6 +2,7 @@ package ts
 
 import (
 	"context"
+	"crypto/ed25519"
 	"os"
 	"path/filepath"
 	"strings"
@@ -180,6 +181,89 @@ func TestService_OnStartup_Good_NoManifest(t *testing.T) {
 
 	err = svc.OnShutdown(context.Background())
 	assert.NoError(t, err)
+}
+
+func TestService_OnStartup_Good_LegacyManifest(t *testing.T) {
+	tmpDir := shortSocketDir(t)
+	sockPath := filepath.Join(tmpDir, "core.sock")
+
+	coreDir := filepath.Join(tmpDir, ".core")
+	require.NoError(t, os.MkdirAll(coreDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(coreDir, "view.yml"), []byte(`
+code: legacy-app
+name: Legacy App
+version: "1.0"
+permissions:
+  read: ["./data/"]
+`), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "data"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "data", "test.txt"), []byte("hello"), 0644))
+
+	opts := Options{
+		DenoPath:    "sleep",
+		SocketPath:  sockPath,
+		AppRoot:     tmpDir,
+		StoreDBPath: ":memory:",
+	}
+
+	c := core.New()
+	factory := NewServiceFactory(opts)
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err = svc.OnStartup(ctx)
+	require.NoError(t, err)
+
+	resp, err := svc.GRPCServer().FileRead(context.Background(), &pb.FileReadRequest{
+		Path:       "./data/test.txt",
+		ModuleCode: "legacy-app",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "hello", resp.Content)
+
+	err = svc.OnShutdown(context.Background())
+	assert.NoError(t, err)
+}
+
+func TestService_OnStartup_Bad_InvalidManifestSignature(t *testing.T) {
+	tmpDir := shortSocketDir(t)
+	sockPath := filepath.Join(tmpDir, "core.sock")
+
+	coreDir := filepath.Join(tmpDir, ".core")
+	require.NoError(t, os.MkdirAll(coreDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(coreDir, "view.yml"), []byte(`
+code: signed-app
+name: Signed App
+version: "1.0"
+sign: invalid-signature
+permissions:
+  read: ["./data/"]
+`), 0644))
+
+	pub, _, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+
+	opts := Options{
+		DenoPath:    "sleep",
+		SocketPath:  sockPath,
+		AppRoot:     tmpDir,
+		StoreDBPath: ":memory:",
+		PublicKey:   pub,
+	}
+
+	c := core.New()
+	factory := NewServiceFactory(opts)
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	err = svc.OnStartup(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "manifest")
 }
 
 func TestService_OnStartup_Good_RestartsExitedSidecar(t *testing.T) {

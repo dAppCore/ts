@@ -2,6 +2,7 @@ package ts
 
 import (
 	"context"
+	"crypto/ed25519"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -86,15 +87,12 @@ func (s *Service) OnStartup(ctx context.Context) error {
 
 	// 4. Load manifest if AppRoot set (non-fatal if missing)
 	if opts.AppRoot != "" {
-		m, loadErr := manifest.Load(medium, ".")
-		if loadErr == nil && m != nil {
-			if opts.PublicKey != nil {
-				if ok, verr := manifest.Verify(m, opts.PublicKey); verr == nil && ok {
-					s.grpcServer.RegisterModule(m)
-				}
-			} else {
-				s.grpcServer.RegisterModule(m)
-			}
+		m, loadErr := loadAppManifest(medium, opts.PublicKey)
+		if loadErr != nil {
+			return fmt.Errorf("coredeno: manifest: %w", loadErr)
+		}
+		if m != nil {
+			s.grpcServer.RegisterModule(m)
 		}
 	}
 
@@ -172,6 +170,44 @@ func (s *Service) OnStartup(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func loadAppManifest(medium io.Medium, pub ed25519.PublicKey) (*manifest.Manifest, error) {
+	candidates := []string{
+		".core/manifest.yaml",
+		".core/view.yaml",
+		".core/view.yml",
+	}
+
+	for _, path := range candidates {
+		if !medium.Exists(path) {
+			continue
+		}
+
+		data, err := medium.Read(path)
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", path, err)
+		}
+
+		m, err := manifest.Parse([]byte(data))
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+
+		if pub != nil {
+			ok, verr := manifest.Verify(m, pub)
+			if verr != nil {
+				return nil, fmt.Errorf("verify %s: %w", path, verr)
+			}
+			if !ok {
+				return nil, fmt.Errorf("verify %s: signature invalid", path)
+			}
+		}
+
+		return m, nil
+	}
+
+	return nil, nil
 }
 
 // OnShutdown stops the CoreDeno subsystem. Called by the framework on app shutdown.
