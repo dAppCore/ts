@@ -136,8 +136,7 @@ export class CoreRouter<T = unknown> {
 
     return {
       ...route,
-      handled: true,
-      value: (await this.options.bridge.dispatch(route.path, route.query)) as T,
+      handled: false,
     };
 
   }
