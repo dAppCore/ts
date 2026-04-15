@@ -13,6 +13,8 @@ export interface DevServerOptions {
 export class CoreDevServer extends EventTarget {
   private watcher: Deno.FsWatcher | null = null;
   private readonly reloadListeners = new Set<(event: DevReloadEvent) => void>();
+  private readonly clients = new Set<ReadableStreamDefaultController<Uint8Array>>();
+  private readonly encoder = new TextEncoder();
 
   constructor(private readonly options: DevServerOptions) {
     super();
@@ -34,6 +36,14 @@ export class CoreDevServer extends EventTarget {
   stop(): void {
     this.watcher?.close();
     this.watcher = null;
+    for (const client of this.clients) {
+      try {
+        client.close();
+      } catch {
+        // already closed
+      }
+    }
+    this.clients.clear();
   }
 
   subscribe(handler: (event: DevReloadEvent) => void): () => void {
@@ -59,6 +69,39 @@ export class CoreDevServer extends EventTarget {
     return createHmrClientScript(this.options.hmrPath ?? "/_core/hmr");
   }
 
+  handleRequest(request: Request): Response | null {
+    const hmrPath = this.options.hmrPath ?? "/_core/hmr";
+    const url = new URL(request.url);
+
+    if (request.method !== "GET" || url.pathname !== hmrPath) {
+      return null;
+    }
+
+    let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null;
+    const stream = new ReadableStream<Uint8Array>({
+      start: (controller) => {
+        controllerRef = controller;
+        this.clients.add(controller);
+        controller.enqueue(this.encoder.encode(": connected\n\n"));
+      },
+      cancel: () => {
+        if (controllerRef) {
+          this.clients.delete(controllerRef);
+          controllerRef = null;
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "cache-control": "no-cache, no-transform",
+        connection: "keep-alive",
+        "content-type": "text/event-stream; charset=utf-8",
+        "x-accel-buffering": "no",
+      },
+    });
+  }
+
   private async consume(): Promise<void> {
     if (!this.watcher) {
       return;
@@ -72,6 +115,7 @@ export class CoreDevServer extends EventTarget {
         });
 
         this.dispatchEvent(customEvent);
+        this.broadcast(reloadEvent);
         for (const handler of this.reloadListeners) {
           handler(reloadEvent);
         }
@@ -80,6 +124,24 @@ export class CoreDevServer extends EventTarget {
       }
     } finally {
       this.stop();
+    }
+  }
+
+  private broadcast(event: DevReloadEvent): void {
+    const payload = this.encoder.encode(
+      `event: reload\ndata: ${JSON.stringify(event)}\n\n`,
+    );
+    for (const client of Array.from(this.clients)) {
+      try {
+        client.enqueue(payload);
+      } catch {
+        try {
+          client.close();
+        } catch {
+          // already closed
+        }
+        this.clients.delete(client);
+      }
     }
   }
 }

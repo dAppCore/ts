@@ -20,3 +20,18 @@ Deno.test("CoreDevServer snapshot reflects configuration", () => {
   assert(snapshot.hmrPath === "/hmr", "snapshot should expose the HMR path");
   assert(snapshot.active === false, "server should be idle before start");
 });
+
+Deno.test("CoreDevServer exposes an HMR event stream", async () => {
+  const server = new CoreDevServer({ root: "/workspace", hmrPath: "/hmr" });
+  const response = server.handleRequest(new Request("http://localhost/hmr"));
+
+  assert(response !== null, "hmr requests should be handled");
+  assert(
+    response?.headers.get("content-type") === "text/event-stream; charset=utf-8",
+    "hmr responses should be streamed as SSE",
+  );
+  assert(
+    response?.headers.get("cache-control") === "no-cache, no-transform",
+    "hmr responses should disable caching",
+  );
+});
