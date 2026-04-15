@@ -15,6 +15,7 @@ type DenoClient struct {
 	mu     sync.Mutex
 	conn   net.Conn
 	reader *bufio.Reader
+	nextID int64
 }
 
 const (
@@ -72,6 +73,10 @@ func (c *DenoClient) call(req map[string]any, timeout time.Duration) (map[string
 	defer func() {
 		_ = c.conn.SetDeadline(time.Time{})
 	}()
+
+	c.nextID++
+	req["jsonrpc"] = "2.0"
+	req["id"] = c.nextID
 
 	data, err := json.Marshal(req)
 	if err != nil {

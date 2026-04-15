@@ -162,7 +162,7 @@ export function createWailsOpenApiTransport(
   bridge: WailsOpenApiBridge,
   options: WailsOpenApiTransportOptions = {},
 ): OpenApiTransport {
-  const channelPrefix = options.channelPrefix ?? "openapi";
+  const channelPrefix = options.channelPrefix ?? "core.openapi";
   return {
     request(context: OpenApiRequestContext): Promise<unknown> | unknown {
       return bridge.query(`${channelPrefix}.${context.operationId}`, context);
