@@ -1,4 +1,4 @@
-import { openpgp } from "../deps.ts";
+import * as openpgp from "npm:openpgp@^6.1.0";
 
 export interface LocalAuthMaterial {
   root: string;
@@ -188,9 +188,13 @@ async function buildLocalAuthState(root: string): Promise<LocalAuthState> {
 }
 
 async function sha256Bytes(bytes: Uint8Array): Promise<Uint8Array> {
+  const source = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    source,
   );
   return new Uint8Array(digest);
 }

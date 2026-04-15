@@ -275,7 +275,10 @@ export class CoreI18n {
     const scope = parts[1] ?? "";
     const key = parts.slice(2).join(".");
     const value = stringValue(args[0] ?? context.Subject ?? key);
-    const count = Number(context.Count ?? extractCount(args[0])) || 1;
+    const countSource = typeof args[0] === "number"
+      ? args[0]
+      : context.Count ?? extractCount(args[0]);
+    const count = Number(countSource) || 1;
 
     switch (scope) {
       case "label":

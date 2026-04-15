@@ -22,12 +22,12 @@ export abstract class CoreComponent<
     this.shadow = this.attachShadow(options.shadow ?? { mode: "closed" });
   }
 
-  override connectedCallback(): void {
+  connectedCallback(): void {
     this.render();
     this.onConnect();
   }
 
-  override disconnectedCallback(): void {
+  disconnectedCallback(): void {
     this.onDisconnect();
   }
 

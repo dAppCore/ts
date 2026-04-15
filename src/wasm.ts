@@ -11,7 +11,7 @@ export type CoreWasmSource =
   | URL
   | string;
 
-export interface CoreWasmLoadOptions extends WebAssembly.Imports {
+export interface CoreWasmLoadOptions {
   useStreaming?: boolean;
 }
 
@@ -73,7 +73,10 @@ async function instantiateSource(
 
   if (source instanceof Response) {
     if (useStreaming && typeof WebAssembly.instantiateStreaming === "function") {
-      const result = await WebAssembly.instantiateStreaming(source, imports);
+      const result = await WebAssembly.instantiateStreaming(
+        source,
+        imports,
+      ) as WebAssembly.WebAssemblyInstantiatedSource;
       return {
         module: result.module,
         instance: result.instance,
@@ -97,7 +100,10 @@ async function instantiateBytes(
   imports: WebAssembly.Imports,
 ): Promise<CoreWasmInstance> {
   const bytes = source instanceof Uint8Array ? source : new Uint8Array(source);
-  const result = await WebAssembly.instantiate(bytes, imports);
+  const result = await WebAssembly.instantiate(
+    bytes,
+    imports,
+  ) as unknown as WebAssembly.WebAssemblyInstantiatedSource;
   return {
     module: result.module,
     instance: result.instance,

@@ -46,7 +46,7 @@ export interface CoreCookieBridge {
 export interface CoreCacheRequest {
   url: string;
   method?: string;
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | Headers;
 }
 
 export interface CoreCacheResponse {
@@ -119,12 +119,13 @@ export interface CoreStorageBridge {
 }
 
 export interface CoreStoragePolyfillTarget {
+  [key: string]: unknown;
   localStorage?: unknown;
   sessionStorage?: unknown;
   indexedDB?: unknown;
   caches?: unknown;
-  navigator?: Record<string, unknown>;
-  document?: Record<string, unknown>;
+  navigator?: unknown;
+  document?: unknown;
 }
 
 export interface InjectStoragePolyfillsOptions {
@@ -946,7 +947,7 @@ export function injectStoragePolyfills(
   bridge: CoreStorageBridge,
   options: InjectStoragePolyfillsOptions = {},
 ): CoreStoragePolyfills {
-  const target = options.target ?? (globalThis as CoreStoragePolyfillTarget);
+  const target = (options.target ?? (globalThis as unknown as CoreStoragePolyfillTarget)) as Record<string, unknown> & CoreStoragePolyfillTarget;
   const localStorage = new CoreLocalStorage(origin, bridge);
   const sessionStorage = new CoreSessionStorage(
     origin,
@@ -1116,14 +1117,26 @@ function normaliseRequest(
     return {
       url: request.url,
       method: request.method,
-      headers: Object.fromEntries(request.headers.entries()),
+      headers: normaliseHeaders(request.headers),
     };
   }
   return {
     url: request.url,
     method: request.method ?? "GET",
-    headers: request.headers,
+    headers: normaliseHeaders(request.headers),
   };
+}
+
+function normaliseHeaders(
+  headers?: Record<string, string> | Headers,
+): Record<string, string> | undefined {
+  if (!headers) {
+    return undefined;
+  }
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries()) as Record<string, string>;
+  }
+  return headers;
 }
 
 async function responseToCacheRecord(

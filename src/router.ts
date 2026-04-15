@@ -21,7 +21,7 @@ export type RouteHandler<T = unknown> = (
 ) => Promise<T> | T;
 
 export interface CoreRouterOptions<T = unknown> {
-  bridge: CoreRouteBridge<T>;
+  bridge: CoreRouteBridge<unknown>;
   baseURL?: string;
   httpNavigate?: RouteHandler<T>;
 }
@@ -90,6 +90,12 @@ export class CoreRouter<T = unknown> {
     pathOrHandler: string | RouteHandler<T>,
     maybeHandler?: RouteHandler<T>,
   ): this {
+    if (typeof pathOrHandler === "function") {
+      return this.handle(target, pathOrHandler);
+    }
+    if (!maybeHandler) {
+      throw new Error("CoreRouter.registerRoute requires a route handler");
+    }
     return this.handle(target, pathOrHandler, maybeHandler);
   }
 
@@ -101,7 +107,7 @@ export class CoreRouter<T = unknown> {
       return {
         ...route,
         handled: true,
-        value: await handler(route),
+        value: (await handler(route)) as T,
       };
     }
 
@@ -110,13 +116,13 @@ export class CoreRouter<T = unknown> {
         return {
           ...route,
           handled: true,
-          value: await this.options.bridge.query(route.path, route.query),
+          value: (await this.options.bridge.query(route.path, route.query)) as T,
         };
       }
       return {
         ...route,
         handled: true,
-        value: await this.options.bridge.dispatch(route.path, route.query),
+        value: (await this.options.bridge.dispatch(route.path, route.query)) as T,
       };
     }
 

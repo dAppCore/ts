@@ -119,7 +119,7 @@ async function dispatch(
         req.entry_point ?? "",
         req.permissions ?? {},
       );
-      return result as Record<string, unknown>;
+      return result as unknown as Record<string, unknown>;
     }
     case "UnloadModule": {
       const ok = registry.unload(req.code ?? "");

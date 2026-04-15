@@ -218,32 +218,38 @@ export class ModuleRegistry {
       case "LocaleGet":
         return c.localeGet((params as CoreRPCParams["LocaleGet"]).locale);
       case "StoreGet":
-        params = params as CoreRPCParams["StoreGet"];
-        return c.storeGet(
-          params.group,
-          params.key,
-          moduleCode,
-        );
+        {
+          const storeParams = params as CoreRPCParams["StoreGet"];
+          return c.storeGet(
+            storeParams.group,
+            storeParams.key,
+            moduleCode,
+          );
+        }
       case "StoreSet":
-        params = params as CoreRPCParams["StoreSet"];
-        return c.storeSet(
-          params.group,
-          params.key,
-          params.value,
-          moduleCode,
-        );
+        {
+          const storeParams = params as CoreRPCParams["StoreSet"];
+          return c.storeSet(
+            storeParams.group,
+            storeParams.key,
+            storeParams.value,
+            moduleCode,
+          );
+        }
       case "FileRead":
         return c.fileRead(
           (params as CoreRPCParams["FileRead"]).path,
           moduleCode,
         );
       case "FileWrite":
-        params = params as CoreRPCParams["FileWrite"];
-        return c.fileWrite(
-          params.path,
-          params.content,
-          moduleCode,
-        );
+        {
+          const fileParams = params as CoreRPCParams["FileWrite"];
+          return c.fileWrite(
+            fileParams.path,
+            fileParams.content,
+            moduleCode,
+          );
+        }
       case "FileList":
         return c.fileList(
           (params as CoreRPCParams["FileList"]).path,
@@ -255,12 +261,14 @@ export class ModuleRegistry {
           moduleCode,
         );
       case "ProcessStart":
-        params = params as CoreRPCParams["ProcessStart"];
-        return c.processStart(
-          params.command,
-          params.args,
-          moduleCode,
-        );
+        {
+          const processParams = params as CoreRPCParams["ProcessStart"];
+          return c.processStart(
+            processParams.command,
+            processParams.args,
+            moduleCode,
+          );
+        }
       case "ProcessStop":
         return c.processStop(
           (params as CoreRPCParams["ProcessStop"]).process_id,
