@@ -162,7 +162,41 @@ export interface CoreIndexedDBDatabase {
   origin: string;
   name: string;
   version?: number;
-  raw: unknown;
+  raw: CoreIndexedDBConnection;
+}
+
+export interface CoreIndexedDBObjectStoreOptions {
+  keyPath?: string | string[];
+  autoIncrement?: boolean;
+}
+
+export interface CoreIndexedDBIndexOptions {
+  unique?: boolean;
+  multiEntry?: boolean;
+}
+
+export type CoreIndexedDBTransactionMode =
+  | "readonly"
+  | "readwrite"
+  | "versionchange";
+
+interface IndexedDBState {
+  version: number;
+  stores: Map<string, IndexedDBObjectStoreState>;
+}
+
+interface IndexedDBObjectStoreState {
+  keyPath?: string | string[];
+  autoIncrement?: boolean;
+  nextKey: number;
+  records: Map<string, unknown>;
+  indexes: Map<string, IndexedDBIndexState>;
+}
+
+interface IndexedDBIndexState {
+  keyPath: string | string[];
+  unique: boolean;
+  multiEntry: boolean;
 }
 
 export interface CoreIndexedDBRequestEvent<T> {
@@ -432,6 +466,8 @@ export class CoreSessionStorage extends CoreLocalStorage {
 }
 
 export class CoreIndexedDB {
+  private readonly databaseStates = new Map<string, IndexedDBState>();
+
   constructor(
     private readonly origin: string,
     private readonly bridge: CoreStorageBridge,
@@ -439,11 +475,18 @@ export class CoreIndexedDB {
 
   open(name: string, version?: number): CoreIndexedDBRequest<CoreIndexedDBDatabase> {
     const request = new CoreIndexedDBRequest<CoreIndexedDBDatabase>();
-    const indexedDB = this.requireBridge("indexedDB", this.bridge.indexedDB);
     void (async () => {
       try {
-        const raw = await indexedDB.open(this.origin, name, version);
-        request.resolve({ origin: this.origin, name, version, raw });
+        const database = this.getOrCreateDatabase(name, version);
+        if (this.bridge.indexedDB?.open) {
+          await this.bridge.indexedDB.open(this.origin, name, database.version);
+        }
+        request.resolve({
+          origin: this.origin,
+          name,
+          version: database.version,
+          raw: new CoreIndexedDBConnection(this.origin, name, database),
+        });
       } catch (error) {
         request.reject(error);
       }
@@ -452,23 +495,531 @@ export class CoreIndexedDB {
   }
 
   async deleteDatabase(name: string): Promise<void> {
-    const indexedDB = this.requireBridge("indexedDB", this.bridge.indexedDB);
-    await indexedDB.deleteDatabase(this.origin, name);
+    this.databaseStates.delete(name);
+    if (this.bridge.indexedDB?.deleteDatabase) {
+      await this.bridge.indexedDB.deleteDatabase(this.origin, name);
+    }
   }
 
   async databases(): Promise<string[]> {
-    const indexedDB = this.requireBridge("indexedDB", this.bridge.indexedDB);
-    if (!indexedDB.databases) {
-      return [];
+    const names = new Set(this.databaseStates.keys());
+    if (this.bridge.indexedDB?.databases) {
+      for (const name of await this.bridge.indexedDB.databases(this.origin)) {
+        names.add(name);
+      }
     }
-    return indexedDB.databases(this.origin);
+    return Array.from(names);
   }
 
-  private requireBridge<T>(name: string, value: T | undefined): T {
-    if (!value) {
-      throw new Error(`${name} bridge is not configured`);
+  private getOrCreateDatabase(name: string, version?: number): IndexedDBState {
+    const existing = this.databaseStates.get(name);
+    if (!existing) {
+      const database = {
+        version: version ?? 1,
+        stores: new Map<string, IndexedDBObjectStoreState>(),
+      };
+      this.databaseStates.set(name, database);
+      return database;
     }
-    return value;
+
+    if (version !== undefined && version < existing.version) {
+      throw new Error(
+        `VersionError: requested version ${version} is lower than existing version ${existing.version}`,
+      );
+    }
+
+    if (version !== undefined && version > existing.version) {
+      existing.version = version;
+    }
+
+    return existing;
+  }
+}
+
+export class CoreIndexedDBConnection {
+  constructor(
+    readonly origin: string,
+    readonly name: string,
+    private readonly database: IndexedDBState,
+  ) {}
+
+  get version(): number {
+    return this.database.version;
+  }
+
+  get objectStoreNames(): string[] {
+    return Array.from(this.database.stores.keys());
+  }
+
+  close(): void {
+    // The in-memory polyfill does not retain explicit connection state.
+  }
+
+  createObjectStore(
+    name: string,
+    options: CoreIndexedDBObjectStoreOptions = {},
+  ): CoreIndexedDBObjectStore {
+    if (this.database.stores.has(name)) {
+      throw new Error(`object store already exists: ${name}`);
+    }
+    const store = {
+      keyPath: options.keyPath,
+      autoIncrement: options.autoIncrement ?? false,
+      nextKey: 1,
+      records: new Map<string, unknown>(),
+      indexes: new Map<string, IndexedDBIndexState>(),
+    };
+    this.database.stores.set(name, store);
+    return new CoreIndexedDBObjectStore(this.database, store, name);
+  }
+
+  deleteObjectStore(name: string): void {
+    this.database.stores.delete(name);
+  }
+
+  transaction(
+    storeNames: string | string[],
+    mode: CoreIndexedDBTransactionMode = "readonly",
+  ): CoreIndexedDBTransaction {
+    const names = Array.isArray(storeNames) ? storeNames : [storeNames];
+    for (const name of names) {
+      if (!this.database.stores.has(name)) {
+        throw new Error(`unknown object store: ${name}`);
+      }
+    }
+    return new CoreIndexedDBTransaction(this.database, names, mode);
+  }
+}
+
+export class CoreIndexedDBTransaction {
+  private aborted = false;
+  readonly done: Promise<void>;
+
+  constructor(
+    private readonly database: IndexedDBState,
+    readonly storeNames: string[],
+    readonly mode: CoreIndexedDBTransactionMode,
+  ) {
+    this.done = Promise.resolve();
+  }
+
+  objectStore(name: string): CoreIndexedDBObjectStore {
+    const store = this.database.stores.get(name);
+    if (!store) {
+      throw new Error(`unknown object store: ${name}`);
+    }
+    return new CoreIndexedDBObjectStore(this.database, store, name);
+  }
+
+  abort(): void {
+    this.aborted = true;
+  }
+
+  commit(): void {
+    if (this.aborted) {
+      throw new Error("transaction was aborted");
+    }
+  }
+}
+
+export class CoreIndexedDBObjectStore {
+  constructor(
+    private readonly database: IndexedDBState,
+    private readonly store: IndexedDBObjectStoreState,
+    readonly name: string,
+  ) {}
+
+  get keyPath(): string | string[] | undefined {
+    return this.store.keyPath;
+  }
+
+  get autoIncrement(): boolean {
+    return this.store.autoIncrement ?? false;
+  }
+
+  get indexNames(): string[] {
+    return Array.from(this.store.indexes.keys());
+  }
+
+  createIndex(
+    name: string,
+    keyPath: string | string[],
+    options: CoreIndexedDBIndexOptions = {},
+  ): CoreIndexedDBIndex {
+    if (this.store.indexes.has(name)) {
+      throw new Error(`index already exists: ${name}`);
+    }
+    this.store.indexes.set(name, {
+      keyPath,
+      unique: options.unique ?? false,
+      multiEntry: options.multiEntry ?? false,
+    });
+    return new CoreIndexedDBIndex(this.database, this.store, name);
+  }
+
+  deleteIndex(name: string): void {
+    this.store.indexes.delete(name);
+  }
+
+  index(name: string): CoreIndexedDBIndex {
+    if (!this.store.indexes.has(name)) {
+      throw new Error(`unknown index: ${name}`);
+    }
+    return new CoreIndexedDBIndex(this.database, this.store, name);
+  }
+
+  get(key: unknown): CoreIndexedDBRequest<unknown | null> {
+    return this.createRequest<unknown | null>(() => this.readRecord(key));
+  }
+
+  getAll(
+    query?: unknown,
+    count?: number,
+  ): CoreIndexedDBRequest<unknown[]> {
+    return this.createRequest<unknown[]>(() => {
+      const records = this.listRecords(query);
+      return count === undefined ? records : records.slice(0, count);
+    });
+  }
+
+  getAllKeys(
+    query?: unknown,
+    count?: number,
+  ): CoreIndexedDBRequest<unknown[]> {
+    return this.createRequest<unknown[]>(() => {
+      const entries = this.listEntries(query);
+      const keys = entries.map(([primaryKey]) => this.decodeKey(primaryKey));
+      return count === undefined ? keys : keys.slice(0, count);
+    });
+  }
+
+  count(query?: unknown): CoreIndexedDBRequest<number> {
+    return this.createRequest<number>(() => this.listEntries(query).length);
+  }
+
+  put(value: unknown, key?: unknown): CoreIndexedDBRequest<unknown> {
+    return this.createRequest<unknown>(() => this.writeRecord(value, key, false));
+  }
+
+  add(value: unknown, key?: unknown): CoreIndexedDBRequest<unknown> {
+    return this.createRequest<unknown>(() => this.writeRecord(value, key, true));
+  }
+
+  delete(key: unknown): CoreIndexedDBRequest<void> {
+    return this.createRequest<void>(() => {
+      this.store.records.delete(this.encodeKey(key));
+    });
+  }
+
+  clear(): CoreIndexedDBRequest<void> {
+    return this.createRequest<void>(() => {
+      this.store.records.clear();
+    });
+  }
+
+  openCursor(query?: unknown): CoreIndexedDBRequest<CoreIndexedDBCursor | null> {
+    return this.createRequest<CoreIndexedDBCursor | null>(() => {
+      const entries = this.listEntries(query);
+      if (entries.length === 0) {
+        return null;
+      }
+      return new CoreIndexedDBCursor(
+        this.createRequest.bind(this),
+        this.decodeKey.bind(this),
+        entries,
+        0,
+      );
+    });
+  }
+
+  private readRecord(key: unknown): unknown | null {
+    return this.store.records.get(this.encodeKey(key)) ?? null;
+  }
+
+  private writeRecord(
+    value: unknown,
+    key: unknown,
+    requireNew: boolean,
+  ): unknown {
+    const primaryKey = this.resolvePrimaryKey(value, key);
+    const encodedKey = this.encodeKey(primaryKey);
+    if (requireNew && this.store.records.has(encodedKey)) {
+      throw new Error(`key already exists: ${String(primaryKey)}`);
+    }
+    this.store.records.set(encodedKey, this.cloneValue(value));
+    return primaryKey;
+  }
+
+  private resolvePrimaryKey(value: unknown, key?: unknown): unknown {
+    if (key !== undefined) {
+      return key;
+    }
+
+    if (this.store.keyPath !== undefined) {
+      const derived = this.readKeyPath(value, this.store.keyPath);
+      if (derived !== undefined) {
+        return derived;
+      }
+    }
+
+    if (this.store.autoIncrement) {
+      return this.store.nextKey++;
+    }
+
+    throw new Error(`key required for object store: ${this.name}`);
+  }
+
+  private readKeyPath(
+    value: unknown,
+    keyPath: string | string[],
+  ): unknown | undefined {
+    if (!isRecord(value)) {
+      return undefined;
+    }
+    if (Array.isArray(keyPath)) {
+      return keyPath.map((part) => this.readKeyPart(value, part));
+    }
+    return this.readKeyPart(value, keyPath);
+  }
+
+  private readKeyPart(
+    value: Record<string, unknown>,
+    keyPath: string,
+  ): unknown | undefined {
+    return keyPath.split(".").reduce<unknown | undefined>((current, part) => {
+      if (!isRecord(current)) {
+        return undefined;
+      }
+      return current[part];
+    }, value);
+  }
+
+  private listRecords(query?: unknown): unknown[] {
+    return this.listEntries(query).map(([, value]) => this.cloneValue(value));
+  }
+
+  private listEntries(query?: unknown): Array<[string, unknown]> {
+    const entries = Array.from(this.store.records.entries());
+    if (query === undefined) {
+      return entries;
+    }
+    return entries.filter(([primaryKey, value]) =>
+      this.matchesQuery(primaryKey, value, query)
+    );
+  }
+
+  private matchesQuery(
+    primaryKey: string,
+    value: unknown,
+    query: unknown,
+  ): boolean {
+    if (isRecord(query) && "key" in query) {
+      return this.encodeKey((query as { key: unknown }).key) === primaryKey;
+    }
+    return this.encodeKey(value) === this.encodeKey(query);
+  }
+
+  private createRequest<T>(factory: () => T): CoreIndexedDBRequest<T> {
+    const request = new CoreIndexedDBRequest<T>();
+    queueMicrotask(() => {
+      try {
+        request.resolve(factory());
+      } catch (error) {
+        request.reject(error);
+      }
+    });
+    return request;
+  }
+
+  private encodeKey(key: unknown): string {
+    if (key instanceof Date) {
+      return `date:${key.toISOString()}`;
+    }
+    if (typeof key === "string") {
+      return `string:${key}`;
+    }
+    if (typeof key === "number") {
+      return `number:${key}`;
+    }
+    if (typeof key === "bigint") {
+      return `bigint:${key.toString()}`;
+    }
+    if (typeof key === "boolean") {
+      return `boolean:${key ? "1" : "0"}`;
+    }
+    return `json:${JSON.stringify(key)}`;
+  }
+
+  private decodeKey(encodedKey: string): unknown {
+    const separator = encodedKey.indexOf(":");
+    if (separator === -1) {
+      return encodedKey;
+    }
+    const type = encodedKey.slice(0, separator);
+    const value = encodedKey.slice(separator + 1);
+    switch (type) {
+      case "string":
+        return value;
+      case "number":
+        return Number(value);
+      case "bigint":
+        return BigInt(value);
+      case "boolean":
+        return value === "1";
+      case "date":
+        return new Date(value);
+      case "json":
+        return JSON.parse(value);
+      default:
+        return value;
+    }
+  }
+
+  private cloneValue<T>(value: T): T {
+    if (typeof structuredClone === "function") {
+      return structuredClone(value);
+    }
+    return JSON.parse(JSON.stringify(value)) as T;
+  }
+}
+
+export class CoreIndexedDBIndex {
+  constructor(
+    private readonly database: IndexedDBState,
+    private readonly store: IndexedDBObjectStoreState,
+    readonly name: string,
+  ) {}
+
+  get(key: unknown): CoreIndexedDBRequest<unknown | null> {
+    return this.createRequest<unknown | null>(() => this.findMatches(key)[0] ?? null);
+  }
+
+  getAll(key?: unknown, count?: number): CoreIndexedDBRequest<unknown[]> {
+    return this.createRequest<unknown[]>(() => {
+      const matches = this.findMatches(key);
+      return count === undefined ? matches : matches.slice(0, count);
+    });
+  }
+
+  count(key?: unknown): CoreIndexedDBRequest<number> {
+    return this.createRequest<number>(() => this.findMatches(key).length);
+  }
+
+  private findMatches(key?: unknown): unknown[] {
+    const definition = this.store.indexes.get(this.name);
+    if (!definition) {
+      return [];
+    }
+
+    const matches: unknown[] = [];
+    for (const value of this.store.records.values()) {
+      const indexValues = this.extractIndexValues(value, definition.keyPath);
+      if (key === undefined) {
+        matches.push(this.cloneValue(value));
+        continue;
+      }
+      if (indexValues.some((candidate) =>
+        this.encodeKey(candidate) === this.encodeKey(key)
+      )) {
+        matches.push(this.cloneValue(value));
+      }
+    }
+    return matches;
+  }
+
+  private extractIndexValues(
+    value: unknown,
+    keyPath: string | string[],
+  ): unknown[] {
+    if (Array.isArray(keyPath)) {
+      return keyPath.map((part) => this.extractIndexValue(value, part)).filter((
+        candidate,
+      ): candidate is unknown => candidate !== undefined);
+    }
+    const extracted = this.extractIndexValue(value, keyPath);
+    return extracted === undefined ? [] : [extracted];
+  }
+
+  private extractIndexValue(value: unknown, keyPath: string): unknown | undefined {
+    if (!isRecord(value)) {
+      return undefined;
+    }
+    return keyPath.split(".").reduce<unknown | undefined>((current, part) => {
+      if (!isRecord(current)) {
+        return undefined;
+      }
+      return current[part];
+    }, value);
+  }
+
+  private createRequest<T>(factory: () => T): CoreIndexedDBRequest<T> {
+    const request = new CoreIndexedDBRequest<T>();
+    queueMicrotask(() => {
+      try {
+        request.resolve(factory());
+      } catch (error) {
+        request.reject(error);
+      }
+    });
+    return request;
+  }
+
+  private encodeKey(key: unknown): string {
+    if (key instanceof Date) {
+      return `date:${key.toISOString()}`;
+    }
+    if (typeof key === "string") {
+      return `string:${key}`;
+    }
+    if (typeof key === "number") {
+      return `number:${key}`;
+    }
+    if (typeof key === "bigint") {
+      return `bigint:${key.toString()}`;
+    }
+    if (typeof key === "boolean") {
+      return `boolean:${key ? "1" : "0"}`;
+    }
+    return `json:${JSON.stringify(key)}`;
+  }
+
+  private cloneValue<T>(value: T): T {
+    if (typeof structuredClone === "function") {
+      return structuredClone(value);
+    }
+    return JSON.parse(JSON.stringify(value)) as T;
+  }
+}
+
+export class CoreIndexedDBCursor {
+  constructor(
+    private readonly createRequest: <T>(factory: () => T) => CoreIndexedDBRequest<T>,
+    private readonly decodeKey: (encodedKey: string) => unknown,
+    private readonly entries: Array<[string, unknown]>,
+    private index: number,
+  ) {}
+
+  get key(): unknown {
+    return this.decodeKey(this.entries[this.index]?.[0] ?? "") ?? null;
+  }
+
+  get value(): unknown {
+    return this.entries[this.index]?.[1] ?? null;
+  }
+
+  continue(): CoreIndexedDBRequest<CoreIndexedDBCursor | null> {
+    return this.createRequest(() => {
+      const nextIndex = this.index + 1;
+      if (nextIndex >= this.entries.length) {
+        return null;
+      }
+      return new CoreIndexedDBCursor(
+        this.createRequest,
+        this.decodeKey,
+        this.entries,
+        nextIndex,
+      );
+    });
   }
 }
 
