@@ -171,15 +171,16 @@ registry.setCoreClient(coreClient!);
 console.error("CoreDeno: ready");
 
 // 6. Keep alive until SIGTERM
-const ac = new AbortController();
+const shutdownController = new AbortController();
 Deno.addSignalListener("SIGTERM", () => {
   console.error("CoreDeno: shutting down");
-  ac.abort();
+  shutdownController.abort();
 });
 
 try {
   await new Promise((_resolve, reject) => {
-    ac.signal.addEventListener("abort", () => reject(new Error("shutdown")));
+    shutdownController.signal.addEventListener("abort", () =>
+      reject(new Error("shutdown")));
   });
 } catch {
   // Clean shutdown

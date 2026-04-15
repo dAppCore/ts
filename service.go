@@ -103,13 +103,13 @@ func (s *Service) OnStartup(ctx context.Context) (err error) {
 
 	// 4. Load manifest if AppRoot set (non-fatal if missing)
 	if opts.AppRoot != "" {
-		m, loadErr := loadAppManifest(medium, opts.PublicKey)
-		if loadErr != nil {
-			err = fmt.Errorf("coredeno: manifest: %w", loadErr)
+		appManifest, manifestErr := loadAppManifest(medium, opts.PublicKey)
+		if manifestErr != nil {
+			err = fmt.Errorf("coredeno: manifest: %w", manifestErr)
 			return err
 		}
-		if m != nil {
-			s.grpcServer.RegisterModule(m)
+		if appManifest != nil {
+			s.grpcServer.RegisterModule(appManifest)
 		}
 	}
 
@@ -127,25 +127,25 @@ func (s *Service) OnStartup(ctx context.Context) (err error) {
 		s.supervisorCancel = supervisorCancel
 
 		// Wait for core socket so sidecar can connect to our gRPC server.
-		waitErr := waitForGRPCSocket(ctx, opts.SocketPath, 5*time.Second, s.grpcDone)
-		if waitErr != nil {
-			err = fmt.Errorf("coredeno: core socket: %w", waitErr)
+		socketWaitErr := waitForGRPCSocket(ctx, opts.SocketPath, 5*time.Second, s.grpcDone)
+		if socketWaitErr != nil {
+			err = fmt.Errorf("coredeno: core socket: %w", socketWaitErr)
 			return err
 		}
 
-		if startErr := s.sidecar.Start(supervisorCtx, opts.SidecarArgs...); startErr != nil {
-			err = fmt.Errorf("coredeno: sidecar: %w", startErr)
+		if sidecarStartErr := s.sidecar.Start(supervisorCtx, opts.SidecarArgs...); sidecarStartErr != nil {
+			err = fmt.Errorf("coredeno: sidecar: %w", sidecarStartErr)
 			return err
 		}
 
 		// 7. Wait for Deno's server and connect as client
 		if s.shouldConnectDeno() {
-			dc, dialErr := dialDenoReady(supervisorCtx, opts.DenoSocketPath, 10*time.Second)
+			denoClient, dialErr := dialDenoReady(supervisorCtx, opts.DenoSocketPath, 10*time.Second)
 			if dialErr != nil {
 				err = fmt.Errorf("coredeno: deno client: %w", dialErr)
 				return err
 			}
-			s.setDenoClient(dc)
+			s.setDenoClient(denoClient)
 		}
 
 		s.supervisorDone = make(chan struct{})

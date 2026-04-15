@@ -80,11 +80,11 @@ func (s *Server) UnregisterModule(code string) {
 func (s *Server) getManifest(code string) (*manifest.Manifest, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	m, ok := s.manifests[code]
+	moduleManifest, ok := s.manifests[code]
 	if !ok {
 		return nil, status.Errorf(codes.NotFound, "unknown module: %s", code)
 	}
-	return m, nil
+	return moduleManifest, nil
 }
 
 // Ping implements CoreService.Ping for sidecar health checks.
@@ -94,11 +94,11 @@ func (s *Server) Ping(_ context.Context, _ *pb.PingRequest) (*pb.PingResponse, e
 
 // FileRead implements CoreService.FileRead with permission gating.
 func (s *Server) FileRead(_ context.Context, req *pb.FileReadRequest) (*pb.FileReadResponse, error) {
-	m, err := s.getManifest(req.ModuleCode)
+	moduleManifest, err := s.getManifest(req.ModuleCode)
 	if err != nil {
 		return nil, err
 	}
-	if !CheckPath(req.Path, m.Permissions.Read) {
+	if !CheckPath(req.Path, moduleManifest.Permissions.Read) {
 		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot read %s", req.ModuleCode, req.Path)
 	}
 	content, err := s.medium.Read(req.Path)
@@ -110,11 +110,11 @@ func (s *Server) FileRead(_ context.Context, req *pb.FileReadRequest) (*pb.FileR
 
 // FileWrite implements CoreService.FileWrite with permission gating.
 func (s *Server) FileWrite(_ context.Context, req *pb.FileWriteRequest) (*pb.FileWriteResponse, error) {
-	m, err := s.getManifest(req.ModuleCode)
+	moduleManifest, err := s.getManifest(req.ModuleCode)
 	if err != nil {
 		return nil, err
 	}
-	if !CheckPath(req.Path, m.Permissions.Write) {
+	if !CheckPath(req.Path, moduleManifest.Permissions.Write) {
 		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot write %s", req.ModuleCode, req.Path)
 	}
 	if err := s.medium.Write(req.Path, req.Content); err != nil {
@@ -125,11 +125,11 @@ func (s *Server) FileWrite(_ context.Context, req *pb.FileWriteRequest) (*pb.Fil
 
 // FileList implements CoreService.FileList with permission gating.
 func (s *Server) FileList(_ context.Context, req *pb.FileListRequest) (*pb.FileListResponse, error) {
-	m, err := s.getManifest(req.ModuleCode)
+	moduleManifest, err := s.getManifest(req.ModuleCode)
 	if err != nil {
 		return nil, err
 	}
-	if !CheckPath(req.Path, m.Permissions.Read) {
+	if !CheckPath(req.Path, moduleManifest.Permissions.Read) {
 		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot list %s", req.ModuleCode, req.Path)
 	}
 	entries, err := s.medium.List(req.Path)
@@ -150,11 +150,11 @@ func (s *Server) FileList(_ context.Context, req *pb.FileListRequest) (*pb.FileL
 
 // FileDelete implements CoreService.FileDelete with permission gating.
 func (s *Server) FileDelete(_ context.Context, req *pb.FileDeleteRequest) (*pb.FileDeleteResponse, error) {
-	m, err := s.getManifest(req.ModuleCode)
+	moduleManifest, err := s.getManifest(req.ModuleCode)
 	if err != nil {
 		return nil, err
 	}
-	if !CheckPath(req.Path, m.Permissions.Write) {
+	if !CheckPath(req.Path, moduleManifest.Permissions.Write) {
 		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot delete %s", req.ModuleCode, req.Path)
 	}
 	if err := s.medium.Delete(req.Path); err != nil {
@@ -209,21 +209,21 @@ func (s *Server) ProcessStart(ctx context.Context, req *pb.ProcessStartRequest) 
 	if s.processes == nil {
 		return nil, status.Error(codes.Unimplemented, "process service not available")
 	}
-	m, err := s.getManifest(req.ModuleCode)
+	moduleManifest, err := s.getManifest(req.ModuleCode)
 	if err != nil {
 		return nil, err
 	}
-	if !CheckRun(req.Command, m.Permissions.Run) {
+	if !CheckRun(req.Command, moduleManifest.Permissions.Run) {
 		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot run %s", req.ModuleCode, req.Command)
 	}
-	proc, err := s.processes.Start(ctx, req.Command, req.Args...)
+	processHandle, err := s.processes.Start(ctx, req.Command, req.Args...)
 	if err != nil {
 		if errors.Is(err, errProcessUnavailable) {
 			return nil, status.Error(codes.Unimplemented, "process service not available")
 		}
 		return nil, fmt.Errorf("process start: %w", err)
 	}
-	processID := proc.Info().ID
+	processID := processHandle.Info().ID
 	s.mu.Lock()
 	s.processOwners[processID] = req.ModuleCode
 	s.mu.Unlock()

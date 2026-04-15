@@ -77,26 +77,26 @@ export class ModuleRegistry {
 
   load(code: string, entryPoint: string, permissions: ModulePermissions): Promise<LoadResult> {
     // Terminate existing worker if reloading
-    const existing = this.modules.get(code);
-    if (existing?.worker) {
-      existing.worker.terminate();
+    const existingModule = this.modules.get(code);
+    if (existingModule?.worker) {
+      existingModule.worker.terminate();
     }
-    if (existing?.loadWaiter) {
-      existing.loadWaiter.resolve({
+    if (existingModule?.loadWaiter) {
+      existingModule.loadWaiter.resolve({
         ok: false,
         error: "module reloaded before previous initialisation completed",
       });
     }
 
     const loadWaiter = this.createLoadWaiter();
-    const mod: Module = {
+    const moduleState: Module = {
       code,
       entryPoint,
       permissions,
       status: "LOADING",
       loadWaiter,
     };
-    this.modules.set(code, mod);
+    this.modules.set(code, moduleState);
 
     // Resolve entry point URL for the module
     const moduleUrl = resolveModuleUrl(entryPoint);
@@ -134,7 +134,7 @@ export class ModuleRegistry {
       ? this.options.workerFactory(this.workerEntryUrl, workerOptions)
       : new Worker(this.workerEntryUrl, workerOptions);
 
-    mod.worker = worker;
+    moduleState.worker = worker;
 
     // I/O bridge: relay Worker RPC to CoreClient
     worker.onmessage = async (e: MessageEvent) => {
@@ -146,15 +146,15 @@ export class ModuleRegistry {
       }
 
       if (msg.type === "loaded") {
-        mod.status = msg.ok ? "RUNNING" : "ERRORED";
+        moduleState.status = msg.ok ? "RUNNING" : "ERRORED";
         if (msg.ok) {
           console.error(`CoreDeno: module running: ${code}`);
-          mod.loadWaiter?.resolve({ ok: true });
+          moduleState.loadWaiter?.resolve({ ok: true });
         } else {
           console.error(`CoreDeno: module error: ${code}: ${msg.error}`);
-          mod.loadWaiter?.resolve({ ok: false, error: msg.error ?? "module failed to load" });
+          moduleState.loadWaiter?.resolve({ ok: false, error: msg.error ?? "module failed to load" });
         }
-        mod.loadWaiter = undefined;
+        moduleState.loadWaiter = undefined;
         return;
       }
 
@@ -183,10 +183,10 @@ export class ModuleRegistry {
     };
 
     worker.onerror = (e: ErrorEvent) => {
-      mod.status = "ERRORED";
+      moduleState.status = "ERRORED";
       console.error(`CoreDeno: worker error: ${code}: ${e.message}`);
-      mod.loadWaiter?.resolve({ ok: false, error: e.message });
-      mod.loadWaiter = undefined;
+      moduleState.loadWaiter?.resolve({ ok: false, error: e.message });
+      moduleState.loadWaiter = undefined;
     };
 
     console.error(`CoreDeno: module loading: ${code}`);
@@ -241,20 +241,20 @@ export class ModuleRegistry {
   }
 
   unload(code: string): boolean {
-    const mod = this.modules.get(code);
-    if (!mod) return false;
-    if (mod.loadWaiter) {
-      mod.loadWaiter.resolve({
+    const moduleState = this.modules.get(code);
+    if (!moduleState) return false;
+    if (moduleState.loadWaiter) {
+      moduleState.loadWaiter.resolve({
         ok: false,
         error: "module unloaded before initialisation completed",
       });
-      mod.loadWaiter = undefined;
+      moduleState.loadWaiter = undefined;
     }
-    if (mod.worker) {
-      mod.worker.terminate();
-      mod.worker = undefined;
+    if (moduleState.worker) {
+      moduleState.worker.terminate();
+      moduleState.worker = undefined;
     }
-    mod.status = "STOPPED";
+    moduleState.status = "STOPPED";
     console.error(`CoreDeno: module unloaded: ${code}`);
     return true;
   }
@@ -265,24 +265,28 @@ export class ModuleRegistry {
 
   async reloadAll(): Promise<LoadResult[]> {
     const snapshot = Array.from(this.modules.values())
-      .filter((mod) => mod.status !== "STOPPED")
-      .map((mod) => ({
-        code: mod.code,
-        entryPoint: mod.entryPoint,
-        permissions: mod.permissions,
+      .filter((moduleState) => moduleState.status !== "STOPPED")
+      .map((moduleState) => ({
+        code: moduleState.code,
+        entryPoint: moduleState.entryPoint,
+        permissions: moduleState.permissions,
       }));
 
     const results: LoadResult[] = [];
-    for (const mod of snapshot) {
-      results.push(await this.load(mod.code, mod.entryPoint, mod.permissions));
+    for (const moduleState of snapshot) {
+      results.push(await this.load(
+        moduleState.code,
+        moduleState.entryPoint,
+        moduleState.permissions,
+      ));
     }
     return results;
   }
 
   list(): Array<{ code: string; status: ModuleStatus }> {
-    return Array.from(this.modules.values()).map((m) => ({
-      code: m.code,
-      status: m.status,
+    return Array.from(this.modules.values()).map((moduleState) => ({
+      code: moduleState.code,
+      status: moduleState.status,
     }));
   }
 

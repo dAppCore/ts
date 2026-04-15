@@ -32,6 +32,14 @@ export interface CoreRuntimeInjection {
 }
 
 /**
+ * Example:
+ *   injectCoreRuntime({
+ *     origin: "app://demo",
+ *     storage: bridge,
+ *     wails: bridge,
+ *     sessionId: "session-1",
+ *   });
+ *
  * Injects the browser preload surface in one call.
  *
  * This is the composite helper used by display-layer preload hooks when they need
@@ -41,7 +49,7 @@ export function injectCoreRuntime(
   options: CoreRuntimeInjectionOptions,
 ): CoreRuntimeInjection {
   const target = options.target ?? (globalThis as Record<string, unknown>);
-  const pending: Promise<void>[] = [];
+  const readyTasks: Promise<void>[] = [];
   const result: CoreRuntimeInjection = {
     ready: Promise.resolve(),
   };
@@ -56,7 +64,7 @@ export function injectCoreRuntime(
       options.storage,
       storageOptions,
     );
-    pending.push(result.storage.ready);
+    readyTasks.push(result.storage.ready);
   }
 
   if (options.electron || options.wails) {
@@ -79,9 +87,9 @@ export function injectCoreRuntime(
     result.wails = options.wails;
   }
 
-  result.ready = pending.length === 0
+  result.ready = readyTasks.length === 0
     ? Promise.resolve()
-    : Promise.all(pending).then(() => undefined);
+    : Promise.all(readyTasks).then(() => undefined);
   void result.ready.catch(() => undefined);
 
   return result;

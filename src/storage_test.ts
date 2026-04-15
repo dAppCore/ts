@@ -1,5 +1,6 @@
 import {
   CoreCookieJar,
+  CoreCacheStorage,
   CoreLocalStorage,
   CoreSessionStorage,
   CoreIndexedDBRequest,
@@ -252,6 +253,48 @@ Deno.test("CoreSessionStorage isolates values per session", async () => {
     await second.getItem("wizard_step"),
     "4",
     "second session should keep its own value",
+  );
+});
+
+Deno.test("CoreCache supports add, addAll, and matchAll", async () => {
+  const bridge = createBridge();
+  const caches = new CoreCacheStorage("app://demo", bridge);
+  const cache = await caches.open("v1");
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const requestUrl = typeof input === "string"
+      ? input
+      : input instanceof Request
+      ? input.url
+      : input.toString();
+    return new Response(requestUrl, {
+      status: 200,
+      headers: {
+        "content-type": "text/plain",
+      },
+    });
+  }) as typeof fetch;
+
+  try {
+    await cache.add("https://example.test/a");
+    await cache.addAll([
+      "https://example.test/b",
+      new Request("https://example.test/c"),
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assertEquals(
+    (await cache.match("https://example.test/a"))?.body,
+    "https://example.test/a",
+    "cache add should fetch and store a response",
+  );
+  assertEquals(
+    (await cache.matchAll()).length,
+    3,
+    "cache matchAll should return every stored response when no request is supplied",
   );
 });
 

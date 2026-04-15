@@ -30,12 +30,18 @@ export async function deriveLocalAuthMaterial(
   return (await getLocalAuthState(root)).material;
 }
 
+// Example:
+//   const password = await deriveLocalAuthPassword("/workspace/core");
+//   // The same root always yields the same password.
 export async function deriveLocalAuthPassword(
   root = defaultAuthRoot(),
 ): Promise<string> {
   return buildLocalAuthPassword(normaliseAuthRoot(root));
 }
 
+// Example:
+//   const token = await sealLocalMessage("hello", "/workspace/core");
+//   const payload = await openLocalMessage(token, "/workspace/core");
 export async function sealLocalMessage(
   payload: string,
   root = defaultAuthRoot(),
@@ -76,6 +82,9 @@ export async function sealLocalMessage(
   )}`;
 }
 
+// Example:
+//   const token = await sealLocalMessage("hello", "/workspace/core");
+//   await openLocalMessage(token, "/workspace/core");
 export async function openLocalMessage(
   token: string,
   root = defaultAuthRoot(),
@@ -124,6 +133,10 @@ export async function openLocalMessage(
   return new TextDecoder().decode(plain);
 }
 
+// Example:
+//   const auth = createLocalAuthDance("/workspace/core");
+//   const token = await auth.seal("payload");
+//   const payload = await auth.open(token);
 export function createLocalAuthDance(root = defaultAuthRoot()): {
   material: Promise<LocalAuthMaterial>;
   seal(payload: string): Promise<string>;

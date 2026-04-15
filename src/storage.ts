@@ -545,8 +545,27 @@ export class CoreCache {
     readonly name: string,
   ) {}
 
+  async add(
+    request: string | URL | Request,
+    init?: RequestInit,
+  ): Promise<void> {
+    const response = await fetch(request, init);
+    if (!response.ok) {
+      throw new Error(`cache add failed with status ${response.status}`);
+    }
+    await this.put(request, await responseToCacheRecord(response));
+  }
+
+  async addAll(
+    requests: Array<string | URL | Request>,
+  ): Promise<void> {
+    for (const request of requests) {
+      await this.add(request);
+    }
+  }
+
   async put(
-    request: string | URL | CoreCacheRequest,
+    request: string | URL | Request | CoreCacheRequest,
     response: CoreCacheResponse,
   ): Promise<void> {
     await this.requireBridge().put(
@@ -558,7 +577,7 @@ export class CoreCache {
   }
 
   async match(
-    request: string | URL | CoreCacheRequest,
+    request: string | URL | Request | CoreCacheRequest,
   ): Promise<CoreCacheResponse | null> {
     return this.requireBridge().match(
       this.origin,
@@ -567,7 +586,25 @@ export class CoreCache {
     );
   }
 
-  async delete(request: string | URL | CoreCacheRequest): Promise<boolean> {
+  async matchAll(
+    request?: string | URL | Request | CoreCacheRequest,
+  ): Promise<CoreCacheResponse[]> {
+    if (request !== undefined) {
+      const response = await this.match(request);
+      return response ? [response] : [];
+    }
+
+    const matches: CoreCacheResponse[] = [];
+    for (const cachedRequest of await this.keys()) {
+      const response = await this.match(cachedRequest);
+      if (response) {
+        matches.push(response);
+      }
+    }
+    return matches;
+  }
+
+  async delete(request: string | URL | Request | CoreCacheRequest): Promise<boolean> {
     return this.requireBridge().delete(
       this.origin,
       this.name,
@@ -607,7 +644,7 @@ export class CoreCacheStorage {
   }
 
   async match(
-    request: string | URL | CoreCacheRequest,
+    request: string | URL | Request | CoreCacheRequest,
   ): Promise<CoreCacheResponse | null> {
     const normalisedRequest = normaliseRequest(request);
 
@@ -1067,7 +1104,7 @@ function domainMatches(host: string, cookieDomain: string): boolean {
 }
 
 function normaliseRequest(
-  request: string | URL | CoreCacheRequest,
+  request: string | URL | Request | CoreCacheRequest,
 ): CoreCacheRequest {
   if (typeof request === "string") {
     return { url: request, method: "GET" };
@@ -1075,10 +1112,27 @@ function normaliseRequest(
   if (request instanceof URL) {
     return { url: request.toString(), method: "GET" };
   }
+  if (typeof Request !== "undefined" && request instanceof Request) {
+    return {
+      url: request.url,
+      method: request.method,
+      headers: Object.fromEntries(request.headers.entries()),
+    };
+  }
   return {
     url: request.url,
     method: request.method ?? "GET",
     headers: request.headers,
+  };
+}
+
+async function responseToCacheRecord(
+  response: Response,
+): Promise<CoreCacheResponse> {
+  return {
+    status: response.status,
+    headers: Object.fromEntries(response.headers.entries()),
+    body: await response.clone().text(),
   };
 }
 
