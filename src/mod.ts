@@ -8,5 +8,6 @@ export * from "./result.ts";
 export * from "./i18n.ts";
 export * from "./router.ts";
 export * from "./storage.ts";
+export * from "./openapi.ts";
 export * from "./wasm.ts";
 export * from "./components.ts";
