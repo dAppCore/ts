@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 export type I18nDictionary = Record<string, unknown>;
 
 export interface I18nSubjectLike {
@@ -310,15 +312,13 @@ export async function loadTranslations(
   }
 
   if (source instanceof URL) {
-    const response = await fetch(source);
-    registerTranslations(locale, await parseTranslationSource(response));
+    registerTranslations(locale, await loadTranslationSource(source));
     return;
   }
 
   try {
     const url = new URL(source);
-    const response = await fetch(url);
-    registerTranslations(locale, await parseTranslationSource(response));
+    registerTranslations(locale, await loadTranslationSource(url));
     return;
   } catch {
     if (typeof Deno !== "undefined" && typeof Deno.readTextFile === "function") {
@@ -490,6 +490,18 @@ async function parseTranslationSource(
   }
 
   return parseTranslationJSON(await source.text());
+}
+
+async function loadTranslationSource(url: URL): Promise<I18nDictionary> {
+  if (url.protocol === "file:") {
+    if (typeof Deno !== "undefined" && typeof Deno.readTextFile === "function") {
+      return parseTranslationSource(await Deno.readTextFile(fileURLToPath(url)));
+    }
+    throw new Error(`unable to load translations from ${url.toString()}`);
+  }
+
+  const response = await fetch(url);
+  return parseTranslationSource(response);
 }
 
 function parseTranslationJSON(json: string): I18nDictionary {

@@ -9,7 +9,9 @@ import {
   pluralize,
   registerTranslations,
   setLocale,
+  loadTranslations,
 } from "./i18n.ts";
+import { pathToFileURL } from "node:url";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
@@ -83,5 +85,19 @@ Deno.test("CoreI18n helper functions are exported", () => {
     assertEquals(_("greeting"), "hi", "registered translations should be used by the default runtime");
   } finally {
     setLocale("en");
+  }
+});
+
+Deno.test("loadTranslationsFromFile supports file URLs", async () => {
+  const path = await Deno.makeTempFile({ suffix: ".json" });
+  await Deno.writeTextFile(path, JSON.stringify({ file_url: "loaded" }));
+
+  try {
+    await loadTranslations("file-url", pathToFileURL(path));
+    setLocale("file-url");
+    assertEquals(_("file_url"), "loaded", "file URL translation sources should load");
+  } finally {
+    setLocale("en");
+    await Deno.remove(path);
   }
 });

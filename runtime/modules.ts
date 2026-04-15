@@ -80,7 +80,7 @@ export class ModuleRegistry {
 
     // Build read permissions: worker-entry.ts dir + module source + declared reads
     const readPerms: string[] = [
-      new URL(".", import.meta.url).pathname,
+      fileURLToPath(new URL(".", import.meta.url)),
     ];
     // Add the module's directory so it can be dynamically imported
     const modulePath = resolveModulePath(entryPoint);

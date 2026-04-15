@@ -708,13 +708,17 @@ export class CoreOPFS {
 
   async getFileHandle(
     name: string,
-    _options: FileSystemGetFileOptions = {},
+    options: FileSystemGetFileOptions = {},
   ): Promise<CoreFileHandle> {
-    return new CoreFileHandle(
-      this.origin,
-      this.bridge,
-      joinOPFSPath(this.path, name),
-    );
+    const path = joinOPFSPath(this.path, name);
+    if (options.create ?? false) {
+      const fs = this.requireBridge();
+      const existing = await fs.read(this.origin, path);
+      if (existing === null) {
+        await fs.write(this.origin, path, "");
+      }
+    }
+    return new CoreFileHandle(this.origin, this.bridge, path);
   }
 
   async removeEntry(name: string): Promise<void> {

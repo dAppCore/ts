@@ -287,6 +287,18 @@ Deno.test("CoreOPFS rejects parent traversal", async () => {
   );
 });
 
+Deno.test("CoreOPFS getFileHandle(create) materialises the file", async () => {
+  const bridge = createBridge();
+  const opfs = new CoreOPFS("https://example.com", bridge);
+
+  const file = await opfs.getFileHandle("notes/todo.txt", { create: true });
+  assertEquals(
+    await file.getFile(),
+    "",
+    "created OPFS files should exist with empty content",
+  );
+});
+
 Deno.test("injectStoragePolyfills exposes browser-style getters", () => {
   const bridge = createBridge();
   const target = { navigator: {}, document: {} };
