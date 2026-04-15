@@ -272,3 +272,27 @@ func TestProcessStop_Bad_OtherModule(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
 }
+
+func TestUnregisterModule_Good_ClearsProcessOwnership(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+
+	startResp, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{
+		Command: "echo", ModuleCode: "runner-mod",
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, startResp.ProcessId)
+
+	srv.UnregisterModule("runner-mod")
+
+	srv.mu.RLock()
+	_, stillTracked := srv.processOwners[startResp.ProcessId]
+	srv.mu.RUnlock()
+	assert.False(t, stillTracked, "process ownership should be removed when the module is unregistered")
+
+	_, err = srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
+		ProcessId:  startResp.ProcessId,
+		ModuleCode: "runner-mod",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "permission denied")
+}

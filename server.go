@@ -66,6 +66,14 @@ func (s *Server) UnregisterModule(code string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.manifests, code)
+
+	// Clear any process ownership entries tied to this module so unloads do not
+	// leave stale authorisation state behind.
+	for processID, ownerCode := range s.processOwners {
+		if ownerCode == code {
+			delete(s.processOwners, processID)
+		}
+	}
 }
 
 // getManifest looks up a module and returns an error if unknown.
