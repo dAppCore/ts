@@ -26,6 +26,7 @@ export interface ElectronShimOptions {
 }
 
 export interface ElectronShim {
+  core: CoreShim;
   ipcRenderer: {
     send(channel: string, ...args: unknown[]): Promise<unknown> | unknown;
     invoke(channel: string, ...args: unknown[]): Promise<unknown> | unknown;
@@ -49,6 +50,35 @@ export interface ElectronShim {
   };
   notification(options: unknown): Promise<unknown> | unknown;
   Notification: new (options: unknown) => { show(): Promise<unknown> | unknown };
+  fs: ElectronFileProxy;
+  path: ElectronPathProxy;
+}
+
+export interface CoreShim {
+  ipc: {
+    action(channel: string, ...args: unknown[]): Promise<unknown> | unknown;
+    query(channel: string, ...args: unknown[]): Promise<unknown> | unknown;
+    on(channel: string, handler: CoreEventHandler<unknown[]>): () => void;
+    once(channel: string, handler: CoreEventHandler<unknown[]>): () => void;
+    off(channel: string, handler: CoreEventHandler<unknown[]>): void;
+    offAll(channel?: string): void;
+  };
+  browser: {
+    open(url: string): Promise<unknown> | unknown;
+    openFile(path: string): Promise<unknown> | unknown;
+  };
+  clipboard: {
+    read(): Promise<unknown> | unknown;
+    write(text: string): Promise<unknown> | unknown;
+  };
+  dialog: {
+    open(options: unknown): Promise<unknown> | unknown;
+    save(options: unknown): Promise<unknown> | unknown;
+    message(options: unknown): Promise<unknown> | unknown;
+  };
+  notification: {
+    send(options: unknown): Promise<unknown> | unknown;
+  };
   fs: ElectronFileProxy;
   path: ElectronPathProxy;
 }
@@ -95,6 +125,7 @@ export class CoreElectronRuntime {
     target: Record<string, unknown> = this.options.target ?? (globalThis as Record<string, unknown>),
   ): ElectronShim {
     const requireShim = buildRequireShim(this.shim);
+    defineGetter(target, "core", () => this.shim.core);
     defineGetter(target, "electron", () => this.shim);
     defineGetter(target, "require", () => requireShim);
     return this.shim;
@@ -114,38 +145,77 @@ export function buildElectronShim(
   fsBridge?: ElectronFileBridge,
   origin = "file://",
 ): ElectronShim {
+  const core = buildCoreShim(bridge, fsBridge, origin);
   return {
+    core,
     ipcRenderer: {
-      send: (channel: string, ...args: unknown[]) => bridge.action(channel, ...args),
-      invoke: (channel: string, ...args: unknown[]) => bridge.query(channel, ...args),
-      on: (channel: string, handler: CoreEventHandler<unknown[]>) => bridge.on(channel, handler),
-      once: (channel: string, handler: CoreEventHandler<unknown[]>) => bridge.once(channel, handler),
-      removeListener: (channel: string, handler: CoreEventHandler<unknown[]>) => bridge.off(channel, handler),
-      removeAllListeners: (channel?: string) => bridge.offAll(channel),
+      send: (channel: string, ...args: unknown[]) => core.ipc.action(channel, ...args),
+      invoke: (channel: string, ...args: unknown[]) => core.ipc.query(channel, ...args),
+      on: (channel: string, handler: CoreEventHandler<unknown[]>) => core.ipc.on(channel, handler),
+      once: (channel: string, handler: CoreEventHandler<unknown[]>) => core.ipc.once(channel, handler),
+      removeListener: (channel: string, handler: CoreEventHandler<unknown[]>) => core.ipc.off(channel, handler),
+      removeAllListeners: (channel?: string) => core.ipc.offAll(channel),
     },
     shell: {
-      openExternal: (url: string) => bridge.action("gui.browser.open", { url }),
-      openPath: (path: string) => bridge.action("gui.browser.openFile", { path }),
+      openExternal: (url: string) => core.browser.open(url),
+      openPath: (path: string) => core.browser.openFile(path),
     },
     clipboard: {
-      readText: () => bridge.query("gui.clipboard.read"),
-      writeText: (text: string) => bridge.action("gui.clipboard.write", { text }),
+      readText: () => core.clipboard.read(),
+      writeText: (text: string) => core.clipboard.write(text),
     },
     dialog: {
-      showOpenDialog: (options: unknown) => bridge.query("gui.dialog.open", options),
-      showSaveDialog: (options: unknown) => bridge.query("gui.dialog.save", options),
-      showMessageBox: (options: unknown) => bridge.query("gui.dialog.message", options),
+      showOpenDialog: (options: unknown) => core.dialog.open(options),
+      showSaveDialog: (options: unknown) => core.dialog.save(options),
+      showMessageBox: (options: unknown) => core.dialog.message(options),
     },
-    notification: (options: unknown) => bridge.action("gui.notification.send", options),
+    notification: (options: unknown) => core.notification.send(options),
     Notification: class CoreNotification {
       constructor(private readonly options: unknown) {}
 
       show(): Promise<unknown> | unknown {
-        return bridge.action("gui.notification.send", this.options);
+        return core.notification.send(this.options);
       }
     },
-    fs: buildFileProxy(fsBridge, origin),
-    path: buildPathProxy(),
+    fs: core.fs,
+    path: core.path,
+  };
+}
+
+export function buildCoreShim(
+  bridge: ElectronBridge,
+  fsBridge?: ElectronFileBridge,
+  origin = "file://",
+): CoreShim {
+  const fs = buildFileProxy(fsBridge, origin);
+  const path = buildPathProxy();
+  return {
+    ipc: {
+      action: (channel: string, ...args: unknown[]) => bridge.action(channel, ...args),
+      query: (channel: string, ...args: unknown[]) => bridge.query(channel, ...args),
+      on: (channel: string, handler: CoreEventHandler<unknown[]>) => bridge.on(channel, handler),
+      once: (channel: string, handler: CoreEventHandler<unknown[]>) => bridge.once(channel, handler),
+      off: (channel: string, handler: CoreEventHandler<unknown[]>) => bridge.off(channel, handler),
+      offAll: (channel?: string) => bridge.offAll(channel),
+    },
+    browser: {
+      open: (url: string) => bridge.action("gui.browser.open", { url }),
+      openFile: (filePath: string) => bridge.action("gui.browser.openFile", { path: filePath }),
+    },
+    clipboard: {
+      read: () => bridge.query("gui.clipboard.read"),
+      write: (text: string) => bridge.action("gui.clipboard.write", { text }),
+    },
+    dialog: {
+      open: (options: unknown) => bridge.query("gui.dialog.open", options),
+      save: (options: unknown) => bridge.query("gui.dialog.save", options),
+      message: (options: unknown) => bridge.query("gui.dialog.message", options),
+    },
+    notification: {
+      send: (options: unknown) => bridge.action("gui.notification.send", options),
+    },
+    fs,
+    path,
   };
 }
 
@@ -174,6 +244,7 @@ export function injectElectronShim(
 ): ElectronShim {
   const target = options.target ?? (globalThis as Record<string, unknown>);
   const shim = buildElectronShim(bridge, options.fs, options.origin);
+  defineGetter(target, "core", () => shim.core);
   const requireShim = buildRequireShim(shim);
   defineGetter(target, "electron", () => shim);
   defineGetter(target, "require", () => requireShim);

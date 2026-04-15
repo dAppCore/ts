@@ -19,7 +19,7 @@ export abstract class CoreComponent<
   ) {
     super();
     this.state = initialState;
-    this.shadow = this.attachShadow(options.shadow ?? { mode: "open" });
+    this.shadow = this.attachShadow(options.shadow ?? { mode: "closed" });
   }
 
   override connectedCallback(): void {

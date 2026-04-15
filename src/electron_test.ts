@@ -1,4 +1,9 @@
-import { buildElectronShim, buildRequireShim, injectElectronShim } from "./electron.ts";
+import {
+  buildCoreShim,
+  buildElectronShim,
+  buildRequireShim,
+  injectElectronShim,
+} from "./electron.ts";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
@@ -27,11 +32,13 @@ Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
   await shim.shell.openExternal("https://example.com");
   await shim.notification({ title: "Alert" });
   await new shim.Notification({ title: "Alert" }).show();
+  await shim.core.ipc.action("app:ready", { version: "1.0" });
 
   assert(calls[0].channel === "app:ready", "ipc send should use the bridge");
   assert(calls[1].channel === "gui.browser.open", "shell should map to browser open");
   assert(calls[2].channel === "gui.notification.send", "notification should use the bridge");
   assert(calls[3].channel === "gui.notification.send", "Notification class should use the bridge");
+  assert(calls[4].channel === "app:ready", "core.ipc should route through the same bridge");
   assert(shim.fs.promises.readFile !== undefined, "fs.promises should be exposed");
   const expectedPath = Deno.build.os === "windows" ? "\\var" : "/var";
   assert(
@@ -91,10 +98,27 @@ Deno.test("Electron injector defines globals", () => {
   });
 
   const electronDescriptor = Object.getOwnPropertyDescriptor(globalTarget, "electron");
+  const coreDescriptor = Object.getOwnPropertyDescriptor(globalTarget, "core");
   const requireDescriptor = Object.getOwnPropertyDescriptor(globalTarget, "require");
 
   assert(electronDescriptor?.get !== undefined, "electron global should be injected via a getter");
+  assert(coreDescriptor?.get !== undefined, "core global should be injected via a getter");
   assert(requireDescriptor?.get !== undefined, "require global should be injected via a getter");
   assert(electronDescriptor?.configurable === false, "electron global should be immutable");
+  assert(coreDescriptor?.configurable === false, "core global should be immutable");
   assert(requireDescriptor?.configurable === false, "require global should be immutable");
+});
+
+Deno.test("Core bridge exposes the RFC core.ipc surface", () => {
+  const core = buildCoreShim({
+    action: () => "action",
+    query: () => "query",
+    on: () => () => undefined,
+    once: () => () => undefined,
+    off: () => undefined,
+    offAll: () => undefined,
+  });
+
+  assert(core.ipc.action("gui.ping") === "action", "core.ipc.action should proxy actions");
+  assert(core.ipc.query("gui.ping") === "query", "core.ipc.query should proxy queries");
 });
