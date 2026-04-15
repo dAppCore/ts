@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -145,6 +146,9 @@ func (s *Server) FileList(_ context.Context, req *pb.FileListRequest) (*pb.FileL
 			Size:  info.Size(),
 		})
 	}
+	sort.SliceStable(pbEntries, func(i, j int) bool {
+		return pbEntries[i].Name < pbEntries[j].Name
+	})
 	return &pb.FileListResponse{Entries: pbEntries}, nil
 }
 
