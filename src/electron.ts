@@ -285,10 +285,6 @@ export function buildRequireShim(shim: ElectronShim): (module: string) => unknow
         return shim.path.posix;
       case "path/win32":
         return shim.path.win32;
-      case "crypto":
-        return shim.crypto;
-      case "net":
-        return shim.net;
       default:
         throw new Error(
           `require('${module}') is not available. Use Core imports instead.`,

@@ -169,28 +169,34 @@ Deno.test("Electron require shim only exposes supported modules", () => {
     "\\",
     "path.win32 should always use the Windows separator",
   );
-  assert(requireShim("crypto") === shim.crypto, "require('crypto') should return the Core crypto shim");
-  assert(
-    requireShim("node:crypto") === shim.crypto,
-    "require('node:crypto') should return the Core crypto shim",
+  assertThrows(
+    () => requireShim("crypto"),
+    "require('crypto') should be rejected by the shim",
+  );
+  assertThrows(
+    () => requireShim("node:crypto"),
+    "require('node:crypto') should be rejected by the shim",
   );
   assert(
     typeof shim.crypto.randomUUID === "function",
-    "crypto shim should expose randomUUID",
+    "crypto shim should remain available via window.electron.crypto",
   );
   assert(
     shim.crypto.randomBytes(8).length === 8,
     "crypto shim should expose randomBytes",
   );
 
-  assert(requireShim("net") === shim.net, "require('net') should return the Core net shim");
-  assert(
-    requireShim("node:net") === shim.net,
-    "require('node:net') should return the Core net shim",
+  assertThrows(
+    () => requireShim("net"),
+    "require('net') should be rejected by the shim",
+  );
+  assertThrows(
+    () => requireShim("node:net"),
+    "require('node:net') should be rejected by the shim",
   );
   assert(
     typeof shim.net.createCoreP2PNetwork === "function",
-    "net shim should expose the Core P2P network constructor",
+    "net shim should remain available via window.electron.net",
   );
 });
 
@@ -218,6 +224,19 @@ Deno.test("Electron injector defines globals", () => {
   assert(coreDescriptor?.configurable === false, "core global should be immutable");
   assert(requireDescriptor?.configurable === false, "require global should be immutable");
 });
+
+function assertThrows(
+  fn: () => unknown,
+  message: string,
+): void {
+  let threw = false;
+  try {
+    fn();
+  } catch {
+    threw = true;
+  }
+  assert(threw, message);
+}
 
 Deno.test("Electron injector exposes the Wails bridge when provided", () => {
   const globalTarget: Record<string, unknown> = {};
