@@ -12,6 +12,7 @@ export interface RouteResult<T = unknown> extends RouteContext {
 }
 
 export interface CoreRouteBridge<T = unknown> {
+  query?(path: string, query: URLSearchParams): Promise<T> | T;
   dispatch(path: string, query: URLSearchParams): Promise<T> | T;
 }
 
@@ -91,6 +92,13 @@ export class CoreRouter<T = unknown> {
     }
 
     if (route.scheme === "core") {
+      if (this.options.bridge.query) {
+        return {
+          ...route,
+          handled: true,
+          value: await this.options.bridge.query(route.path, route.query),
+        };
+      }
       return {
         ...route,
         handled: true,

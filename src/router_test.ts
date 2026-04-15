@@ -32,6 +32,24 @@ Deno.test("CoreRouter routes core:// URLs through the bridge", async () => {
   );
 });
 
+Deno.test("CoreRouter prefers bridge query handlers for core:// URLs", async () => {
+  const router = new CoreRouter({
+    bridge: {
+      query(path, query) {
+        return `${path}:${query.get("tab")}`;
+      },
+      dispatch() {
+        return "dispatch";
+      },
+    },
+  });
+
+  const result = await router.navigate("core://settings?tab=general");
+
+  assert(result.handled, "core routes should be handled");
+  assertEquals(result.value, "settings:general", "bridge query should handle core routes");
+});
+
 Deno.test("CoreRouter resolves hash routes through registered handlers", async () => {
   const router = new CoreRouter({
     bridge: { dispatch: () => undefined },
