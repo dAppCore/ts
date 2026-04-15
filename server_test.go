@@ -2,6 +2,7 @@ package ts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -19,6 +20,8 @@ import (
 type mockProcessRunner struct {
 	started map[string]bool
 	nextID  int
+	startErr error
+	killErr  error
 }
 
 func newMockProcessRunner() *mockProcessRunner {
@@ -26,6 +29,12 @@ func newMockProcessRunner() *mockProcessRunner {
 }
 
 func (m *mockProcessRunner) Start(_ context.Context, command string, args ...string) (ProcessHandle, error) {
+	if m.startErr != nil {
+		return nil, m.startErr
+	}
+	if m.started == nil {
+		m.started = make(map[string]bool)
+	}
 	m.nextID++
 	id := fmt.Sprintf("proc-%d", m.nextID)
 	m.started[id] = true
@@ -33,6 +42,9 @@ func (m *mockProcessRunner) Start(_ context.Context, command string, args ...str
 }
 
 func (m *mockProcessRunner) Kill(id string) error {
+	if m.killErr != nil {
+		return m.killErr
+	}
 	if !m.started[id] {
 		return fmt.Errorf("process not found: %s", id)
 	}
@@ -465,4 +477,75 @@ func TestUnregisterModule_Good_ClearsProcessOwnership(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
+}
+
+func TestServer_RegisterModule_Ugly_NilAndBlankIgnored(t *testing.T) {
+	srv := newTestServer(t)
+
+	before := len(srv.manifests)
+	srv.RegisterModule(nil)
+	srv.RegisterModule(&manifest.Manifest{Code: "   "})
+
+	srv.mu.RLock()
+	defer srv.mu.RUnlock()
+	assert.Len(t, srv.manifests, before)
+}
+
+func TestServer_UnregisterModule_Ugly_BlankNoop(t *testing.T) {
+	srv := newTestServer(t)
+	srv.RegisterModule(&manifest.Manifest{Code: "keep-me"})
+
+	srv.UnregisterModule("   ")
+
+	srv.mu.RLock()
+	defer srv.mu.RUnlock()
+	_, ok := srv.manifests["keep-me"]
+	assert.True(t, ok)
+}
+
+func TestServer_ProcessStart_Bad_ProcessServiceUnavailable(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+	srv.SetProcessRunner(&mockProcessRunner{startErr: errProcessUnavailable})
+
+	_, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{
+		Command:    "echo",
+		ModuleCode: "runner-mod",
+	})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.Unimplemented, st.Code())
+}
+
+func TestServer_ProcessStart_Bad_StartErrorWrapped(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+	srv.SetProcessRunner(&mockProcessRunner{startErr: errors.New("start failed")})
+
+	_, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{
+		Command:    "echo",
+		ModuleCode: "runner-mod",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "process start")
+	assert.Contains(t, err.Error(), "start failed")
+}
+
+func TestServer_ProcessStop_Bad_KillErrorWrapped(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+	runner := &mockProcessRunner{killErr: errors.New("kill failed")}
+	srv.SetProcessRunner(runner)
+
+	startResp, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{
+		Command:    "echo",
+		ModuleCode: "runner-mod",
+	})
+	require.NoError(t, err)
+
+	_, err = srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
+		ProcessId:  startResp.ProcessId,
+		ModuleCode: "runner-mod",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "process stop")
+	assert.Contains(t, err.Error(), "kill failed")
 }

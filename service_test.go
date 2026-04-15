@@ -1,9 +1,11 @@
 package ts
 
 import (
+	"bufio"
 	"context"
 	"crypto/ed25519"
 	"encoding/json"
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -588,6 +590,138 @@ func TestLooksLikeDenoRuntime_Bad(t *testing.T) {
 func TestLooksLikeDenoRuntime_Ugly_EmptyArgs(t *testing.T) {
 	assert.False(t, looksLikeDenoRuntime(nil))
 	assert.False(t, looksLikeDenoRuntime([]string{}))
+}
+
+func TestService_waitForSocket_Good_Appears(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "core.sock")
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		_ = os.WriteFile(path, []byte("socket"), 0600)
+	}()
+
+	require.NoError(t, waitForSocket(context.Background(), path, time.Second))
+}
+
+func TestService_waitForSocket_Bad_Timeout(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "core.sock")
+
+	err := waitForSocket(context.Background(), path, 20*time.Millisecond)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "timeout waiting for socket")
+}
+
+func TestService_waitForSocket_Ugly_Cancelled(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "core.sock")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := waitForSocket(ctx, path, time.Second)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestService_waitForGRPCSocket_Good_Appears(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "core.sock")
+	done := make(chan error)
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		_ = os.WriteFile(path, []byte("socket"), 0600)
+	}()
+
+	require.NoError(t, waitForGRPCSocket(context.Background(), path, time.Second, done))
+}
+
+func TestService_waitForGRPCSocket_Bad_DoneError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "core.sock")
+	done := make(chan error, 1)
+	done <- errors.New("listener failed")
+
+	err := waitForGRPCSocket(context.Background(), path, time.Second, done)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "listener failed")
+}
+
+func TestService_waitForGRPCSocket_Ugly_Cancelled(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "core.sock")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	done := make(chan error)
+
+	err := waitForGRPCSocket(ctx, path, time.Second, done)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestService_reloadDesiredModules_Good(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	client := &DenoClient{
+		conn:   left,
+		reader: bufio.NewReader(left),
+	}
+
+	scriptJSONRPC(t, right, func(req map[string]any) {
+		assert.Equal(t, "LoadModule", req["method"])
+		assert.Equal(t, "mod-1", req["code"])
+		assert.Equal(t, "file:///module.ts", req["entry_point"])
+	}, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"result": map[string]any{
+			"ok": true,
+		},
+	})
+
+	svc := &Service{}
+	svc.setDenoClient(client)
+	svc.rememberModule("mod-1", "file:///module.ts", ModulePermissions{
+		Read: []string{"./data/"},
+	})
+
+	require.NoError(t, svc.reloadDesiredModules())
+}
+
+func TestService_reloadDesiredModules_Bad_RemoteRejects(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	client := &DenoClient{
+		conn:   left,
+		reader: bufio.NewReader(left),
+	}
+
+	scriptJSONRPC(t, right, func(req map[string]any) {
+		assert.Equal(t, "LoadModule", req["method"])
+		assert.Equal(t, "mod-1", req["code"])
+	}, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"result": map[string]any{
+			"ok":    false,
+			"error": "load rejected",
+		},
+	})
+
+	svc := &Service{}
+	svc.setDenoClient(client)
+	svc.rememberModule("mod-1", "file:///module.ts", ModulePermissions{})
+
+	err := svc.reloadDesiredModules()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "reload mod-1")
+	assert.Contains(t, err.Error(), "load rejected")
+}
+
+func TestService_reloadDesiredModules_Ugly_NoClient(t *testing.T) {
+	svc := &Service{}
+	svc.rememberModule("mod-1", "file:///module.ts", ModulePermissions{})
+
+	err := svc.reloadDesiredModules()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Deno client not connected")
 }
 
 func TestService_OnStartup_Bad_CleansUpState(t *testing.T) {

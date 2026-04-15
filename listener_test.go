@@ -158,3 +158,22 @@ func TestListenGRPC_Good_CreatesSocketDir(t *testing.T) {
 	cancel()
 	<-errCh
 }
+
+func TestListenGRPC_Bad_CannotCreateSocketDir(t *testing.T) {
+	baseDir := t.TempDir()
+	blocker := filepath.Join(baseDir, "blocked")
+	require.NoError(t, os.WriteFile(blocker, []byte("file-in-the-way"), 0644))
+
+	sockPath := filepath.Join(blocker, "core.sock")
+
+	medium := io.NewMockMedium()
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	defer st.Close()
+
+	srv := NewServer(medium, st)
+
+	err = ListenGRPC(context.Background(), sockPath, srv)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a directory")
+}

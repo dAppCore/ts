@@ -18,6 +18,11 @@ func TestCheckPath_Bad_Denied(t *testing.T) {
 	assert.False(t, CheckPath("../escape/file", allowed))
 }
 
+func TestCheckPath_Bad_PrefixBoundary(t *testing.T) {
+	allowed := []string{"./data/"}
+	assert.False(t, CheckPath("./data-secrets/key.pem", allowed))
+}
+
 func TestCheckPath_Good_EmptyDenyAll(t *testing.T) {
 	assert.False(t, CheckPath("./anything", nil))
 	assert.False(t, CheckPath("./anything", []string{}))
@@ -30,6 +35,12 @@ func TestCheckPath_Good_RootGrant(t *testing.T) {
 	assert.True(t, CheckPath("data/file.txt", allowed))
 	assert.True(t, CheckPath(".", allowed))
 	assert.False(t, CheckPath("../escape/file", allowed))
+}
+
+func TestCheckPath_Bad_RootGrantAbsolutePath(t *testing.T) {
+	allowed := []string{"./"}
+
+	assert.False(t, CheckPath("/etc/passwd", allowed))
 }
 
 func TestCheckNet_Good_Allowed(t *testing.T) {

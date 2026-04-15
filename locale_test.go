@@ -41,6 +41,21 @@ func TestLocaleGet_Good_PrefersExactMatch(t *testing.T) {
 	assert.Equal(t, `{"name":"exact"}`, resp.Content)
 }
 
+func TestLocaleGet_Good_FallsBackToIndex(t *testing.T) {
+	medium := io.NewMockMedium()
+	medium.Files[".core/locales/en/index.json"] = `{"name":"fallback"}`
+
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { st.Close() })
+
+	srv := NewServer(medium, st)
+	resp, err := srv.LocaleGet(context.Background(), &pb.LocaleGetRequest{Locale: "en"})
+	require.NoError(t, err)
+	require.True(t, resp.Found)
+	assert.Equal(t, `{"name":"fallback"}`, resp.Content)
+}
+
 func TestLocaleGet_Bad_ReadError(t *testing.T) {
 	medium := &localeErrorMedium{
 		MockMedium: io.NewMockMedium(),

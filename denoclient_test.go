@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"net"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -50,6 +51,12 @@ func TestDenoClient_Close_Good_Idempotent(t *testing.T) {
 	require.NoError(t, client.Close())
 	assert.Nil(t, client.conn)
 	assert.Nil(t, client.reader)
+}
+
+func TestDenoClient_DialDeno_Bad_MissingSocket(t *testing.T) {
+	_, err := DialDeno(filepath.Join(t.TempDir(), "missing.sock"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "deno dial")
 }
 
 func TestDenoClient_Call_Bad_ClosedClient(t *testing.T) {
@@ -236,6 +243,32 @@ func TestDenoClient_UnloadModule_Good(t *testing.T) {
 	assert.True(t, resp.Ok)
 }
 
+func TestDenoClient_UnloadModule_Bad_RPCError(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	client := &DenoClient{
+		conn:   left,
+		reader: bufio.NewReader(left),
+	}
+
+	scriptJSONRPC(t, right, func(req map[string]any) {
+		assert.Equal(t, "UnloadModule", req["method"])
+		assert.Equal(t, "mod-1", req["code"])
+	}, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"error": map[string]any{
+			"message": "unload rejected",
+		},
+	})
+
+	resp, err := client.UnloadModule("mod-1")
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "unload rejected")
+}
+
 func TestDenoClient_ModuleStatus_Good(t *testing.T) {
 	left, right := net.Pipe()
 	defer right.Close()
@@ -261,6 +294,32 @@ func TestDenoClient_ModuleStatus_Good(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "mod-1", resp.Code)
 	assert.Equal(t, "RUNNING", resp.Status)
+}
+
+func TestDenoClient_ModuleStatus_Bad_RPCError(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	client := &DenoClient{
+		conn:   left,
+		reader: bufio.NewReader(left),
+	}
+
+	scriptJSONRPC(t, right, func(req map[string]any) {
+		assert.Equal(t, "ModuleStatus", req["method"])
+		assert.Equal(t, "mod-1", req["code"])
+	}, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"error": map[string]any{
+			"message": "status failed",
+		},
+	})
+
+	resp, err := client.ModuleStatus("mod-1")
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "status failed")
 }
 
 func TestDenoClient_Call_Bad_RPCErrorString(t *testing.T) {
