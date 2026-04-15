@@ -74,6 +74,8 @@ export interface CoreCacheBridge {
     request: CoreCacheRequest,
   ): Promise<boolean>;
   keys(origin: string, cacheName: string): Promise<CoreCacheRequest[]>;
+  names?(origin: string): Promise<string[]>;
+  deleteCache?(origin: string, cacheName: string): Promise<void>;
 }
 
 export interface StorageBucketOptions {
@@ -579,21 +581,31 @@ export class CoreCacheStorage {
 
   async delete(cacheName: string): Promise<boolean> {
     const cache = this.caches.get(cacheName);
-    if (!cache) {
-      return false;
+    if (cache) {
+      const requests = await cache.keys();
+      for (const request of requests) {
+        await cache.delete(request);
+      }
     }
 
-    const requests = await cache.keys();
-    for (const request of requests) {
-      await cache.delete(request);
+    const bridge = this.requireBridge();
+    if (bridge.deleteCache) {
+      await bridge.deleteCache(this.origin, cacheName);
     }
 
     this.caches.delete(cacheName);
-    return true;
+    return cache !== undefined || bridge.deleteCache !== undefined;
   }
 
   async keys(): Promise<string[]> {
-    return [...this.caches.keys()];
+    const local = [...this.caches.keys()];
+    const bridge = this.requireBridge();
+    if (!bridge.names) {
+      return local;
+    }
+
+    const remote = await bridge.names(this.origin);
+    return Array.from(new Set([...local, ...remote]));
   }
 
   private requireBridge(): CoreCacheBridge {

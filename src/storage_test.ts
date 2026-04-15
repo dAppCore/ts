@@ -66,6 +66,14 @@ function createBridge(): CoreStorageBridge {
       const key = `${origin}:${cacheName}`;
       return Array.from(caches.get(key)?.keys() ?? []).map((url) => ({ url }));
     },
+    async names(origin) {
+      return Array.from(caches.keys())
+        .filter((key) => key.startsWith(`${origin}:`))
+        .map((key) => key.slice(origin.length + 1));
+    },
+    async deleteCache(origin, cacheName) {
+      caches.delete(`${origin}:${cacheName}`);
+    },
   };
 
   return {
@@ -223,6 +231,7 @@ Deno.test("parseCookie normalises lowercase SameSite values", () => {
 
 Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", async () => {
   const bridge = createBridge();
+  await bridge.cache.open("https://example.com", "shared");
   const polyfills = injectStoragePolyfills("https://example.com", bridge, {
     target: { navigator: {}, document: {} },
   });
@@ -238,11 +247,21 @@ Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", a
   const estimate = await polyfills.storage.estimate();
   await polyfills.storageBuckets.delete("photos");
   const bucketNames = await polyfills.storageBuckets.keys();
+  const remoteCacheNames = await polyfills.caches.keys();
 
   assertEquals(response?.body, "ok", "cache storage should round-trip entries");
   assertEquals(storageMatch?.body, "ok", "cache storage should search opened caches");
-  assertEquals(cacheNames, ["v1"], "cache storage should expose opened cache names");
+  assertEquals(
+    cacheNames,
+    ["v1", "shared"],
+    "cache storage should expose opened and bridge-side cache names",
+  );
   assertEquals(deleted, true, "cache storage should delete opened caches");
+  assertEquals(
+    remoteCacheNames,
+    ["shared"],
+    "cache storage should expose bridge-side cache names",
+  );
   assertEquals(bucket.name, "photos", "bucket manager should open buckets");
   assert(bucket === bucketAgain, "bucket manager should cache opened buckets");
   assertEquals(estimate.quota, 1000, "navigator.storage.estimate should reflect bucket quota");
