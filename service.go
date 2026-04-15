@@ -183,9 +183,9 @@ func (s *Service) OnStartup(ctx context.Context) (err error) {
 
 func loadAppManifest(medium io.Medium, pub ed25519.PublicKey) (*manifest.Manifest, error) {
 	candidates := []string{
-		".core/manifest.yaml",
 		".core/view.yaml",
 		".core/view.yml",
+		".core/manifest.yaml",
 	}
 
 	for _, path := range candidates {

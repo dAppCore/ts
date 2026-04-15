@@ -238,6 +238,30 @@ func TestService_OnStartup_Good_ConfiguresProcessRunner(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestLoadAppManifest_Good_PrefersViewManifest(t *testing.T) {
+	medium := io.NewMockMedium()
+	medium.Files[".core/view.yaml"] = `
+code: view-app
+name: View App
+version: "1.0"
+permissions:
+  read: ["./view/"]
+`
+	medium.Files[".core/manifest.yaml"] = `
+code: legacy-app
+name: Legacy App
+version: "9.9"
+permissions:
+  read: ["./legacy/"]
+`
+
+	m, err := loadAppManifest(medium, nil)
+	require.NoError(t, err)
+	require.NotNil(t, m)
+	assert.Equal(t, "view-app", m.Code)
+	assert.Equal(t, []string{"./view/"}, m.Permissions.Read)
+}
+
 func TestService_OnStartup_Good_DefaultSocketPath(t *testing.T) {
 	tmpDir := shortSocketDir(t)
 	t.Setenv("XDG_RUNTIME_DIR", tmpDir)
