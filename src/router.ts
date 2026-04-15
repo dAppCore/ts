@@ -31,6 +31,30 @@ export interface HashRouterTarget {
   removeEventListener(type: "hashchange", listener: () => void): void;
 }
 
+export interface CoreRouterLinkEvent {
+  button?: number;
+  ctrlKey?: boolean;
+  altKey?: boolean;
+  shiftKey?: boolean;
+  metaKey?: boolean;
+  defaultPrevented?: boolean;
+  target?: unknown;
+  preventDefault(): void;
+}
+
+export interface CoreRouterLinkTarget {
+  addEventListener(
+    type: "click",
+    listener: (event: CoreRouterLinkEvent) => void,
+    options?: boolean | AddEventListenerOptions,
+  ): void;
+  removeEventListener(
+    type: "click",
+    listener: (event: CoreRouterLinkEvent) => void,
+    options?: boolean | EventListenerOptions,
+  ): void;
+}
+
 const defaultBaseURL = "http://localhost/";
 
 export class CoreRouter<T = unknown> {
@@ -109,6 +133,32 @@ export class CoreRouter<T = unknown> {
     };
   }
 
+  interceptLinks(target?: CoreRouterLinkTarget): () => void {
+    const resolvedTarget = target ?? this.defaultLinkTarget();
+    const onClick = (event: CoreRouterLinkEvent) => {
+      void this.handleLinkEvent(event);
+    };
+
+    resolvedTarget.addEventListener("click", onClick, true);
+    return () => {
+      resolvedTarget.removeEventListener("click", onClick, true);
+    };
+  }
+
+  async handleLinkEvent(event: CoreRouterLinkEvent): Promise<RouteResult<T> | null> {
+    if (!this.isPlainLeftClick(event) || event.defaultPrevented) {
+      return null;
+    }
+
+    const href = this.extractHref(event.target);
+    if (!href || !href.startsWith("core://")) {
+      return null;
+    }
+
+    event.preventDefault();
+    return this.navigate(href);
+  }
+
   private defaultHashTarget(): HashRouterTarget {
     if (typeof window === "undefined") {
       throw new Error(
@@ -116,6 +166,15 @@ export class CoreRouter<T = unknown> {
       );
     }
     return window as unknown as HashRouterTarget;
+  }
+
+  private defaultLinkTarget(): CoreRouterLinkTarget {
+    if (typeof document === "undefined") {
+      throw new Error(
+        "CoreRouter.interceptLinks requires a browser document or explicit target",
+      );
+    }
+    return document as unknown as CoreRouterLinkTarget;
   }
 
   private parse(target: string): RouteContext {
@@ -152,6 +211,46 @@ export class CoreRouter<T = unknown> {
   private hashTarget(hash: string): string {
     const value = hash.replace(/^#/, "").trim();
     return value === "" ? "/" : value;
+  }
+
+  private isPlainLeftClick(event: CoreRouterLinkEvent): boolean {
+    return (event.button ?? 0) === 0 &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      !event.shiftKey;
+  }
+
+  private extractHref(target: unknown): string | null {
+    if (!target || typeof target !== "object") {
+      return null;
+    }
+
+    const candidate = target as {
+      href?: unknown;
+      getAttribute?: (name: string) => string | null;
+      closest?: (selector: string) => unknown;
+    };
+
+    if (typeof candidate.href === "string" && candidate.href.trim() !== "") {
+      return candidate.href;
+    }
+
+    if (typeof candidate.getAttribute === "function") {
+      const href = candidate.getAttribute("href");
+      if (href) {
+        return href;
+      }
+    }
+
+    if (typeof candidate.closest === "function") {
+      const closest = candidate.closest("a[href]");
+      if (closest && closest !== target) {
+        return this.extractHref(closest);
+      }
+    }
+
+    return null;
   }
 
   private routeKey(scheme: string, path: string): string {

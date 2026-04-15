@@ -115,3 +115,38 @@ Deno.test("CoreRouter attach reacts to hash changes", async () => {
   detach();
   assert(listener === undefined, "detach should remove the listener");
 });
+
+Deno.test("CoreRouter intercepts core:// anchor clicks", async () => {
+  let prevented = false;
+  const router = new CoreRouter({
+    bridge: {
+      dispatch(path) {
+        return path;
+      },
+    },
+  });
+
+  const linkEvent = {
+    button: 0,
+    defaultPrevented: false,
+    preventDefault() {
+      prevented = true;
+    },
+    target: {
+      getAttribute(name: string) {
+        return name === "href" ? "core://agent?tab=team" : null;
+      },
+    },
+  };
+
+  const result = await router.handleLinkEvent(linkEvent);
+
+  assert(prevented, "core links should prevent the browser default");
+  assert(result?.handled, "core links should be handled by the router");
+  assertEquals(result?.path, "agent", "core links should strip the scheme");
+  assertEquals(
+    result?.query.get("tab"),
+    "team",
+    "core link queries should be preserved",
+  );
+});
