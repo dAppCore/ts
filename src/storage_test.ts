@@ -303,6 +303,36 @@ Deno.test("CoreOPFS getFileHandle(create) materialises the file", async () => {
   );
 });
 
+Deno.test("CoreOPFS create walks parent directories", async () => {
+  const mkdirs: string[] = [];
+  const bridge: CoreStorageBridge = {
+    ...createBridge(),
+    fs: {
+      async read() {
+        return null;
+      },
+      async write() {},
+      async delete() {},
+      async list() {
+        return [];
+      },
+      async mkdir(_origin, path) {
+        mkdirs.push(path);
+      },
+    },
+  };
+  const opfs = new CoreOPFS("https://example.com", bridge);
+
+  await opfs.getFileHandle("notes/archive/todo.txt", { create: true });
+  await opfs.getDirectoryHandle("images/raw", { create: true });
+
+  assertEquals(
+    mkdirs,
+    ["notes", "notes/archive", "images", "images/raw"],
+    "OPFS should materialise parent directories before nested entries",
+  );
+});
+
 Deno.test("injectStoragePolyfills exposes browser-style getters", () => {
   const bridge = createBridge();
   const target = { navigator: {}, document: {} };

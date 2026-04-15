@@ -668,13 +668,17 @@ export class CoreStorageBucketManager {
 
   async keys(): Promise<string[]> {
     const buckets = this.requireBridge();
-    if (buckets.keys) {
-      const remote = await buckets.keys(this.origin);
-      if (remote.length > 0 || this.buckets.size === 0) {
-        return remote;
-      }
+    const local = Array.from(this.buckets.keys());
+    if (!buckets.keys) {
+      return local;
     }
-    return Array.from(this.buckets.keys());
+
+    const remote = await buckets.keys(this.origin);
+    const merged = new Set<string>(remote);
+    for (const bucket of local) {
+      merged.add(bucket);
+    }
+    return Array.from(merged);
   }
 
   async delete(name: string): Promise<void> {
@@ -735,7 +739,7 @@ export class CoreOPFS {
   ): Promise<CoreOPFS> {
     const nextPath = joinOPFSPath(this.path, name);
     if (options.create ?? false) {
-      await this.requireBridge().mkdir(this.origin, nextPath);
+      await ensureOPFSDirectories(this.requireBridge(), this.origin, nextPath);
     }
     return new CoreOPFS(this.origin, this.bridge, nextPath);
   }
@@ -747,6 +751,7 @@ export class CoreOPFS {
     const path = joinOPFSPath(this.path, name);
     if (options.create ?? false) {
       const fs = this.requireBridge();
+      await ensureOPFSDirectories(fs, this.origin, parentOPFSPath(path));
       const existing = await fs.read(this.origin, path);
       if (existing === null) {
         await fs.write(this.origin, path, "");
@@ -978,6 +983,27 @@ function normaliseRequest(
 function joinOPFSPath(base: string, name: string): string {
   const segments = [...splitPath(base), ...splitPath(name)];
   return segments.join("/");
+}
+
+function parentOPFSPath(path: string): string {
+  const segments = splitPath(path);
+  if (segments.length <= 1) {
+    return "";
+  }
+  return segments.slice(0, -1).join("/");
+}
+
+async function ensureOPFSDirectories(
+  bridge: CoreFileBridge,
+  origin: string,
+  path: string,
+): Promise<void> {
+  const segments = splitPath(path);
+  let current = "";
+  for (const segment of segments) {
+    current = current ? `${current}/${segment}` : segment;
+    await bridge.mkdir(origin, current);
+  }
 }
 
 function splitPath(value: string): string[] {
