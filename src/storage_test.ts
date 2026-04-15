@@ -91,15 +91,23 @@ function createBridge(): CoreStorageBridge {
       },
       async set(origin, cookie) {
         const values = cookies.get(origin) ?? [];
-        const next = values.filter((value) => value.name !== cookie.name);
+        const next = values.filter((value) =>
+          value.name !== cookie.name ||
+          value.path !== cookie.path ||
+          value.domain !== cookie.domain
+        );
         next.push(cookie);
         cookies.set(origin, next);
       },
-      async delete(origin, name) {
+      async delete(origin, name, options?: Pick<CoreCookieRecord, "path" | "domain">) {
         const values = cookies.get(origin) ?? [];
         cookies.set(
           origin,
-          values.filter((value) => value.name !== name),
+          values.filter((value) =>
+            value.name !== name ||
+            (options?.path !== undefined && value.path !== options.path) ||
+            (options?.domain !== undefined && value.domain !== options.domain)
+          ),
         );
       },
     },
@@ -269,6 +277,44 @@ Deno.test("injectStoragePolyfills exposes browser-style getters", () => {
   assert(polyfills.localStorage instanceof CoreLocalStorage, "polyfill should return the storage helper");
 });
 
+Deno.test("injectStoragePolyfills exposes synchronous storage facades", () => {
+  const bridge = createBridge();
+  const target = { navigator: {}, document: {} } as Record<string, unknown> & {
+    localStorage?: {
+      length: number;
+      getItem(key: string): string | null;
+      setItem(key: string, value: string): void;
+      removeItem(key: string): void;
+      clear(): void;
+    };
+    sessionStorage?: {
+      length: number;
+      getItem(key: string): string | null;
+      setItem(key: string, value: string): void;
+      removeItem(key: string): void;
+      clear(): void;
+    };
+  };
+
+  injectStoragePolyfills("https://example.com", bridge, { target });
+
+  target.localStorage?.setItem("theme", "dark");
+  target.sessionStorage?.setItem("step", "3");
+
+  assertEquals(
+    target.localStorage?.getItem("theme"),
+    "dark",
+    "localStorage should expose a synchronous browser-style facade",
+  );
+  assertEquals(
+    target.sessionStorage?.getItem("step"),
+    "3",
+    "sessionStorage should expose a synchronous browser-style facade",
+  );
+  assertEquals(target.localStorage?.length, 1, "localStorage facade should count keys");
+  assertEquals(target.sessionStorage?.length, 1, "sessionStorage facade should count keys");
+});
+
 Deno.test("document.cookie reflects optimistic writes", async () => {
   let gateResolve: (() => void) | undefined;
   const gate = new Promise<void>((resolve) => {
@@ -305,6 +351,23 @@ Deno.test("document.cookie reflects optimistic writes", async () => {
 
   gateResolve?.();
   await pending;
+});
+
+Deno.test("CoreCookieJar.delete respects path and domain scoping", async () => {
+  const bridge = createBridge();
+  const jar = new CoreCookieJar("https://example.com", bridge);
+
+  await jar.refresh("/settings/profile", true);
+  await jar.set("session_id=root; Path=/; Secure");
+  await jar.set("session_id=settings; Path=/settings; Secure");
+
+  await jar.delete("session_id", { path: "/" });
+
+  assertEquals(
+    jar.snapshot(),
+    "session_id=settings",
+    "cookie deletion should honour path scoping",
+  );
 });
 
 Deno.test("CoreCookieJar keeps secure cookies out of insecure snapshots", async () => {

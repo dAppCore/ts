@@ -140,6 +140,15 @@ export interface CoreStoragePolyfills {
   storage: CoreNavigatorStorage;
 }
 
+interface BrowserStorageFacade {
+  readonly length: number;
+  key(index: number): string | null;
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+  clear(): void;
+}
+
 export interface CoreIndexedDBDatabase {
   origin: string;
   name: string;
@@ -180,6 +189,73 @@ export class CoreLocalStorage {
   async clear(): Promise<void> {
     await this.bridge.store.clear(this.namespace);
   }
+}
+
+function createStorageFacade(storage: CoreLocalStorage): BrowserStorageFacade {
+  type StorageSource = CoreLocalStorage & {
+    bridge: CoreStorageBridge;
+    namespace: string;
+  };
+
+  const source = storage as unknown as StorageSource;
+  const cache = new Map<string, string>();
+  let hydrated = false;
+  let hydration: Promise<void> | null = null;
+
+  const hydrate = (): Promise<void> => {
+    if (hydration) {
+      return hydration;
+    }
+
+    hydration = (async () => {
+      const keys = await source.bridge.store.list(source.namespace);
+      cache.clear();
+      for (const key of keys) {
+        const value = await source.bridge.store.get(source.namespace, key);
+        if (value !== null) {
+          cache.set(key, value);
+        }
+      }
+      hydrated = true;
+    })();
+
+    return hydration;
+  };
+
+  void hydrate();
+
+  return {
+    get length(): number {
+      return cache.size;
+    },
+    key(index: number): string | null {
+      return Array.from(cache.keys())[index] ?? null;
+    },
+    getItem(key: string): string | null {
+      if (!hydrated && cache.size === 0) {
+        void hydrate();
+      }
+      return cache.get(key) ?? null;
+    },
+    setItem(key: string, value: string): void {
+      cache.set(key, value);
+      void source.bridge.store.set(source.namespace, key, value).catch(() => {
+        // Keep the optimistic in-memory view available even if the bridge fails.
+      });
+    },
+    removeItem(key: string): void {
+      cache.delete(key);
+      void source.bridge.store.delete(source.namespace, key).catch(() => {
+        // Keep the optimistic in-memory view available even if the bridge fails.
+      });
+    },
+    clear(): void {
+      cache.clear();
+      void source.bridge.store.clear(source.namespace).catch(() => {
+        // Keep the optimistic in-memory view available even if the bridge fails.
+      });
+    },
+  };
 }
 
 export class CoreSessionStorage extends CoreLocalStorage {
@@ -568,14 +644,16 @@ export function injectStoragePolyfills(
     bridge,
     options.sessionId ?? "default",
   );
+  const localStorageFacade = createStorageFacade(localStorage);
+  const sessionStorageFacade = createStorageFacade(sessionStorage);
   const indexedDB = new CoreIndexedDB(origin, bridge);
   const cookies = new CoreCookieJar(origin, bridge);
   const caches = new CoreCacheStorage(origin, bridge);
   const storageBuckets = new CoreStorageBucketManager(origin, bridge);
   const storage = new CoreNavigatorStorage(origin, bridge, storageBuckets);
 
-  defineGetter(target, "localStorage", () => localStorage);
-  defineGetter(target, "sessionStorage", () => sessionStorage);
+  defineGetter(target, "localStorage", () => localStorageFacade);
+  defineGetter(target, "sessionStorage", () => sessionStorageFacade);
   defineGetter(target, "indexedDB", () => indexedDB);
   defineGetter(target, "caches", () => caches);
 
@@ -787,9 +865,16 @@ function removeCookie(
   name: string,
   options?: Pick<CoreCookieRecord, "path" | "domain">,
 ): CoreCookieRecord[] {
-  return cookies.filter((cookie) =>
-    cookie.name !== name ||
-    (options?.path !== undefined && cookie.path !== options.path) ||
-    (options?.domain !== undefined && cookie.domain !== options.domain)
-  );
+  return cookies.filter((cookie) => {
+    if (cookie.name !== name) {
+      return true;
+    }
+    if (options?.path !== undefined && cookie.path !== options.path) {
+      return true;
+    }
+    if (options?.domain !== undefined && cookie.domain !== options.domain) {
+      return true;
+    }
+    return false;
+  });
 }
