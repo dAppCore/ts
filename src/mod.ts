@@ -2,6 +2,7 @@ export * from "./electron.ts";
 export * from "./events.ts";
 export * from "./auth.ts";
 export * from "./dev.ts";
+export * from "./runtime.ts";
 export * from "./options.ts";
 export * from "./result.ts";
 export * from "./i18n.ts";
