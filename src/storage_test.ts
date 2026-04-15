@@ -2,6 +2,7 @@ import {
   CoreCookieJar,
   CoreLocalStorage,
   CoreSessionStorage,
+  CoreIndexedDBRequest,
   CoreStorageBucketManager,
   CoreOPFS,
   injectStoragePolyfills,
@@ -242,6 +243,30 @@ Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", a
   assertEquals(deleted, true, "cache storage should delete opened caches");
   assertEquals(bucket.name, "photos", "bucket manager should open buckets");
   assertEquals(bucketNames.length, 0, "bucket manager should delete buckets");
+});
+
+Deno.test("CoreIndexedDB.open behaves like an awaitable request", async () => {
+  const bridge = createBridge();
+  const indexedDB = injectStoragePolyfills("https://example.com", bridge, {
+    target: { navigator: {}, document: {} },
+  }).indexedDB;
+
+  const request = indexedDB.open("myapp", 2);
+  assert(
+    request instanceof CoreIndexedDBRequest,
+    "open should return an IndexedDB request object",
+  );
+
+  let successFired = false;
+  request.onsuccess = () => {
+    successFired = true;
+  };
+
+  const database = await request;
+  assert(successFired, "request should fire onsuccess");
+  assertEquals(database.name, "myapp", "database name should round-trip");
+  assertEquals(database.version, 2, "database version should round-trip");
+  assertEquals(request.result?.name, "myapp", "request.result should be populated");
 });
 
 Deno.test("CoreOPFS rejects parent traversal", async () => {

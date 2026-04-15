@@ -24,6 +24,15 @@ func (s *Sidecar) Start(ctx context.Context, args ...string) error {
 		return fmt.Errorf("coredeno: mkdir %s: %w", sockDir, err)
 	}
 
+	if s.opts.DenoSocketPath != "" {
+		denoSockDir := filepath.Dir(s.opts.DenoSocketPath)
+		if denoSockDir != "" && denoSockDir != "." {
+			if err := os.MkdirAll(denoSockDir, 0700); err != nil {
+				return fmt.Errorf("coredeno: mkdir %s: %w", denoSockDir, err)
+			}
+		}
+	}
+
 	// Remove stale Deno socket (the Core socket is managed by ListenGRPC)
 	if s.opts.DenoSocketPath != "" {
 		os.Remove(s.opts.DenoSocketPath)

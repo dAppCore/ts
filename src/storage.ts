@@ -156,6 +156,123 @@ export interface CoreIndexedDBDatabase {
   raw: unknown;
 }
 
+export interface CoreIndexedDBRequestEvent<T> {
+  readonly type: "success" | "error";
+  readonly target: CoreIndexedDBRequest<T>;
+}
+
+export type CoreIndexedDBRequestHandler<T> = (
+  event: CoreIndexedDBRequestEvent<T>,
+) => void | Promise<void>;
+
+export class CoreIndexedDBRequest<T> implements PromiseLike<T> {
+  readyState: "pending" | "done" = "pending";
+  result: T | null = null;
+  error: unknown = null;
+  onsuccess: CoreIndexedDBRequestHandler<T> | null = null;
+  onerror: CoreIndexedDBRequestHandler<T> | null = null;
+
+  private readonly listeners = new Map<
+    "success" | "error",
+    Set<CoreIndexedDBRequestHandler<T>>
+  >();
+  private readonly promise: Promise<T>;
+  private resolvePromise!: (value: T) => void;
+  private rejectPromise!: (reason: unknown) => void;
+
+  constructor() {
+    this.promise = new Promise<T>((resolve, reject) => {
+      this.resolvePromise = resolve;
+      this.rejectPromise = reject;
+    });
+    void this.promise.catch(() => undefined);
+  }
+
+  then<TResult1 = T, TResult2 = never>(
+    onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+  ): Promise<TResult1 | TResult2> {
+    return this.promise.then(onfulfilled, onrejected);
+  }
+
+  catch<TResult = never>(
+    onrejected?: ((reason: unknown) => TResult | PromiseLike<TResult>) | null,
+  ): Promise<T | TResult> {
+    return this.promise.catch(onrejected);
+  }
+
+  finally(onfinally?: (() => void) | null): Promise<T> {
+    return this.promise.finally(onfinally ?? undefined);
+  }
+
+  addEventListener(
+    type: "success" | "error",
+    handler: CoreIndexedDBRequestHandler<T>,
+  ): void {
+    this.bucket(type).add(handler);
+  }
+
+  removeEventListener(
+    type: "success" | "error",
+    handler: CoreIndexedDBRequestHandler<T>,
+  ): void {
+    this.listeners.get(type)?.delete(handler);
+  }
+
+  resolve(value: T): void {
+    if (this.readyState === "done") {
+      return;
+    }
+    this.readyState = "done";
+    this.result = value;
+    const event = this.createEvent("success");
+    void this.onsuccess?.(event);
+    void this.emit("success", event).catch(() => undefined);
+    this.resolvePromise(value);
+  }
+
+  reject(error: unknown): void {
+    if (this.readyState === "done") {
+      return;
+    }
+    this.readyState = "done";
+    this.error = error;
+    const event = this.createEvent("error");
+    void this.onerror?.(event);
+    void this.emit("error", event).catch(() => undefined);
+    this.rejectPromise(error);
+  }
+
+  private bucket(type: "success" | "error"): Set<CoreIndexedDBRequestHandler<T>> {
+    let set = this.listeners.get(type);
+    if (!set) {
+      set = new Set();
+      this.listeners.set(type, set);
+    }
+    return set;
+  }
+
+  private createEvent(type: "success" | "error"): CoreIndexedDBRequestEvent<T> {
+    return {
+      type,
+      target: this,
+    };
+  }
+
+  private async emit(
+    type: "success" | "error",
+    event: CoreIndexedDBRequestEvent<T>,
+  ): Promise<void> {
+    const set = this.listeners.get(type);
+    if (!set) {
+      return;
+    }
+    for (const handler of Array.from(set)) {
+      await handler(event);
+    }
+  }
+}
+
 const namespacePrefix = "corets";
 
 export class CoreLocalStorage {
@@ -281,10 +398,18 @@ export class CoreIndexedDB {
     private readonly bridge: CoreStorageBridge,
   ) {}
 
-  async open(name: string, version?: number): Promise<CoreIndexedDBDatabase> {
+  open(name: string, version?: number): CoreIndexedDBRequest<CoreIndexedDBDatabase> {
+    const request = new CoreIndexedDBRequest<CoreIndexedDBDatabase>();
     const indexedDB = this.requireBridge("indexedDB", this.bridge.indexedDB);
-    const raw = await indexedDB.open(this.origin, name, version);
-    return { origin: this.origin, name, version, raw };
+    void (async () => {
+      try {
+        const raw = await indexedDB.open(this.origin, name, version);
+        request.resolve({ origin: this.origin, name, version, raw });
+      } catch (error) {
+        request.reject(error);
+      }
+    })();
+    return request;
   }
 
   async deleteDatabase(name: string): Promise<void> {
