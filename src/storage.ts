@@ -81,6 +81,14 @@ export interface StorageBucketOptions {
   persisted?: boolean;
 }
 
+export interface FileSystemGetDirectoryOptions {
+  create?: boolean;
+}
+
+export interface FileSystemGetFileOptions {
+  create?: boolean;
+}
+
 export interface CoreBucketBridge {
   open(
     origin: string,
@@ -259,10 +267,10 @@ export class CoreCookieJar {
       this.cachedCookies,
       this.origin,
       this.currentPath,
-      this.secureContext || (record.secure ?? false),
+      this.secureContext,
     );
     await this.requireBridge().set(this.origin, record);
-    await this.refresh(this.currentPath, this.secureContext || (record.secure ?? false));
+    await this.refresh(this.currentPath, this.secureContext);
   }
 
   async delete(
@@ -443,13 +451,21 @@ export class CoreOPFS {
     readonly path = "",
   ) {}
 
-  async getDirectoryHandle(name: string): Promise<CoreOPFS> {
+  async getDirectoryHandle(
+    name: string,
+    options: FileSystemGetDirectoryOptions = {},
+  ): Promise<CoreOPFS> {
     const nextPath = joinOPFSPath(this.path, name);
-    await this.requireBridge().mkdir(this.origin, nextPath);
+    if (options.create ?? false) {
+      await this.requireBridge().mkdir(this.origin, nextPath);
+    }
     return new CoreOPFS(this.origin, this.bridge, nextPath);
   }
 
-  async getFileHandle(name: string): Promise<CoreFileHandle> {
+  async getFileHandle(
+    name: string,
+    _options: FileSystemGetFileOptions = {},
+  ): Promise<CoreFileHandle> {
     return new CoreFileHandle(
       this.origin,
       this.bridge,

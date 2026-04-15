@@ -94,8 +94,9 @@ export class CoreElectronRuntime {
   inject(
     target: Record<string, unknown> = this.options.target ?? (globalThis as Record<string, unknown>),
   ): ElectronShim {
-    define(target, "electron", this.shim);
-    define(target, "require", buildRequireShim(this.shim));
+    const requireShim = buildRequireShim(this.shim);
+    defineGetter(target, "electron", () => this.shim);
+    defineGetter(target, "require", () => requireShim);
     return this.shim;
   }
 
@@ -173,8 +174,9 @@ export function injectElectronShim(
 ): ElectronShim {
   const target = options.target ?? (globalThis as Record<string, unknown>);
   const shim = buildElectronShim(bridge, options.fs, options.origin);
-  define(target, "electron", shim);
-  define(target, "require", buildRequireShim(shim));
+  const requireShim = buildRequireShim(shim);
+  defineGetter(target, "electron", () => shim);
+  defineGetter(target, "require", () => requireShim);
   return shim;
 }
 
@@ -235,26 +237,40 @@ function buildFileProxy(fsBridge: ElectronFileBridge | undefined, origin: string
 }
 
 function buildPathProxy(): ElectronPathProxy {
+  const platformPath = isWindowsPlatform() ? path.win32 : path.posix;
   return {
-    join: (...parts: string[]) => path.posix.join(...parts),
-    resolve: (...parts: string[]) => path.posix.resolve(...parts),
-    relative: (from: string, to: string) => path.posix.relative(from, to),
-    dirname: (filePath: string) => path.posix.dirname(filePath),
-    basename: (filePath: string, ext = "") => path.posix.basename(filePath, ext),
-    extname: (filePath: string) => path.posix.extname(filePath),
-    normalize: (filePath: string) => path.posix.normalize(filePath),
-    sep: path.posix.sep,
-    delimiter: path.posix.delimiter,
+    join: (...parts: string[]) => platformPath.join(...parts),
+    resolve: (...parts: string[]) => platformPath.resolve(...parts),
+    relative: (from: string, to: string) => platformPath.relative(from, to),
+    dirname: (filePath: string) => platformPath.dirname(filePath),
+    basename: (filePath: string, ext = "") => platformPath.basename(filePath, ext),
+    extname: (filePath: string) => platformPath.extname(filePath),
+    normalize: (filePath: string) => platformPath.normalize(filePath),
+    sep: platformPath.sep,
+    delimiter: platformPath.delimiter,
   };
 }
 
-function define(target: Record<string, unknown>, key: string, value: unknown): void {
+function defineGetter(
+  target: Record<string, unknown>,
+  key: string,
+  get: () => unknown,
+): void {
   Object.defineProperty(target, key, {
-    configurable: true,
+    configurable: false,
     enumerable: true,
-    value,
-    writable: true,
+    get,
   });
+}
+
+function isWindowsPlatform(): boolean {
+  if (typeof process !== "undefined" && typeof process.platform === "string") {
+    return process.platform === "win32";
+  }
+  if (typeof Deno !== "undefined" && typeof Deno.build?.os === "string") {
+    return Deno.build.os === "windows";
+  }
+  return path.sep === "\\";
 }
 
 function normaliseModuleName(module: string): string {

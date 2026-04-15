@@ -297,3 +297,17 @@ Deno.test("document.cookie reflects optimistic writes", async () => {
   gateResolve?.();
   await pending;
 });
+
+Deno.test("CoreCookieJar keeps secure cookies out of insecure snapshots", async () => {
+  const bridge = createBridge();
+  const jar = new CoreCookieJar("https://example.com", bridge);
+
+  await jar.refresh("/", false);
+  await jar.set("session_id=abc123; Path=/; Secure");
+
+  assertEquals(
+    jar.snapshot(),
+    "",
+    "secure cookies should not leak into insecure snapshots",
+  );
+});

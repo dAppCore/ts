@@ -33,9 +33,10 @@ Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
   assert(calls[2].channel === "gui.notification.send", "notification should use the bridge");
   assert(calls[3].channel === "gui.notification.send", "Notification class should use the bridge");
   assert(shim.fs.promises.readFile !== undefined, "fs.promises should be exposed");
+  const expectedPath = Deno.build.os === "windows" ? "\\var" : "/var";
   assert(
-    shim.path.resolve("/tmp", "..", "var") === "/var",
-    "path.resolve should behave like posix path resolution",
+    shim.path.resolve("/tmp", "..", "var") === expectedPath,
+    "path.resolve should follow the host platform",
   );
 });
 
@@ -89,6 +90,11 @@ Deno.test("Electron injector defines globals", () => {
     target: globalTarget,
   });
 
-  assert("electron" in globalTarget, "electron global should be injected");
-  assert("require" in globalTarget, "require global should be injected");
+  const electronDescriptor = Object.getOwnPropertyDescriptor(globalTarget, "electron");
+  const requireDescriptor = Object.getOwnPropertyDescriptor(globalTarget, "require");
+
+  assert(electronDescriptor?.get !== undefined, "electron global should be injected via a getter");
+  assert(requireDescriptor?.get !== undefined, "require global should be injected via a getter");
+  assert(electronDescriptor?.configurable === false, "electron global should be immutable");
+  assert(requireDescriptor?.configurable === false, "require global should be immutable");
 });
