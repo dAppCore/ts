@@ -1,6 +1,6 @@
 // DenoService JSON-RPC server — Go calls Deno for module lifecycle management.
-// Uses length-prefixed JSON over raw Unix socket (Deno's http2 server is broken).
-// Protocol: 4-byte big-endian length + JSON payload, newline-delimited.
+// Uses newline-delimited JSON over a raw Unix socket (Deno's http2 server is broken).
+// Requests may be legacy CoreTS envelopes or JSON-RPC 2.0 objects.
 
 import { ModuleRegistry } from "./modules.ts";
 
@@ -44,7 +44,7 @@ export async function startDenoServer(
 
           try {
             const req = JSON.parse(line);
-            const resp = await dispatch(req, registry);
+            const resp = formatResponse(req, await dispatch(req, registry));
             await writer.write(
               new TextEncoder().encode(JSON.stringify(resp) + "\n"),
             );
@@ -91,7 +91,10 @@ export async function startDenoServer(
 }
 
 interface RPCRequest {
+  jsonrpc?: "2.0";
+  id?: string | number | null;
   method: string;
+  params?: Record<string, unknown>;
   code?: string;
   entry_point?: string;
   permissions?: { read?: string[]; write?: string[]; net?: string[]; run?: string[] };
@@ -123,4 +126,34 @@ async function dispatch(
     default:
       return { error: `unknown method: ${req.method}` };
   }
+}
+
+function isJsonRpcRequest(req: RPCRequest): boolean {
+  return req.jsonrpc === "2.0" || req.id !== undefined;
+}
+
+function formatResponse(
+  req: RPCRequest,
+  response: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!isJsonRpcRequest(req)) {
+    return response;
+  }
+
+  if (typeof response.error === "string") {
+    return {
+      jsonrpc: "2.0",
+      id: req.id ?? null,
+      error: {
+        code: -32601,
+        message: response.error,
+      },
+    };
+  }
+
+  return {
+    jsonrpc: "2.0",
+    id: req.id ?? null,
+    result: response,
+  };
 }

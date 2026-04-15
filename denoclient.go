@@ -93,10 +93,30 @@ func (c *DenoClient) call(req map[string]any, timeout time.Duration) (map[string
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
 
-	if errMsg, ok := resp["error"].(string); ok && errMsg != "" {
+	if errMsg := rpcErrorMessage(resp["error"]); errMsg != "" {
 		return nil, fmt.Errorf("deno: %s", errMsg)
 	}
+	if result, ok := resp["result"].(map[string]any); ok {
+		return result, nil
+	}
 	return resp, nil
+}
+
+func rpcErrorMessage(value any) string {
+	switch errValue := value.(type) {
+	case string:
+		return errValue
+	case map[string]any:
+		if message, ok := errValue["message"].(string); ok && message != "" {
+			return message
+		}
+		if message, ok := errValue["error"].(string); ok && message != "" {
+			return message
+		}
+	case nil:
+		return ""
+	}
+	return ""
 }
 
 // Ping checks whether the Deno sidecar JSON-RPC server is responsive.
