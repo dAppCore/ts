@@ -44,7 +44,7 @@ export async function startDenoServer(
 
           try {
             const req = JSON.parse(line);
-            const resp = dispatch(req, registry);
+            const resp = await dispatch(req, registry);
             await writer.write(
               new TextEncoder().encode(JSON.stringify(resp) + "\n"),
             );
@@ -98,7 +98,7 @@ interface RPCRequest {
   process_id?: string;
 }
 
-function dispatch(
+async function dispatch(
   req: RPCRequest,
   registry: ModuleRegistry,
 ): Record<string, unknown> {
@@ -106,12 +106,12 @@ function dispatch(
     case "Ping":
       return { ok: true };
     case "LoadModule": {
-      registry.load(
+      const result = await registry.load(
         req.code ?? "",
         req.entry_point ?? "",
         req.permissions ?? {},
       );
-      return { ok: true, error: "" };
+      return result;
     }
     case "UnloadModule": {
       const ok = registry.unload(req.code ?? "");

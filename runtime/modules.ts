@@ -26,6 +26,17 @@ interface Module {
   permissions: ModulePermissions;
   status: ModuleStatus;
   worker?: Worker;
+  loadWaiter?: LoadWaiter;
+}
+
+interface LoadWaiter {
+  resolve(value: LoadResult): void;
+  promise: Promise<LoadResult>;
+}
+
+export interface LoadResult {
+  ok: boolean;
+  error?: string;
 }
 
 export class ModuleRegistry {
@@ -41,18 +52,26 @@ export class ModuleRegistry {
     this.coreClient = client;
   }
 
-  load(code: string, entryPoint: string, permissions: ModulePermissions): void {
+  load(code: string, entryPoint: string, permissions: ModulePermissions): Promise<LoadResult> {
     // Terminate existing worker if reloading
     const existing = this.modules.get(code);
     if (existing?.worker) {
       existing.worker.terminate();
     }
+    if (existing?.loadWaiter) {
+      existing.loadWaiter.resolve({
+        ok: false,
+        error: "module reloaded before previous initialisation completed",
+      });
+    }
 
+    const loadWaiter = this.createLoadWaiter();
     const mod: Module = {
       code,
       entryPoint,
       permissions,
       status: "LOADING",
+      loadWaiter,
     };
     this.modules.set(code, mod);
 
@@ -103,9 +122,12 @@ export class ModuleRegistry {
         mod.status = msg.ok ? "RUNNING" : "ERRORED";
         if (msg.ok) {
           console.error(`CoreDeno: module running: ${code}`);
+          mod.loadWaiter?.resolve({ ok: true });
         } else {
           console.error(`CoreDeno: module error: ${code}: ${msg.error}`);
+          mod.loadWaiter?.resolve({ ok: false, error: msg.error ?? "module failed to load" });
         }
+        mod.loadWaiter = undefined;
         return;
       }
 
@@ -136,9 +158,12 @@ export class ModuleRegistry {
     worker.onerror = (e: ErrorEvent) => {
       mod.status = "ERRORED";
       console.error(`CoreDeno: worker error: ${code}: ${e.message}`);
+      mod.loadWaiter?.resolve({ ok: false, error: e.message });
+      mod.loadWaiter = undefined;
     };
 
     console.error(`CoreDeno: module loading: ${code}`);
+    return loadWaiter.promise;
   }
 
   private async dispatchRPC(
@@ -189,6 +214,13 @@ export class ModuleRegistry {
   unload(code: string): boolean {
     const mod = this.modules.get(code);
     if (!mod) return false;
+    if (mod.loadWaiter) {
+      mod.loadWaiter.resolve({
+        ok: false,
+        error: "module unloaded before initialisation completed",
+      });
+      mod.loadWaiter = undefined;
+    }
     if (mod.worker) {
       mod.worker.terminate();
       mod.worker = undefined;
@@ -207,6 +239,14 @@ export class ModuleRegistry {
       code: m.code,
       status: m.status,
     }));
+  }
+
+  private createLoadWaiter(): LoadWaiter {
+    let resolve!: (value: LoadResult) => void;
+    const promise = new Promise<LoadResult>((res) => {
+      resolve = res;
+    });
+    return { resolve, promise };
   }
 }
 
