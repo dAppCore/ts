@@ -238,7 +238,7 @@ func (s *Service) OnShutdown(_ context.Context) error {
 	s.closeProcessRunner()
 
 	// Stop sidecar
-	_ = s.sidecar.Stop()
+	s.stopSidecar()
 
 	// Stop gRPC listener
 	if s.grpcCancel != nil {
@@ -247,9 +247,7 @@ func (s *Service) OnShutdown(_ context.Context) error {
 	}
 
 	// Close store
-	if s.store != nil {
-		s.store.Close()
-	}
+	s.closeStore()
 
 	s.grpcCancel = nil
 	s.grpcDone = nil
@@ -395,7 +393,7 @@ func (s *Service) cleanupStartupState() {
 		}
 	}
 
-	_ = s.sidecar.Stop()
+	s.stopSidecar()
 
 	if s.grpcCancel != nil {
 		s.grpcCancel()
@@ -404,9 +402,7 @@ func (s *Service) cleanupStartupState() {
 		}
 	}
 
-	if s.store != nil {
-		s.store.Close()
-	}
+	s.closeStore()
 
 	s.grpcCancel = nil
 	s.grpcDone = nil
@@ -415,6 +411,20 @@ func (s *Service) cleanupStartupState() {
 	s.grpcServer = nil
 	s.installer = nil
 	s.store = nil
+}
+
+func (s *Service) stopSidecar() {
+	if s == nil || s.sidecar == nil {
+		return
+	}
+	_ = s.sidecar.Stop()
+}
+
+func (s *Service) closeStore() {
+	if s == nil || s.store == nil {
+		return
+	}
+	s.store.Close()
 }
 
 func (s *Service) rememberModule(code, entryPoint string, perms ModulePermissions) {
