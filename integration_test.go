@@ -60,6 +60,15 @@ func fileOpsModulePath(t *testing.T) string {
 	return abs
 }
 
+// localeModulePath returns the absolute path to runtime/testdata/locale-module.ts.
+func localeModulePath(t *testing.T) string {
+	t.Helper()
+	abs, err := filepath.Abs("runtime/testdata/locale-module.ts")
+	require.NoError(t, err)
+	require.FileExists(t, abs)
+	return abs
+}
+
 func TestIntegration_FullBoot_Good(t *testing.T) {
 	denoPath := findDeno(t)
 
@@ -238,6 +247,92 @@ permissions:
 	assert.True(t, pingResp.Ok)
 
 	// Clean shutdown
+	err = svc.OnShutdown(context.Background())
+	assert.NoError(t, err)
+	assert.False(t, svc.sidecar.IsRunning(), "Deno sidecar should be stopped")
+}
+
+func TestIntegration_Tier2_LocaleBridge_Good(t *testing.T) {
+	denoPath := findDeno(t)
+
+	tmpDir := t.TempDir()
+	sockPath := filepath.Join(tmpDir, "core.sock")
+	denoSockPath := filepath.Join(tmpDir, "deno.sock")
+
+	// Write a manifest and shared locale file.
+	coreDir := filepath.Join(tmpDir, ".core")
+	require.NoError(t, os.MkdirAll(coreDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(coreDir, "view.yml"), []byte(`
+code: locale-test
+name: Locale Test
+version: "1.0"
+permissions:
+  read: ["./data/"]
+`), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(coreDir, "locales"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(coreDir, "locales", "en.json"), []byte(`{"hello":"world"}`), 0644))
+
+	entryPoint := runtimeEntryPoint(t)
+	modPath := localeModulePath(t)
+
+	opts := Options{
+		DenoPath:       denoPath,
+		SocketPath:     sockPath,
+		DenoSocketPath: denoSockPath,
+		AppRoot:        tmpDir,
+		StoreDBPath:    ":memory:",
+		SidecarArgs:    []string{"run", "-A", "--unstable-worker-options", entryPoint},
+	}
+
+	c := core.New()
+
+	factory := NewServiceFactory(opts)
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err = svc.OnStartup(ctx)
+	require.NoError(t, err)
+
+	loadResp, err := svc.LoadModule("locale-mod", modPath, ModulePermissions{
+		Read: []string{filepath.Dir(modPath) + "/"},
+	})
+	require.NoError(t, err)
+	assert.True(t, loadResp.Ok)
+
+	require.Eventually(t, func() bool {
+		resp, err := svc.DenoClient().ModuleStatus("locale-mod")
+		return err == nil && resp.Status == "RUNNING"
+	}, 10*time.Second, 100*time.Millisecond, "module should be RUNNING")
+
+	conn, err := grpc.NewClient(
+		"unix://"+sockPath,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	coreClient := pb.NewCoreServiceClient(conn)
+	require.Eventually(t, func() bool {
+		foundResp, foundErr := coreClient.StoreGet(ctx, &pb.StoreGetRequest{
+			Group: "locale-mod", Key: "found",
+		})
+		contentResp, contentErr := coreClient.StoreGet(ctx, &pb.StoreGetRequest{
+			Group: "locale-mod", Key: "content",
+		})
+		return foundErr == nil && contentErr == nil &&
+			foundResp.Found && contentResp.Found &&
+			foundResp.Value == "true" &&
+			contentResp.Value == `{"hello":"world"}`
+	}, 5*time.Second, 100*time.Millisecond, "module should read shared locale content")
+
+	unloadResp, err := svc.DenoClient().UnloadModule("locale-mod")
+	require.NoError(t, err)
+	assert.True(t, unloadResp.Ok)
+
 	err = svc.OnShutdown(context.Background())
 	assert.NoError(t, err)
 	assert.False(t, svc.sidecar.IsRunning(), "Deno sidecar should be stopped")

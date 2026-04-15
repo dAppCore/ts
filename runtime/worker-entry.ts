@@ -23,6 +23,9 @@ function rpc(
 // Typed core object passed to module's init() function.
 // Each method maps to a CoreService gRPC call relayed through the parent.
 const core = {
+  localeGet(locale: string) {
+    return rpc("LocaleGet", { locale });
+  },
   storeGet(group: string, key: string) {
     return rpc("StoreGet", { group, key });
   },

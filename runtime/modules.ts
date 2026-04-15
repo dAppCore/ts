@@ -173,6 +173,8 @@ export class ModuleRegistry {
   ): Promise<unknown> {
     const c = this.coreClient!;
     switch (method) {
+      case "LocaleGet":
+        return c.localeGet(params.locale as string);
       case "StoreGet":
         return c.storeGet(
           params.group as string,
