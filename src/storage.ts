@@ -91,6 +91,28 @@ export interface FileSystemGetFileOptions {
   create?: boolean;
 }
 
+export interface CoreCreateWritableOptions {
+  keepExistingData?: boolean;
+}
+
+export type CoreWritableFileWriteData =
+  | string
+  | Uint8Array
+  | ArrayBufferLike
+  | {
+    type: "write";
+    data: string | Uint8Array | ArrayBufferLike;
+    position?: number;
+  }
+  | {
+    type: "seek";
+    position: number;
+  }
+  | {
+    type: "truncate";
+    size: number;
+  };
+
 export interface CoreBucketBridge {
   open(
     origin: string,
@@ -286,7 +308,9 @@ export class CoreIndexedDBRequest<T> implements PromiseLike<T> {
     this.rejectPromise(error);
   }
 
-  private bucket(type: "success" | "error"): Set<CoreIndexedDBRequestHandler<T>> {
+  private bucket(
+    type: "success" | "error",
+  ): Set<CoreIndexedDBRequestHandler<T>> {
     let set = this.listeners.get(type);
     if (!set) {
       set = new Set();
@@ -473,7 +497,10 @@ export class CoreIndexedDB {
     private readonly bridge: CoreStorageBridge,
   ) {}
 
-  open(name: string, version?: number): CoreIndexedDBRequest<CoreIndexedDBDatabase> {
+  open(
+    name: string,
+    version?: number,
+  ): CoreIndexedDBRequest<CoreIndexedDBDatabase> {
     const request = new CoreIndexedDBRequest<CoreIndexedDBDatabase>();
     void (async () => {
       try {
@@ -698,11 +725,15 @@ export class CoreIndexedDBObjectStore {
   }
 
   put(value: unknown, key?: unknown): CoreIndexedDBRequest<unknown> {
-    return this.createRequest<unknown>(() => this.writeRecord(value, key, false));
+    return this.createRequest<unknown>(() =>
+      this.writeRecord(value, key, false)
+    );
   }
 
   add(value: unknown, key?: unknown): CoreIndexedDBRequest<unknown> {
-    return this.createRequest<unknown>(() => this.writeRecord(value, key, true));
+    return this.createRequest<unknown>(() =>
+      this.writeRecord(value, key, true)
+    );
   }
 
   delete(key: unknown): CoreIndexedDBRequest<void> {
@@ -717,7 +748,9 @@ export class CoreIndexedDBObjectStore {
     });
   }
 
-  openCursor(query?: unknown): CoreIndexedDBRequest<CoreIndexedDBCursor | null> {
+  openCursor(
+    query?: unknown,
+  ): CoreIndexedDBRequest<CoreIndexedDBCursor | null> {
     return this.createRequest<CoreIndexedDBCursor | null>(() => {
       const entries = this.listEntries(query);
       if (entries.length === 0) {
@@ -891,7 +924,9 @@ export class CoreIndexedDBIndex {
   ) {}
 
   get(key: unknown): CoreIndexedDBRequest<unknown | null> {
-    return this.createRequest<unknown | null>(() => this.findMatches(key)[0] ?? null);
+    return this.createRequest<unknown | null>(() =>
+      this.findMatches(key)[0] ?? null
+    );
   }
 
   getAll(key?: unknown, count?: number): CoreIndexedDBRequest<unknown[]> {
@@ -918,9 +953,11 @@ export class CoreIndexedDBIndex {
         matches.push(this.cloneValue(value));
         continue;
       }
-      if (indexValues.some((candidate) =>
-        this.encodeKey(candidate) === this.encodeKey(key)
-      )) {
+      if (
+        indexValues.some((candidate) =>
+          this.encodeKey(candidate) === this.encodeKey(key)
+        )
+      ) {
         matches.push(this.cloneValue(value));
       }
     }
@@ -940,7 +977,10 @@ export class CoreIndexedDBIndex {
     return extracted === undefined ? [] : [extracted];
   }
 
-  private extractIndexValue(value: unknown, keyPath: string): unknown | undefined {
+  private extractIndexValue(
+    value: unknown,
+    keyPath: string,
+  ): unknown | undefined {
     if (!isRecord(value)) {
       return undefined;
     }
@@ -993,7 +1033,9 @@ export class CoreIndexedDBIndex {
 
 export class CoreIndexedDBCursor {
   constructor(
-    private readonly createRequest: <T>(factory: () => T) => CoreIndexedDBRequest<T>,
+    private readonly createRequest: <T>(
+      factory: () => T,
+    ) => CoreIndexedDBRequest<T>,
     private readonly decodeKey: (encodedKey: string) => unknown,
     private readonly entries: Array<[string, unknown]>,
     private index: number,
@@ -1163,7 +1205,9 @@ export class CoreCache {
     return matches;
   }
 
-  async delete(request: string | URL | Request | CoreCacheRequest): Promise<boolean> {
+  async delete(
+    request: string | URL | Request | CoreCacheRequest,
+  ): Promise<boolean> {
     return this.requireBridge().delete(
       this.origin,
       this.name,
@@ -1171,8 +1215,16 @@ export class CoreCache {
     );
   }
 
-  async keys(): Promise<CoreCacheRequest[]> {
-    return this.requireBridge().keys(this.origin, this.name);
+  async keys(
+    request?: string | URL | Request | CoreCacheRequest,
+  ): Promise<CoreCacheRequest[]> {
+    const requests = await this.requireBridge().keys(this.origin, this.name);
+    if (request === undefined) {
+      return requests;
+    }
+
+    const target = normaliseRequest(request);
+    return requests.filter((entry) => requestMatches(entry, target));
   }
 
   private requireBridge(): CoreCacheBridge {
@@ -1264,6 +1316,10 @@ export class CoreCacheStorage {
 
     const remote = await bridge.names(this.origin);
     return Array.from(new Set([...local, ...remote]));
+  }
+
+  async has(cacheName: string): Promise<boolean> {
+    return (await this.keys()).includes(cacheName);
   }
 
   private requireBridge(): CoreCacheBridge {
@@ -1376,6 +1432,14 @@ export class CoreFileHandle {
     readonly path: string,
   ) {}
 
+  get kind(): "file" {
+    return "file";
+  }
+
+  get name(): string {
+    return lastPathSegment(this.path);
+  }
+
   async getFile(): Promise<string | null> {
     return this.requireBridge().read(this.origin, this.path);
   }
@@ -1386,6 +1450,29 @@ export class CoreFileHandle {
 
   async remove(): Promise<void> {
     await this.requireBridge().delete(this.origin, this.path);
+  }
+
+  async isSameEntry(handle: CoreFileHandle | CoreOPFS): Promise<boolean> {
+    return handle instanceof CoreFileHandle &&
+      handle.path === this.path &&
+      handle.originValue() === this.origin;
+  }
+
+  // Example:
+  //   const writer = await fileHandle.createWritable();
+  //   await writer.write("hello");
+  //   await writer.close();
+  async createWritable(
+    options: CoreCreateWritableOptions = {},
+  ): Promise<CoreWritableFileStream> {
+    const existing = options.keepExistingData === false
+      ? ""
+      : (await this.getFile()) ?? "";
+    return new CoreWritableFileStream(this, existing);
+  }
+
+  originValue(): string {
+    return this.origin;
   }
 
   private requireBridge(): CoreFileBridge {
@@ -1402,6 +1489,14 @@ export class CoreOPFS {
     private readonly bridge: CoreStorageBridge,
     readonly path = "",
   ) {}
+
+  get kind(): "directory" {
+    return "directory";
+  }
+
+  get name(): string {
+    return lastPathSegment(this.path);
+  }
 
   async getDirectoryHandle(
     name: string,
@@ -1431,11 +1526,34 @@ export class CoreOPFS {
   }
 
   async removeEntry(name: string): Promise<void> {
-    await this.requireBridge().delete(this.origin, joinOPFSPath(this.path, name));
+    await this.requireBridge().delete(
+      this.origin,
+      joinOPFSPath(this.path, name),
+    );
   }
 
   async entries(): Promise<string[]> {
     return this.requireBridge().list(this.origin, this.path);
+  }
+
+  async isSameEntry(handle: CoreFileHandle | CoreOPFS): Promise<boolean> {
+    return handle instanceof CoreOPFS &&
+      handle.path === this.path &&
+      handle.originValue() === this.origin;
+  }
+
+  // Example:
+  //   const child = await root.getFileHandle("data.txt", { create: true });
+  //   const relative = await root.resolve(child);
+  //   // -> ["data.txt"]
+  async resolve(handle: CoreFileHandle | CoreOPFS): Promise<string[] | null> {
+    const targetPath = handle.path;
+    const relativePath = descendantPath(this.path, targetPath);
+    return relativePath === null ? null : splitPath(relativePath);
+  }
+
+  originValue(): string {
+    return this.origin;
   }
 
   private requireBridge(): CoreFileBridge {
@@ -1482,7 +1600,9 @@ export class CoreNavigatorStorage {
 
   private bucketQuota(): number | undefined {
     const quota = this.bucketsQuota();
-    return quota.length === 0 ? undefined : quota.reduce((total, value) => total + value, 0);
+    return quota.length === 0
+      ? undefined
+      : quota.reduce((total, value) => total + value, 0);
   }
 
   private hasPersistedBucket(): boolean {
@@ -1497,6 +1617,91 @@ export class CoreNavigatorStorage {
       }
     }
     return quotas;
+  }
+}
+
+export class CoreWritableFileStream {
+  private buffer: string;
+  private position: number;
+  private closed = false;
+
+  constructor(
+    private readonly handle: CoreFileHandle,
+    initialContent: string,
+  ) {
+    this.buffer = initialContent;
+    this.position = initialContent.length;
+  }
+
+  async write(data: CoreWritableFileWriteData): Promise<void> {
+    this.assertOpen();
+
+    if (typeof data === "object" && data !== null && "type" in data) {
+      switch (data.type) {
+        case "seek":
+          this.seek(data.position);
+          return;
+        case "truncate":
+          this.truncate(data.size);
+          return;
+        case "write":
+          this.writeAt(data.data, data.position);
+          return;
+      }
+    }
+
+    this.writeAt(data);
+  }
+
+  async seek(position: number): Promise<void> {
+    this.assertOpen();
+    if (!Number.isInteger(position) || position < 0) {
+      throw new Error("write position must be a non-negative integer");
+    }
+    this.position = position;
+  }
+
+  async truncate(size: number): Promise<void> {
+    this.assertOpen();
+    if (!Number.isInteger(size) || size < 0) {
+      throw new Error("truncate size must be a non-negative integer");
+    }
+    this.buffer = this.buffer.slice(0, size).padEnd(size, "\0");
+    this.position = Math.min(this.position, size);
+  }
+
+  async close(): Promise<void> {
+    this.assertOpen();
+    await this.handle.write(this.buffer);
+    this.closed = true;
+  }
+
+  async abort(): Promise<void> {
+    this.closed = true;
+  }
+
+  private writeAt(
+    data: string | Uint8Array | ArrayBufferLike,
+    position = this.position,
+  ): void {
+    if (!Number.isInteger(position) || position < 0) {
+      throw new Error("write position must be a non-negative integer");
+    }
+
+    const chunk = normaliseWritableChunk(data);
+    const padded = position > this.buffer.length
+      ? this.buffer.padEnd(position, "\0")
+      : this.buffer;
+    this.buffer = `${padded.slice(0, position)}${chunk}${
+      padded.slice(position + chunk.length)
+    }`;
+    this.position = position + chunk.length;
+  }
+
+  private assertOpen(): void {
+    if (this.closed) {
+      throw new Error("writable file stream is closed");
+    }
   }
 }
 
@@ -1576,7 +1781,9 @@ export function parseCookie(
   serialized: string,
   origin: string,
 ): CoreCookieRecord {
-  const parts = serialized.split(";").map((part) => part.trim()).filter(Boolean);
+  const parts = serialized.split(";").map((part) => part.trim()).filter(
+    Boolean,
+  );
   if (parts.length === 0) {
     throw new Error("cookie string is empty");
   }
@@ -1660,8 +1867,7 @@ function cookieContextFromOrigin(origin: string): {
     const url = new URL(origin, "http://localhost/");
     return {
       path: url.pathname && url.pathname !== "" ? url.pathname : "/",
-      secure:
-        url.protocol !== "http:" &&
+      secure: url.protocol !== "http:" &&
         url.protocol !== "ws:" &&
         url.protocol !== "file:",
     };
@@ -1733,6 +1939,14 @@ async function responseToCacheRecord(
   };
 }
 
+function requestMatches(
+  candidate: CoreCacheRequest,
+  target: CoreCacheRequest,
+): boolean {
+  return candidate.url === target.url &&
+    (candidate.method ?? "GET") === (target.method ?? "GET");
+}
+
 function joinOPFSPath(base: string, name: string): string {
   const segments = [...splitPath(base), ...splitPath(name)];
   return segments.join("/");
@@ -1770,6 +1984,38 @@ function splitPath(value: string): string[] {
       }
       return segment;
     });
+}
+
+function lastPathSegment(path: string): string {
+  const segments = splitPath(path);
+  return segments[segments.length - 1] ?? "";
+}
+
+function descendantPath(basePath: string, targetPath: string): string | null {
+  const base = splitPath(basePath);
+  const target = splitPath(targetPath);
+
+  if (base.length > target.length) {
+    return null;
+  }
+  for (let index = 0; index < base.length; index += 1) {
+    if (base[index] !== target[index]) {
+      return null;
+    }
+  }
+  return target.slice(base.length).join("/");
+}
+
+function normaliseWritableChunk(
+  data: string | Uint8Array | ArrayBufferLike,
+): string {
+  if (typeof data === "string") {
+    return data;
+  }
+  if (data instanceof Uint8Array) {
+    return new TextDecoder().decode(data);
+  }
+  return new TextDecoder().decode(new Uint8Array(data));
 }
 
 function storageNamespace(origin: string, ...parts: string[]): string {
