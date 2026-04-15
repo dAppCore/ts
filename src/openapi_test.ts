@@ -2,6 +2,7 @@ import {
   buildOpenApiClient,
   collectOpenApiOperations,
   generateTypeScriptSdk,
+  createWailsOpenApiTransport,
   type OpenApiClientOptions,
   type OpenApiDocument,
 } from "./openapi.ts";
@@ -90,6 +91,40 @@ Deno.test("buildOpenApiClient resolves paths, queries, headers, and bodies", asy
   assertEquals(requests[0].headers["x-client"], "corets", "client headers should be merged into requests");
   assertEquals(requests[0].headers["x-trace"], "demo", "operation headers should be applied to requests");
   assertEquals(requests[1].body && typeof requests[1].body === "object", true, "request bodies should be forwarded");
+});
+
+Deno.test("createWailsOpenApiTransport routes requests through the bridge", async () => {
+  const calls: Array<{ channel: string; payload: unknown }> = [];
+  const transport = createWailsOpenApiTransport({
+    query(channel: string, payload: unknown) {
+      calls.push({ channel, payload });
+      return { ok: true, channel };
+    },
+  }, {
+    channelPrefix: "core.openapi",
+  });
+
+  const spec = demoSpec();
+  const client = buildOpenApiClient(spec, {
+    transport,
+  });
+
+  const getUser = client.getUser as (
+    input: { path: { id: string } },
+  ) => Promise<{ ok: boolean; channel: string }>;
+  const result = await getUser({ path: { id: "42" } });
+
+  assertEquals(result.ok, true, "the bridge transport should return the bridge result");
+  assertEquals(
+    calls[0].channel,
+    "core.openapi.getUser",
+    "desktop transports should route through a named bridge channel",
+  );
+  assertEquals(
+    (calls[0].payload as { operationId?: string }).operationId,
+    "getUser",
+    "the request context should include the operation id",
+  );
 });
 
 Deno.test("generateTypeScriptSdk emits a standalone client wrapper", () => {

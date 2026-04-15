@@ -98,6 +98,14 @@ export interface OpenApiTransport {
   request(context: OpenApiRequestContext): Promise<unknown> | unknown;
 }
 
+export interface WailsOpenApiBridge {
+  query(channel: string, ...args: unknown[]): Promise<unknown> | unknown;
+}
+
+export interface WailsOpenApiTransportOptions {
+  channelPrefix?: string;
+}
+
 export interface OpenApiClientOptions {
   baseURL?: string;
   transport?: OpenApiTransport;
@@ -140,6 +148,26 @@ export function buildOpenApiClient(
   }
 
   return client as OpenApiClient;
+}
+
+/**
+ * Example:
+ *   const transport = createWailsOpenApiTransport(wails, { channelPrefix: "core.openapi" });
+ *   const client = buildOpenApiClient(spec, { transport });
+ *
+ * Builds an OpenAPI transport that routes requests through the Wails bridge
+ * instead of HTTP, which is the desktop-mode path described in the RFC.
+ */
+export function createWailsOpenApiTransport(
+  bridge: WailsOpenApiBridge,
+  options: WailsOpenApiTransportOptions = {},
+): OpenApiTransport {
+  const channelPrefix = options.channelPrefix ?? "openapi";
+  return {
+    request(context: OpenApiRequestContext): Promise<unknown> | unknown {
+      return bridge.query(`${channelPrefix}.${context.operationId}`, context);
+    },
+  };
 }
 
 export function collectOpenApiOperations(
