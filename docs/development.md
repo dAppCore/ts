@@ -106,7 +106,7 @@ The Deno side loads the `.proto` file dynamically at runtime via `@grpc/proto-lo
 ## Project Structure
 
 ```
-forge.lthn.ai/core/ts/
+dappco.re/go/core/ts/
 ├── coredeno.go          # Options, Permissions, Sidecar types
 ├── coredeno_test.go     # Unit tests for options and sidecar creation
 ├── lifecycle.go         # Sidecar Start/Stop/IsRunning
@@ -188,7 +188,7 @@ All operations are relayed through the Go gRPC server and checked against the mo
 ## Dependency Graph
 
 ```
-forge.lthn.ai/core/ts
+dappco.re/go/core/ts
 ├── forge.lthn.ai/core/go        (DI container, ServiceRuntime)
 ├── forge.lthn.ai/core/go-io     (Sandboxed Medium, MockMedium, Store)
 ├── forge.lthn.ai/core/go-scm    (Manifest loading, Marketplace installer)

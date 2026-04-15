@@ -5,11 +5,11 @@ description: Go service that manages a Deno TypeScript runtime as a sandboxed si
 
 # CoreTS
 
-CoreTS (`forge.lthn.ai/core/ts`) is a Go package that embeds a **Deno TypeScript runtime** as a managed sidecar process. It provides a bidirectional communication bridge between Go and Deno over Unix sockets, with fine-grained permission gating for filesystem, key-value store, and process operations.
+CoreTS (`dappco.re/go/core/ts`) is a Go package that embeds a **Deno TypeScript runtime** as a managed sidecar process. It provides a bidirectional communication bridge between Go and Deno over Unix sockets, with fine-grained permission gating for filesystem, key-value store, and process operations.
 
 The Go side exposes a **CoreService** gRPC server that Deno calls for I/O. The Deno side exposes a **DenoService** JSON-RPC server that Go calls for module lifecycle management. TypeScript modules run in isolated Deno Workers with per-module permission sandboxing.
 
-**Module path:** `forge.lthn.ai/core/ts`
+**Module path:** `dappco.re/go/core/ts`
 
 **Licence:** EUPL-1.2
 
@@ -21,7 +21,7 @@ Register CoreTS as a service in a Core application:
 import (
     "context"
     core "forge.lthn.ai/core/go/pkg/core"
-    ts "forge.lthn.ai/core/ts"
+    ts "dappco.re/go/core/ts"
 )
 
 opts := ts.Options{

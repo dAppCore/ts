@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -66,6 +67,34 @@ func TestStart_Good_EnvPassedToChild(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "child process should receive CORE_SOCKET=%s", sockPath)
+}
+
+func TestStart_Good_AppRootSetsWorkingDirectory(t *testing.T) {
+	baseDir := t.TempDir()
+	appRoot := filepath.Join(baseDir, "app")
+	require.NoError(t, os.MkdirAll(appRoot, 0755))
+
+	outPath := filepath.Join(baseDir, "cwd.txt")
+	sc := NewSidecar(Options{
+		DenoPath:   "sh",
+		SocketPath: filepath.Join(baseDir, "core.sock"),
+		AppRoot:    appRoot,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	err := sc.Start(ctx, "-c", "pwd > "+outPath+"; sleep 10")
+	require.NoError(t, err)
+	defer sc.Stop()
+
+	require.Eventually(t, func() bool {
+		data, err := os.ReadFile(outPath)
+		if err != nil {
+			return false
+		}
+		return strings.TrimSpace(string(data)) == appRoot
+	}, 2*time.Second, 10*time.Millisecond, "child should run with AppRoot as its working directory")
 }
 
 func TestStart_Good_DenoSocketEnv(t *testing.T) {

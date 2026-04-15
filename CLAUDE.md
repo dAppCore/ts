@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CoreTS (`forge.lthn.ai/core/ts`) is a Go package that manages a Deno 2.x TypeScript runtime as a sandboxed sidecar process. It provides bidirectional communication between Go and Deno over Unix sockets using gRPC (Go→Deno calls) and JSON-RPC (Deno→Go calls), with fine-grained permission gating for filesystem, key-value store, and process operations.
+CoreTS (`dappco.re/go/core/ts`) is a Go package that manages a Deno 2.x TypeScript runtime as a sandboxed sidecar process. It provides bidirectional communication between Go and Deno over Unix sockets using gRPC (Go→Deno calls) and JSON-RPC (Deno→Go calls), with fine-grained permission gating for filesystem, key-value store, and process operations.
 
 This is a **library package** — no standalone binary. It compiles as part of applications that import it.
 

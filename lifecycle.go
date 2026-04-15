@@ -31,10 +31,16 @@ func (s *Sidecar) Start(ctx context.Context, args ...string) error {
 
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	s.cmd = exec.CommandContext(s.ctx, s.opts.DenoPath, args...)
+	if s.opts.AppRoot != "" {
+		s.cmd.Dir = s.opts.AppRoot
+	}
 	s.cmd.Env = append(os.Environ(),
 		"CORE_SOCKET="+s.opts.SocketPath,
 		"DENO_SOCKET="+s.opts.DenoSocketPath,
 	)
+	if s.opts.AppRoot != "" {
+		s.cmd.Env = append(s.cmd.Env, "PWD="+s.opts.AppRoot)
+	}
 	s.done = make(chan struct{})
 	s.exitErr = nil
 	if err := s.cmd.Start(); err != nil {
