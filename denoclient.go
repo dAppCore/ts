@@ -33,15 +33,29 @@ func DialDeno(socketPath string) (*DenoClient, error) {
 
 // Close closes the underlying connection.
 func (c *DenoClient) Close() error {
-	if c == nil || c.conn == nil {
+	if c == nil {
 		return nil
 	}
-	return c.conn.Close()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.conn == nil {
+		return nil
+	}
+
+	err := c.conn.Close()
+	c.conn = nil
+	c.reader = nil
+	return err
 }
 
 func (c *DenoClient) call(req map[string]any) (map[string]any, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.conn == nil || c.reader == nil {
+		return nil, fmt.Errorf("deno: client closed")
+	}
 
 	if err := c.conn.SetDeadline(time.Now().Add(denoClientTimeout)); err != nil {
 		return nil, fmt.Errorf("deadline: %w", err)
