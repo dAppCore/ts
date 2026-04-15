@@ -37,9 +37,13 @@ func (p Permissions) Flags() []string {
 	var flags []string
 	if len(p.Read) > 0 {
 		flags = append(flags, fmt.Sprintf("--allow-read=%s", strings.Join(p.Read, ",")))
+	} else {
+		flags = append(flags, "--deny-read")
 	}
 	if len(p.Write) > 0 {
 		flags = append(flags, fmt.Sprintf("--allow-write=%s", strings.Join(p.Write, ",")))
+	} else {
+		flags = append(flags, "--deny-write")
 	}
 	if len(p.Net) > 0 {
 		flags = append(flags, fmt.Sprintf("--allow-net=%s", strings.Join(p.Net, ",")))
