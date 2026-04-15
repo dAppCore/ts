@@ -9,7 +9,12 @@ import { createCoreClient, type CoreClient } from "./client.ts";
 import { CoreDevServer } from "./dev.ts";
 import { startDenoServer, type DenoServer } from "./server.ts";
 import { ModuleRegistry } from "./modules.ts";
-import { setLocaleBridge } from "../src/i18n.ts";
+import {
+  loadSharedLocale,
+  resolvePreferredLocale,
+  setLocale,
+  setLocaleBridge,
+} from "../src/i18n.ts";
 
 // Read required environment variables
 const coreSocket = Deno.env.get("CORE_SOCKET");
@@ -125,6 +130,17 @@ let coreClient: CoreClient | null = null;
       return runtimeClient.localeGet(locale);
     },
   });
+
+  const preferredLocale = resolvePreferredLocale({
+    CORE_LOCALE: Deno.env.get("CORE_LOCALE") ?? undefined,
+    LANG: Deno.env.get("LANG") ?? undefined,
+  });
+  setLocale(preferredLocale);
+  try {
+    await loadSharedLocale(preferredLocale, { bridge: runtimeClient });
+  } catch (err) {
+    console.error(`CoreDeno: locale preload unavailable: ${err}`);
+  }
 
   // Verify store round-trip so the bootstrap checks both transport and I/O.
   const healthGroup = "corets.health";

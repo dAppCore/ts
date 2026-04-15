@@ -9,6 +9,7 @@ import {
   pastTense,
   pluralize,
   loadSharedLocale,
+  resolvePreferredLocale,
   registerTranslations,
   setLocaleBridge,
   setLocale,
@@ -150,4 +151,27 @@ Deno.test("loadSharedLocale loads from a bridge and locale directory discovery",
     setLocale("en");
     await Deno.remove(root, { recursive: true });
   }
+});
+
+Deno.test("resolvePreferredLocale normalises environment locale values", () => {
+  assertEquals(
+    resolvePreferredLocale({ CORE_LOCALE: "en_US.UTF-8" }),
+    "en_US",
+    "CORE_LOCALE should keep the language and region",
+  );
+  assertEquals(
+    resolvePreferredLocale({ LANG: "C.UTF-8" }),
+    "en",
+    "the C locale should fall back to English",
+  );
+  assertEquals(
+    resolvePreferredLocale({ LANG: "POSIX" }),
+    "en",
+    "POSIX should fall back to English",
+  );
+  assertEquals(
+    resolvePreferredLocale({}),
+    "en",
+    "missing locale data should fall back to English",
+  );
 });

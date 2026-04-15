@@ -399,6 +399,21 @@ export async function loadSharedLocale(
   return false;
 }
 
+export interface PreferredLocaleEnv {
+  CORE_LOCALE?: string;
+  LANG?: string;
+}
+
+// Resolves the preferred locale from environment-style inputs.
+export function resolvePreferredLocale(env: PreferredLocaleEnv = {}): string {
+  const raw = env.CORE_LOCALE?.trim() || env.LANG?.trim() || "en";
+  const candidate = raw.split(".")[0].split("@")[0].trim();
+  if (candidate === "" || candidate === "C" || candidate === "POSIX") {
+    return "en";
+  }
+  return candidate;
+}
+
 export function setLocale(locale: string): void {
   defaultI18n.setLocale(locale);
 }
