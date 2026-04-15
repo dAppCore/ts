@@ -37,6 +37,8 @@ All Go code lives in a single `ts` package (no subpackages).
 
 **Module isolation:** Each module runs in a Deno Worker. The I/O bridge pattern is: module calls core API → worker-entry intercepts via postMessage RPC → ModuleRegistry relays to CoreClient gRPC → Go Server checks permissions with injected module code → result returns through same chain.
 
+**Browser runtime:** The client-side library lives in `src/` and is exported from `src/mod.ts`. It provides the browser-facing pieces from the RFC: storage polyfills, Electron shim, router, i18n, components, WASM loading, events, and result helpers.
+
 ### Key Go types
 - `Options` — Configuration (DenoPath, SocketPath, AppRoot, etc.)
 - `Sidecar` — Manages Deno child process lifecycle
@@ -51,6 +53,18 @@ All Go code lives in a single `ts` package (no subpackages).
 - `server.ts` — DenoService JSON-RPC server
 - `worker-entry.ts` — Worker bootstrap, I/O bridge to parent
 - `polyfill.ts` — Deno 2.x http2/grpc-js compatibility fixes (must import before @grpc/grpc-js)
+
+### Key TypeScript files (src/)
+- `mod.ts` — Browser runtime entry point that re-exports the client-side helpers
+- `storage.ts` — Storage, cookie, cache, bucket, and OPFS polyfills
+- `electron.ts` — Electron compatibility shim and `require()` proxy
+- `router.ts` — Hash router with `core://` scheme handling
+- `i18n.ts` — Shared translation API (`_`, `T`, `S`)
+- `components.ts` — Web Component base classes
+- `wasm.ts` — go-html WASM loader
+- `events.ts` — Event bus helpers
+- `result.ts` — Result helpers
+- `options.ts` — Shared runtime option types
 
 ## Code Conventions
 

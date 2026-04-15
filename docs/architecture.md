@@ -255,6 +255,24 @@ Must be imported before `@grpc/grpc-js`. Patches three Deno 2.x Node.js compatib
 2. Already-connected Unix sockets never emit `connect`, causing http2 session hangs -- intercepts `net.connect` to create fresh sockets
 3. Deno's http2 client never fires `remoteSettings` -- emits it synthetically after `connect`
 
+## Browser Runtime Package
+
+The browser-side CoreTS library lives in `src/` and is exported from `src/mod.ts`. It is separate from the Deno sidecar runtime under `runtime/`.
+
+The browser package provides:
+
+- `events.ts` -- event bus primitives shared by the browser runtime
+- `result.ts` -- `ok` / `err` result helpers
+- `options.ts` -- shared runtime options shape
+- `i18n.ts` -- stable translation helpers (`_`, `T`, `S`)
+- `components.ts` -- Web Component base classes and registration helpers
+- `wasm.ts` -- go-html WASM loading helpers
+- `router.ts` -- hash router with `core://` scheme handling
+- `storage.ts` -- storage, cookie, cache, bucket, and OPFS polyfills
+- `electron.ts` -- Electron compatibility shim and `require()` proxy
+
+These modules are designed for injection into a WebView before page JavaScript runs, which keeps browser runtime behaviour aligned with the RFC's CoreGUI integration model.
+
 ## Module Manifest
 
 Modules declare their identity and permissions in `.core/view.yml`:

@@ -61,6 +61,8 @@ On startup, the service will:
 | `runtime/worker-entry.ts` | TypeScript | Worker bootstrap -- loaded as entry point for every module Worker |
 | `runtime/polyfill.ts` | TypeScript | Patches for Deno 2.x http2/grpc-js compatibility issues |
 | `runtime/testdata/` | TypeScript | Test fixtures for integration tests |
+| `src/mod.ts` | TypeScript | Browser/runtime entry point that re-exports the client-side helpers |
+| `src/*.ts` | TypeScript | Browser runtime modules: i18n, components, events, router, storage, Electron shim, WASM loader, and shared result/options types |
 
 ## Go Source Files
 

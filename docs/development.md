@@ -138,6 +138,17 @@ dappco.re/go/core/ts/
     ├── deno.lock            # Lock file
     └── testdata/
         └── test-module.ts   # Test fixture for integration tests
+src/
+    ├── mod.ts               # Browser/runtime entry point
+    ├── storage.ts           # Storage polyfills and bridge contracts
+    ├── electron.ts          # Electron compatibility shim
+    ├── router.ts            # Hash router with core:// handling
+    ├── i18n.ts              # Shared i18n API
+    ├── components.ts        # Web Component base classes
+    ├── wasm.ts              # go-html WASM loader
+    ├── events.ts            # Event bus
+    ├── result.ts            # Result helpers
+    └── options.ts           # Shared option types
 ```
 
 ## Writing a TypeScript Module
