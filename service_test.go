@@ -295,6 +295,51 @@ permissions:
 	assert.Contains(t, err.Error(), "manifest")
 }
 
+func TestService_OnStartup_Bad_CleansUpState(t *testing.T) {
+	tmpDir := shortSocketDir(t)
+	sockPath := filepath.Join(tmpDir, "core.sock")
+
+	coreDir := filepath.Join(tmpDir, ".core")
+	require.NoError(t, os.MkdirAll(coreDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(coreDir, "view.yml"), []byte(`
+code: cleanup-app
+name: Cleanup App
+version: "1.0"
+sign: invalid-signature
+permissions:
+  read: ["./data/"]
+`), 0644))
+
+	pub, _, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+
+	opts := Options{
+		DenoPath:    "sleep",
+		SocketPath:  sockPath,
+		AppRoot:     tmpDir,
+		StoreDBPath: ":memory:",
+		SidecarArgs: []string{"60"},
+		PublicKey:   pub,
+	}
+
+	c := core.New()
+	factory := NewServiceFactory(opts)
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	err = svc.OnStartup(context.Background())
+	require.Error(t, err)
+
+	assert.Nil(t, svc.store)
+	assert.Nil(t, svc.grpcServer)
+	assert.Nil(t, svc.grpcCancel)
+	assert.Nil(t, svc.grpcDone)
+	assert.Nil(t, svc.denoClient)
+	assert.Nil(t, svc.installer)
+	assert.False(t, svc.sidecar.IsRunning())
+}
+
 func TestService_OnStartup_Good_RestartsExitedSidecar(t *testing.T) {
 	tmpDir := shortSocketDir(t)
 	sockPath := filepath.Join(tmpDir, "core.sock")

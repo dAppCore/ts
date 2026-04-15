@@ -33,6 +33,9 @@ func DialDeno(socketPath string) (*DenoClient, error) {
 
 // Close closes the underlying connection.
 func (c *DenoClient) Close() error {
+	if c == nil || c.conn == nil {
+		return nil
+	}
 	return c.conn.Close()
 }
 

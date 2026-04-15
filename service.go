@@ -56,16 +56,23 @@ func NewServiceFactory(opts Options) func(*core.Core) (any, error) {
 // OnStartup boots the CoreDeno subsystem. Called by the framework on app startup.
 //
 // Sequence: medium → store → server → manifest → gRPC listener → sidecar.
-func (s *Service) OnStartup(ctx context.Context) error {
+func (s *Service) OnStartup(ctx context.Context) (err error) {
+	defer func() {
+		if err != nil {
+			s.cleanupStartupState()
+		}
+	}()
+
 	opts := s.effectiveOptions()
 
 	// 1. Create sandboxed Medium (or mock if no AppRoot)
 	var medium io.Medium
 	if opts.AppRoot != "" {
-		var err error
-		medium, err = io.NewSandboxed(opts.AppRoot)
-		if err != nil {
-			return fmt.Errorf("coredeno: medium: %w", err)
+		var mediumErr error
+		medium, mediumErr = io.NewSandboxed(opts.AppRoot)
+		if mediumErr != nil {
+			err = fmt.Errorf("coredeno: medium: %w", mediumErr)
+			return err
 		}
 	} else {
 		medium = io.NewMockMedium()
@@ -76,10 +83,10 @@ func (s *Service) OnStartup(ctx context.Context) error {
 	if dbPath == "" {
 		dbPath = ":memory:"
 	}
-	var err error
 	s.store, err = store.New(dbPath)
 	if err != nil {
-		return fmt.Errorf("coredeno: store: %w", err)
+		err = fmt.Errorf("coredeno: store: %w", err)
+		return err
 	}
 
 	// 3. Create gRPC Server
@@ -89,7 +96,8 @@ func (s *Service) OnStartup(ctx context.Context) error {
 	if opts.AppRoot != "" {
 		m, loadErr := loadAppManifest(medium, opts.PublicKey)
 		if loadErr != nil {
-			return fmt.Errorf("coredeno: manifest: %w", loadErr)
+			err = fmt.Errorf("coredeno: manifest: %w", loadErr)
+			return err
 		}
 		if m != nil {
 			s.grpcServer.RegisterModule(m)
@@ -104,45 +112,34 @@ func (s *Service) OnStartup(ctx context.Context) error {
 		s.grpcDone <- ListenGRPC(grpcCtx, opts.SocketPath, s.grpcServer)
 	}()
 
-	// cleanupGRPC tears down the listener on early-return errors.
-	cleanupGRPC := func(wait bool) {
-		grpcCancel()
-		if wait {
-			<-s.grpcDone
-		}
-	}
-
 	// 6. Start sidecar (if args provided)
 	if len(opts.SidecarArgs) > 0 {
 		supervisorCtx, supervisorCancel := context.WithCancel(ctx)
 		s.supervisorCancel = supervisorCancel
-		s.supervisorDone = make(chan struct{})
 
 		// Wait for core socket so sidecar can connect to our gRPC server.
-		if err := waitForGRPCSocket(ctx, opts.SocketPath, 5*time.Second, s.grpcDone); err != nil {
-			supervisorCancel()
-			cleanupGRPC(false)
-			return fmt.Errorf("coredeno: core socket: %w", err)
+		waitErr := waitForGRPCSocket(ctx, opts.SocketPath, 5*time.Second, s.grpcDone)
+		if waitErr != nil {
+			err = fmt.Errorf("coredeno: core socket: %w", waitErr)
+			return err
 		}
 
-		if err := s.sidecar.Start(supervisorCtx, opts.SidecarArgs...); err != nil {
-			supervisorCancel()
-			cleanupGRPC(true)
-			return fmt.Errorf("coredeno: sidecar: %w", err)
+		if startErr := s.sidecar.Start(supervisorCtx, opts.SidecarArgs...); startErr != nil {
+			err = fmt.Errorf("coredeno: sidecar: %w", startErr)
+			return err
 		}
 
 		// 7. Wait for Deno's server and connect as client
 		if s.shouldConnectDeno() {
-			dc, err := dialDenoReady(supervisorCtx, opts.DenoSocketPath, 10*time.Second)
-			if err != nil {
-				_ = s.sidecar.Stop()
-				supervisorCancel()
-				cleanupGRPC(true)
-				return fmt.Errorf("coredeno: deno client: %w", err)
+			dc, dialErr := dialDenoReady(supervisorCtx, opts.DenoSocketPath, 10*time.Second)
+			if dialErr != nil {
+				err = fmt.Errorf("coredeno: deno client: %w", dialErr)
+				return err
 			}
 			s.setDenoClient(dc)
 		}
 
+		s.supervisorDone = make(chan struct{})
 		go s.superviseSidecar(supervisorCtx)
 	}
 
@@ -152,18 +149,21 @@ func (s *Service) OnStartup(ctx context.Context) error {
 		s.installer = marketplace.NewInstaller(medium, modulesDir, s.store)
 
 		if s.denoClient != nil {
-			installed, listErr := s.installer.Installed()
-			if listErr == nil {
-				for _, mod := range installed {
-					perms := ModulePermissions{
-						Read:  mod.Permissions.Read,
-						Write: mod.Permissions.Write,
-						Net:   mod.Permissions.Net,
-						Run:   mod.Permissions.Run,
-					}
-					if _, err := s.LoadModule(mod.Code, mod.EntryPoint, perms); err != nil {
-						return fmt.Errorf("coredeno: autoload %s: %w", mod.Code, err)
-					}
+			installed, installedErr := s.installer.Installed()
+			if installedErr != nil {
+				err = fmt.Errorf("coredeno: installed modules: %w", installedErr)
+				return err
+			}
+			for _, mod := range installed {
+				perms := ModulePermissions{
+					Read:  mod.Permissions.Read,
+					Write: mod.Permissions.Write,
+					Net:   mod.Permissions.Net,
+					Run:   mod.Permissions.Run,
+				}
+				if _, loadErr := s.LoadModule(mod.Code, mod.EntryPoint, perms); loadErr != nil {
+					err = fmt.Errorf("coredeno: autoload %s: %w", mod.Code, loadErr)
+					return err
 				}
 			}
 		}
@@ -235,6 +235,15 @@ func (s *Service) OnShutdown(_ context.Context) error {
 	if s.store != nil {
 		s.store.Close()
 	}
+
+	s.grpcCancel = nil
+	s.grpcDone = nil
+	s.supervisorCancel = nil
+	s.supervisorDone = nil
+	s.denoClient = nil
+	s.grpcServer = nil
+	s.store = nil
+	s.installer = nil
 
 	return nil
 }
@@ -331,6 +340,38 @@ func (s *Service) setDenoClient(client *DenoClient) {
 
 func (s *Service) closeDenoClient() {
 	s.setDenoClient(nil)
+}
+
+func (s *Service) cleanupStartupState() {
+	s.closeDenoClient()
+
+	if s.supervisorCancel != nil {
+		s.supervisorCancel()
+		if s.supervisorDone != nil {
+			<-s.supervisorDone
+		}
+	}
+
+	_ = s.sidecar.Stop()
+
+	if s.grpcCancel != nil {
+		s.grpcCancel()
+		if s.grpcDone != nil {
+			<-s.grpcDone
+		}
+	}
+
+	if s.store != nil {
+		s.store.Close()
+	}
+
+	s.grpcCancel = nil
+	s.grpcDone = nil
+	s.supervisorCancel = nil
+	s.supervisorDone = nil
+	s.grpcServer = nil
+	s.installer = nil
+	s.store = nil
 }
 
 func (s *Service) rememberModule(code, entryPoint string, perms ModulePermissions) {
