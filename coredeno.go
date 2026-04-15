@@ -41,9 +41,13 @@ func (p Permissions) Flags() []string {
 	}
 	if len(p.Net) > 0 {
 		flags = append(flags, fmt.Sprintf("--allow-net=%s", strings.Join(p.Net, ",")))
+	} else {
+		flags = append(flags, "--deny-net")
 	}
 	if len(p.Run) > 0 {
 		flags = append(flags, fmt.Sprintf("--allow-run=%s", strings.Join(p.Run, ",")))
+	} else {
+		flags = append(flags, "--deny-run")
 	}
 	return flags
 }

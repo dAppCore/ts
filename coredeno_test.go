@@ -42,7 +42,7 @@ func TestSidecar_PermissionFlags_Good(t *testing.T) {
 func TestSidecar_PermissionFlags_Empty(t *testing.T) {
 	perms := Permissions{}
 	flags := perms.Flags()
-	assert.Empty(t, flags)
+	assert.Equal(t, []string{"--deny-net", "--deny-run"}, flags)
 }
 
 func TestOptions_AppRoot_Good(t *testing.T) {
