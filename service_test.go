@@ -25,6 +25,19 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+type manifestReadErrorMedium struct {
+	*io.MockMedium
+	path    string
+	readErr string
+}
+
+func (m *manifestReadErrorMedium) Read(path string) (string, error) {
+	if path == m.path {
+		return "", errors.New(m.readErr)
+	}
+	return m.MockMedium.Read(path)
+}
+
 func TestNewServiceFactory_Good(t *testing.T) {
 	opts := Options{
 		DenoPath:   "echo",
@@ -807,4 +820,293 @@ func TestService_OnStartup_Good_RestartsExitedSidecar(t *testing.T) {
 
 	err = svc.OnShutdown(context.Background())
 	require.NoError(t, err)
+}
+
+func TestLoadAppManifest_Good_VerifiesSignedManifest(t *testing.T) {
+	medium := io.NewMockMedium()
+	manifestDoc := &manifest.Manifest{
+		Code:    "signed-app",
+		Name:    "Signed App",
+		Version: "1.0",
+		Permissions: manifest.Permissions{
+			Read: []string{"./data/"},
+		},
+	}
+
+	pub, priv, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+	require.NoError(t, manifest.Sign(manifestDoc, priv))
+
+	yamlBytes, err := manifest.MarshalYAML(manifestDoc)
+	require.NoError(t, err)
+	medium.Files[".core/view.yaml"] = string(yamlBytes)
+
+	got, err := loadAppManifest(medium, pub)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "signed-app", got.Code)
+	assert.Equal(t, manifestDoc.Sign, got.Sign)
+}
+
+func TestLoadAppManifest_Bad_ReadError(t *testing.T) {
+	medium := &manifestReadErrorMedium{
+		MockMedium: io.NewMockMedium(),
+		path:       ".core/view.yaml",
+		readErr:    "manifest disk error",
+	}
+	medium.Files[medium.path] = "code: broken"
+
+	got, err := loadAppManifest(medium, nil)
+	require.Error(t, err)
+	assert.Nil(t, got)
+	assert.Contains(t, err.Error(), "read .core/view.yaml")
+	assert.Contains(t, err.Error(), "manifest disk error")
+}
+
+func TestLoadAppManifest_Ugly_VerifyMismatch(t *testing.T) {
+	medium := io.NewMockMedium()
+	manifestDoc := &manifest.Manifest{
+		Code:    "signed-app",
+		Name:    "Signed App",
+		Version: "1.0",
+	}
+
+	_, priv, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+	require.NoError(t, manifest.Sign(manifestDoc, priv))
+
+	yamlBytes, err := manifest.MarshalYAML(manifestDoc)
+	require.NoError(t, err)
+	medium.Files[".core/view.yaml"] = string(yamlBytes)
+
+	badPub, _, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+
+	got, err := loadAppManifest(medium, badPub)
+	require.Error(t, err)
+	assert.Nil(t, got)
+	assert.Contains(t, err.Error(), "verify .core/view.yaml")
+}
+
+func TestService_LoadModule_Good_RegistersManifest(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	client := &DenoClient{
+		conn:   left,
+		reader: bufio.NewReader(left),
+	}
+
+	scriptJSONRPC(t, right, func(req map[string]any) {
+		assert.Equal(t, "LoadModule", req["method"])
+		assert.Equal(t, "good-mod", req["code"])
+		assert.Equal(t, "file:///module.ts", req["entry_point"])
+	}, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"result": map[string]any{
+			"ok": true,
+		},
+	})
+
+	medium := io.NewMockMedium()
+	medium.Files["./data/test.txt"] = "hello"
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { st.Close() })
+
+	svc := &Service{
+		grpcServer: NewServer(medium, st),
+	}
+	svc.setDenoClient(client)
+
+	resp, err := svc.LoadModule("good-mod", "file:///module.ts", ModulePermissions{
+		Read: []string{"./data/"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.True(t, resp.Ok)
+
+	fileResp, err := svc.GRPCServer().FileRead(context.Background(), &pb.FileReadRequest{
+		Path:       "./data/test.txt",
+		ModuleCode: "good-mod",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "hello", fileResp.Content)
+}
+
+func TestService_LoadModule_Bad_NoClient(t *testing.T) {
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { st.Close() })
+
+	svc := &Service{
+		grpcServer: NewServer(io.NewMockMedium(), st),
+	}
+
+	_, err = svc.LoadModule("good-mod", "file:///module.ts", ModulePermissions{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Deno client not connected")
+}
+
+func TestService_ModuleStatus_Good(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	client := &DenoClient{
+		conn:   left,
+		reader: bufio.NewReader(left),
+	}
+
+	scriptJSONRPC(t, right, func(req map[string]any) {
+		assert.Equal(t, "ModuleStatus", req["method"])
+		assert.Equal(t, "mod-1", req["code"])
+	}, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"result": map[string]any{
+			"code":   "mod-1",
+			"status": "RUNNING",
+		},
+	})
+
+	svc := &Service{}
+	svc.setDenoClient(client)
+
+	resp, err := svc.ModuleStatus("mod-1")
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Equal(t, "mod-1", resp.Code)
+	assert.Equal(t, "RUNNING", resp.Status)
+}
+
+func TestService_ModuleStatus_Bad_NoClient(t *testing.T) {
+	svc := &Service{}
+
+	_, err := svc.ModuleStatus("mod-1")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Deno client not connected")
+}
+
+func TestService_ReloadModules_Good(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	client := &DenoClient{
+		conn:   left,
+		reader: bufio.NewReader(left),
+	}
+
+	scriptJSONRPC(t, right, func(req map[string]any) {
+		assert.Equal(t, "ReloadModules", req["method"])
+	}, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"result": map[string]any{
+			"ok": true,
+			"results": []any{
+				map[string]any{"ok": true},
+				map[string]any{"ok": false, "error": "reload rejected"},
+			},
+		},
+	})
+
+	svc := &Service{}
+	svc.setDenoClient(client)
+
+	resp, err := svc.ReloadModules()
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.True(t, resp.Ok)
+	require.Len(t, resp.Results, 2)
+	assert.True(t, resp.Results[0].Ok)
+	assert.False(t, resp.Results[1].Ok)
+	assert.Equal(t, "reload rejected", resp.Results[1].Error)
+}
+
+func TestService_ReloadModules_Bad_NoClient(t *testing.T) {
+	svc := &Service{}
+
+	_, err := svc.ReloadModules()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Deno client not connected")
+}
+
+func TestService_ShouldConnectDeno_Good_ExplicitSocketPath(t *testing.T) {
+	tmpDir := shortSocketDir(t)
+	sockPath := filepath.Join(tmpDir, "core.sock")
+	denoSockPath := filepath.Join(tmpDir, "deno.sock")
+
+	c := core.New()
+	factory := NewServiceFactory(Options{
+		DenoPath:       "sleep",
+		SocketPath:     sockPath,
+		DenoSocketPath: denoSockPath,
+		SidecarArgs:    []string{"10"},
+	})
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	assert.True(t, svc.shouldConnectDeno())
+}
+
+func TestService_dialDenoReady_Good(t *testing.T) {
+	sockPath := filepath.Join(t.TempDir(), "deno.sock")
+	listener, err := net.Listen("unix", sockPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
+
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		reader := bufio.NewReader(conn)
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			return
+		}
+
+		var req map[string]any
+		if err := json.Unmarshal(line, &req); err != nil {
+			return
+		}
+
+		resp := map[string]any{
+			"jsonrpc": "2.0",
+			"id":      req["id"],
+			"result": map[string]any{
+				"ok": true,
+			},
+		}
+		if err := json.NewEncoder(conn).Encode(resp); err != nil {
+			return
+		}
+	}()
+
+	client, err := dialDenoReady(context.Background(), sockPath, time.Second)
+	require.NoError(t, err)
+	require.NotNil(t, client)
+	t.Cleanup(func() { _ = client.Close() })
+}
+
+func TestService_dialDenoReady_Bad_Timeout(t *testing.T) {
+	sockPath := filepath.Join(t.TempDir(), "missing.sock")
+
+	_, err := dialDenoReady(context.Background(), sockPath, 25*time.Millisecond)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "timeout waiting for")
+}
+
+func TestService_dialDenoReady_Ugly_Cancelled(t *testing.T) {
+	sockPath := filepath.Join(t.TempDir(), "missing.sock")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := dialDenoReady(ctx, sockPath, time.Second)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }

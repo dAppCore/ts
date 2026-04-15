@@ -225,3 +225,26 @@ func TestStart_Bad_SocketDirSymlink(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "symlink")
 }
+
+func TestStart_Good_RemovesStaleDenoSocket(t *testing.T) {
+	sockDir := t.TempDir()
+	coreSock := filepath.Join(sockDir, "core.sock")
+	denoSock := filepath.Join(sockDir, "deno.sock")
+
+	require.NoError(t, os.WriteFile(denoSock, []byte("stale"), 0644))
+
+	sc := NewSidecar(Options{
+		DenoPath:       "sleep",
+		SocketPath:     coreSock,
+		DenoSocketPath: denoSock,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	require.NoError(t, sc.Start(ctx, "10"))
+	defer sc.Stop()
+
+	_, err := os.Stat(denoSock)
+	assert.True(t, os.IsNotExist(err), "stale Deno socket should be removed before launch")
+}

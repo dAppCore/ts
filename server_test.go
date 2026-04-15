@@ -18,8 +18,8 @@ import (
 
 // mockProcessRunner implements ProcessRunner for testing.
 type mockProcessRunner struct {
-	started map[string]bool
-	nextID  int
+	started  map[string]bool
+	nextID   int
 	startErr error
 	killErr  error
 }
@@ -548,4 +548,89 @@ func TestServer_ProcessStop_Bad_KillErrorWrapped(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "process stop")
 	assert.Contains(t, err.Error(), "kill failed")
+}
+
+func TestServer_ProcessStart_Bad_EmptyCommand(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+
+	_, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{
+		Command:    "   ",
+		ModuleCode: "runner-mod",
+	})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "process command required")
+}
+
+func TestServer_ProcessStart_Ugly_MissingModuleCode(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+
+	_, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{
+		Command: "echo",
+	})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.PermissionDenied, st.Code())
+	assert.Contains(t, st.Message(), "module code required")
+}
+
+func TestServer_ProcessStop_Good_OwnershipCleared(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+
+	startResp, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{
+		Command:    "echo",
+		ModuleCode: "runner-mod",
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, startResp.ProcessId)
+
+	stopResp, err := srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
+		ProcessId:  startResp.ProcessId,
+		ModuleCode: "runner-mod",
+	})
+	require.NoError(t, err)
+	assert.True(t, stopResp.Ok)
+
+	_, err = srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
+		ProcessId:  startResp.ProcessId,
+		ModuleCode: "runner-mod",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "permission denied")
+}
+
+func TestServer_ProcessStop_Bad_OwnershipDenied(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+
+	startResp, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{
+		Command:    "echo",
+		ModuleCode: "runner-mod",
+	})
+	require.NoError(t, err)
+
+	_, err = srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
+		ProcessId:  startResp.ProcessId,
+		ModuleCode: "other-mod",
+	})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.PermissionDenied, st.Code())
+	assert.Contains(t, st.Message(), "cannot stop")
+}
+
+func TestServer_ProcessStop_Ugly_NoRunner(t *testing.T) {
+	srv := newTestServer(t)
+
+	_, err := srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
+		ProcessId:  "proc-1",
+		ModuleCode: "test-mod",
+	})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.Unimplemented, st.Code())
 }

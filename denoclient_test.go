@@ -351,6 +351,95 @@ func TestDenoClient_ModuleStatus_Bad_RPCError(t *testing.T) {
 	assert.Contains(t, err.Error(), "status failed")
 }
 
+func TestDenoClient_ReloadModules_Good(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	client := &DenoClient{
+		conn:   left,
+		reader: bufio.NewReader(left),
+	}
+
+	scriptJSONRPC(t, right, func(req map[string]any) {
+		assert.Equal(t, "ReloadModules", req["method"])
+	}, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"result": map[string]any{
+			"ok": true,
+			"results": []any{
+				map[string]any{"ok": true},
+				map[string]any{"ok": false, "error": "reload failed"},
+			},
+		},
+	})
+
+	resp, err := client.ReloadModules()
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.True(t, resp.Ok)
+	require.Len(t, resp.Results, 2)
+	assert.True(t, resp.Results[0].Ok)
+	assert.False(t, resp.Results[1].Ok)
+	assert.Equal(t, "reload failed", resp.Results[1].Error)
+}
+
+func TestDenoClient_ReloadModules_Bad_RPCError(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	client := &DenoClient{
+		conn:   left,
+		reader: bufio.NewReader(left),
+	}
+
+	scriptJSONRPC(t, right, func(req map[string]any) {
+		assert.Equal(t, "ReloadModules", req["method"])
+	}, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"error": map[string]any{
+			"message": "reload rejected",
+		},
+	})
+
+	resp, err := client.ReloadModules()
+	require.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "reload rejected")
+}
+
+func TestDenoClient_ReloadModules_Ugly_MalformedResults(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	client := &DenoClient{
+		conn:   left,
+		reader: bufio.NewReader(left),
+	}
+
+	scriptJSONRPC(t, right, func(req map[string]any) {
+		assert.Equal(t, "ReloadModules", req["method"])
+	}, map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"result": map[string]any{
+			"ok": true,
+			"results": []any{
+				"ignore-me",
+				map[string]any{"ok": true},
+			},
+		},
+	})
+
+	resp, err := client.ReloadModules()
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.True(t, resp.Ok)
+	require.Len(t, resp.Results, 1)
+	assert.True(t, resp.Results[0].Ok)
+}
+
 func TestDenoClient_Call_Bad_RPCErrorString(t *testing.T) {
 	left, right := net.Pipe()
 	defer right.Close()

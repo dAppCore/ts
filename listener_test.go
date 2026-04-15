@@ -159,6 +159,43 @@ func TestListenGRPC_Good_CreatesSocketDir(t *testing.T) {
 	<-errCh
 }
 
+func TestListenGRPC_Good_SocketPermissions(t *testing.T) {
+	sockDir := shortSocketDir(t)
+	sockPath := filepath.Join(sockDir, "perm.sock")
+
+	medium := io.NewMockMedium()
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	defer st.Close()
+
+	srv := NewServer(medium, st)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ListenGRPC(ctx, sockPath, srv)
+	}()
+
+	require.Eventually(t, func() bool {
+		select {
+		case err := <-errCh:
+			t.Fatalf("ListenGRPC returned early: %v", err)
+			return false
+		default:
+		}
+		info, err := os.Stat(sockPath)
+		if err != nil {
+			return false
+		}
+		return info.Mode().Perm() == 0600
+	}, 2*time.Second, 10*time.Millisecond, "socket should be owner-only")
+
+	cancel()
+	<-errCh
+}
+
 func TestListenGRPC_Bad_CannotCreateSocketDir(t *testing.T) {
 	baseDir := t.TempDir()
 	blocker := filepath.Join(baseDir, "blocked")
