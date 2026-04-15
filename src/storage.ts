@@ -346,15 +346,53 @@ export class CoreCache {
 }
 
 export class CoreCacheStorage {
+  private readonly caches = new Map<string, CoreCache>();
+
   constructor(
     private readonly origin: string,
     private readonly bridge: CoreStorageBridge,
   ) {}
 
   async open(cacheName: string): Promise<CoreCache> {
-    const cache = this.requireBridge();
-    await cache.open(this.origin, cacheName);
-    return new CoreCache(this.origin, this.bridge, cacheName);
+    let cache = this.caches.get(cacheName);
+    if (!cache) {
+      const bridge = this.requireBridge();
+      await bridge.open(this.origin, cacheName);
+      cache = new CoreCache(this.origin, this.bridge, cacheName);
+      this.caches.set(cacheName, cache);
+    }
+    return cache;
+  }
+
+  async match(
+    request: string | URL | CoreCacheRequest,
+  ): Promise<CoreCacheResponse | null> {
+    for (const cache of this.caches.values()) {
+      const response = await cache.match(request);
+      if (response) {
+        return response;
+      }
+    }
+    return null;
+  }
+
+  async delete(cacheName: string): Promise<boolean> {
+    const cache = this.caches.get(cacheName);
+    if (!cache) {
+      return false;
+    }
+
+    const requests = await cache.keys();
+    for (const request of requests) {
+      await cache.delete(request);
+    }
+
+    this.caches.delete(cacheName);
+    return true;
+  }
+
+  async keys(): Promise<string[]> {
+    return [...this.caches.keys()];
   }
 
   private requireBridge(): CoreCacheBridge {
@@ -407,6 +445,11 @@ export class CoreStorageBucketManager {
       return [];
     }
     return buckets.keys(this.origin);
+  }
+
+  async delete(name: string): Promise<void> {
+    const buckets = this.requireBridge();
+    await buckets.delete(this.origin, name);
   }
 
   private requireBridge(): CoreBucketBridge {

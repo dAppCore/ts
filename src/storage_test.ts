@@ -221,10 +221,19 @@ Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", a
   const cache = await polyfills.caches.open("v1");
   await cache.put("/index.html", { status: 200, body: "ok" });
   const response = await cache.match("/index.html");
+  const storageMatch = await polyfills.caches.match("/index.html");
+  const cacheNames = await polyfills.caches.keys();
+  const deleted = await polyfills.caches.delete("v1");
   const bucket = await polyfills.storageBuckets.open("photos", { quota: 1000 });
+  await polyfills.storageBuckets.delete("photos");
+  const bucketNames = await polyfills.storageBuckets.keys();
 
   assertEquals(response?.body, "ok", "cache storage should round-trip entries");
+  assertEquals(storageMatch?.body, "ok", "cache storage should search opened caches");
+  assertEquals(cacheNames, ["v1"], "cache storage should expose opened cache names");
+  assertEquals(deleted, true, "cache storage should delete opened caches");
   assertEquals(bucket.name, "photos", "bucket manager should open buckets");
+  assertEquals(bucketNames.length, 0, "bucket manager should delete buckets");
 });
 
 Deno.test("CoreOPFS rejects parent traversal", async () => {
