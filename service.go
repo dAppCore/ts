@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -466,7 +467,34 @@ func (s *Service) reconnectDeno(ctx context.Context) error {
 }
 
 func (s *Service) shouldConnectDeno() bool {
-	return s.Options().DenoSocketPath != ""
+	opts := s.effectiveOptions()
+	if opts.DenoSocketPath == "" {
+		return false
+	}
+	if s.Options().DenoSocketPath != "" {
+		return true
+	}
+	return looksLikeDenoRuntime(opts.SidecarArgs)
+}
+
+func looksLikeDenoRuntime(args []string) bool {
+	for _, arg := range args {
+		switch {
+		case arg == "run":
+			return true
+		case strings.HasSuffix(arg, ".ts"):
+			return true
+		case strings.HasSuffix(arg, ".tsx"):
+			return true
+		case strings.HasSuffix(arg, ".js"):
+			return true
+		case strings.HasSuffix(arg, ".mjs"):
+			return true
+		case strings.HasSuffix(arg, ".cjs"):
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) effectiveOptions() Options {

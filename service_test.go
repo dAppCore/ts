@@ -82,6 +82,49 @@ func TestService_Sidecar_Good(t *testing.T) {
 	assert.NotNil(t, svc.Sidecar())
 }
 
+func TestService_ShouldConnectDeno_Good_DefaultSocketPath(t *testing.T) {
+	tmpDir := shortSocketDir(t)
+	sockPath := filepath.Join(tmpDir, "core.sock")
+
+	c := core.New()
+
+	factory := NewServiceFactory(Options{
+		DenoPath:    "echo",
+		SocketPath:  sockPath,
+		SidecarArgs: []string{"run", "main.ts"},
+	})
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	assert.True(
+		t,
+		svc.shouldConnectDeno(),
+		"service should honour the derived Deno socket path from the sidecar options",
+	)
+}
+
+func TestService_ShouldConnectDeno_Bad_DummyProcess(t *testing.T) {
+	tmpDir := shortSocketDir(t)
+	sockPath := filepath.Join(tmpDir, "core.sock")
+
+	c := core.New()
+
+	factory := NewServiceFactory(Options{
+		DenoPath:   "sleep",
+		SocketPath: sockPath,
+	})
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	assert.False(
+		t,
+		svc.shouldConnectDeno(),
+		"dummy sidecar args should not trigger an eager Deno client connection",
+	)
+}
+
 func TestService_OnStartup_Good(t *testing.T) {
 	tmpDir := shortSocketDir(t)
 	sockPath := filepath.Join(tmpDir, "core.sock")
