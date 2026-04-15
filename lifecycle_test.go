@@ -101,11 +101,15 @@ func TestStart_Good_DenoSocketEnv(t *testing.T) {
 	sockDir := t.TempDir()
 	sockPath := filepath.Join(sockDir, "core.sock")
 	denoSockPath := filepath.Join(sockDir, "deno.sock")
+	devRoot := filepath.Join(sockDir, "dev")
+	hmrPath := "/_core/hmr"
 
 	sc := NewSidecar(Options{
 		DenoPath:       "sleep",
 		SocketPath:     sockPath,
 		DenoSocketPath: denoSockPath,
+		DevRoot:        devRoot,
+		HMRPath:        hmrPath,
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -121,6 +125,8 @@ func TestStart_Good_DenoSocketEnv(t *testing.T) {
 
 	foundCore := false
 	foundDeno := false
+	foundDevRoot := false
+	foundHMRPath := false
 	for _, e := range env {
 		if e == "CORE_SOCKET="+sockPath {
 			foundCore = true
@@ -128,9 +134,17 @@ func TestStart_Good_DenoSocketEnv(t *testing.T) {
 		if e == "DENO_SOCKET="+denoSockPath {
 			foundDeno = true
 		}
+		if e == "CORE_DEV_ROOT="+devRoot {
+			foundDevRoot = true
+		}
+		if e == "CORE_HMR_PATH="+hmrPath {
+			foundHMRPath = true
+		}
 	}
 	assert.True(t, foundCore, "child should receive CORE_SOCKET")
 	assert.True(t, foundDeno, "child should receive DENO_SOCKET")
+	assert.True(t, foundDevRoot, "child should receive CORE_DEV_ROOT")
+	assert.True(t, foundHMRPath, "child should receive CORE_HMR_PATH")
 }
 
 func TestSocketDirCreated_Good(t *testing.T) {

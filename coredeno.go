@@ -20,6 +20,8 @@ type Options struct {
 	StoreDBPath    string            // SQLite DB path (default: AppRoot/.core/store.db)
 	PublicKey      ed25519.PublicKey // ed25519 public key for manifest verification (optional)
 	SidecarArgs    []string          // args passed to the sidecar process
+	DevRoot        string            // root directory watched by the optional dev server
+	HMRPath        string            // HTTP path exposed for hot reload notifications
 }
 
 // Permissions declares per-module Deno permission flags.

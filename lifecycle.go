@@ -50,6 +50,12 @@ func (s *Sidecar) Start(ctx context.Context, args ...string) error {
 	if s.opts.AppRoot != "" {
 		s.cmd.Env = append(s.cmd.Env, "PWD="+s.opts.AppRoot)
 	}
+	if s.opts.DevRoot != "" {
+		s.cmd.Env = append(s.cmd.Env, "CORE_DEV_ROOT="+s.opts.DevRoot)
+	}
+	if s.opts.HMRPath != "" {
+		s.cmd.Env = append(s.cmd.Env, "CORE_HMR_PATH="+s.opts.HMRPath)
+	}
 	s.done = make(chan struct{})
 	s.exitErr = nil
 	if err := s.cmd.Start(); err != nil {
