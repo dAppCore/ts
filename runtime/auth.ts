@@ -3,6 +3,7 @@ export interface LocalAuthMaterial {
   fingerprint: string;
   algorithm: string;
   publicKey: string;
+  rootPassword: string;
 }
 
 export interface LocalAuthEnvelope {
@@ -10,6 +11,7 @@ export interface LocalAuthEnvelope {
   root: string;
   fingerprint: string;
   algorithm: string;
+  rootPassword?: string;
   iv: string;
   key: string;
   cipherText: string;
@@ -26,6 +28,12 @@ export async function deriveLocalAuthMaterial(
   root = defaultAuthRoot(),
 ): Promise<LocalAuthMaterial> {
   return (await getLocalAuthState(root)).material;
+}
+
+export async function deriveLocalAuthPassword(
+  root = defaultAuthRoot(),
+): Promise<string> {
+  return buildLocalAuthPassword(normaliseAuthRoot(root));
 }
 
 export async function sealLocalMessage(
@@ -58,6 +66,7 @@ export async function sealLocalMessage(
     root: state.material.root,
     fingerprint: state.material.fingerprint,
     algorithm: state.material.algorithm,
+    rootPassword: state.material.rootPassword,
     iv: bytesToBase64Url(iv),
     key: bytesToBase64Url(new Uint8Array(encryptedKey)),
     cipherText: bytesToBase64Url(new Uint8Array(cipher)),
@@ -82,6 +91,12 @@ export async function openLocalMessage(
   }
   if (envelope.algorithm !== state.material.algorithm) {
     throw new Error("local auth algorithm mismatch");
+  }
+  if (
+    envelope.rootPassword !== undefined &&
+    envelope.rootPassword !== state.material.rootPassword
+  ) {
+    throw new Error("local auth password mismatch");
   }
 
   const encryptedKey = base64UrlToBytes(envelope.key);
@@ -161,12 +176,14 @@ async function buildLocalAuthState(root: string): Promise<LocalAuthState> {
     await crypto.subtle.exportKey("spki", keyPair.publicKey),
   );
   const fingerprint = bytesToHex(await sha256Bytes(publicKey)).slice(0, 32);
+  const rootPassword = await buildLocalAuthPassword(root);
   return {
     material: {
       root,
       fingerprint,
       algorithm: "RSA-OAEP+AES-GCM",
       publicKey: bytesToBase64Url(publicKey),
+      rootPassword,
     },
     keyPair,
   };
@@ -175,6 +192,10 @@ async function buildLocalAuthState(root: string): Promise<LocalAuthState> {
 async function sha256Bytes(bytes: Uint8Array): Promise<Uint8Array> {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return new Uint8Array(digest);
+}
+
+async function buildLocalAuthPassword(root: string): Promise<string> {
+  return bytesToHex(await sha256Bytes(new TextEncoder().encode(root)));
 }
 
 function parseLocalEnvelope(token: string): LocalAuthEnvelope {
@@ -191,6 +212,7 @@ function parseLocalEnvelope(token: string): LocalAuthEnvelope {
     typeof value.root !== "string" ||
     typeof value.fingerprint !== "string" ||
     typeof value.algorithm !== "string" ||
+    (value.rootPassword !== undefined && typeof value.rootPassword !== "string") ||
     typeof value.iv !== "string" ||
     typeof value.key !== "string" ||
     typeof value.cipherText !== "string"

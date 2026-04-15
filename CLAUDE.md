@@ -82,10 +82,10 @@ All Go code lives in a single `ts` package (no subpackages).
 
 ## Dependencies
 
-- `forge.lthn.ai/core/go` — Core framework (DI, ServiceRuntime)
-- `forge.lthn.ai/core/go-io` — Sandboxed filesystem Medium
-- `forge.lthn.ai/core/go-io/store` — SQLite key-value store
-- `forge.lthn.ai/core/go-scm` — Manifest loading + marketplace installer
+- `dappco.re/go/core` — Core framework (DI, ServiceRuntime)
+- `dappco.re/go/core/io` — Sandboxed filesystem Medium
+- `dappco.re/go/core/io/store` — SQLite key-value store
+- `dappco.re/go/core/scm` — Manifest loading + marketplace installer
 - `google.golang.org/grpc` — gRPC transport
 - Deno side uses `@grpc/grpc-js` and `@grpc/proto-loader` (npm imports via deno.json, no codegen needed)
 

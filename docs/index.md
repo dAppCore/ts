@@ -20,7 +20,7 @@ Register CoreTS as a service in a Core application:
 ```go
 import (
     "context"
-    core "forge.lthn.ai/core/go/pkg/core"
+    core "dappco.re/go/core"
     ts "dappco.re/go/core/ts"
 )
 
@@ -80,11 +80,11 @@ On startup, the service will:
 
 | Module | Purpose |
 |--------|---------|
-| `forge.lthn.ai/core/go` | Core framework (DI container, `ServiceRuntime`, lifecycle interfaces) |
-| `forge.lthn.ai/core/go-io` | Sandboxed filesystem I/O (`Medium` interface, `MockMedium`) |
-| `forge.lthn.ai/core/go-io/store` | SQLite-backed key-value store |
-| `forge.lthn.ai/core/go-scm/manifest` | Module manifest loading and ed25519 verification |
-| `forge.lthn.ai/core/go-scm/marketplace` | Module installation from Git repositories |
+| `dappco.re/go/core` | Core framework (DI container, `ServiceRuntime`, lifecycle interfaces) |
+| `dappco.re/go/core/io` | Sandboxed filesystem I/O (`Medium` interface, `MockMedium`) |
+| `dappco.re/go/core/io/store` | SQLite-backed key-value store |
+| `dappco.re/go/core/scm/manifest` | Module manifest loading and ed25519 verification |
+| `dappco.re/go/core/scm/marketplace` | Module installation from Git repositories |
 | `google.golang.org/grpc` | gRPC server and client |
 | `google.golang.org/protobuf` | Protocol buffer runtime |
 | `github.com/stretchr/testify` | Test assertions (dev only) |

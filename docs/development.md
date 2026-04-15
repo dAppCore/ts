@@ -200,9 +200,9 @@ All operations are relayed through the Go gRPC server and checked against the mo
 
 ```
 dappco.re/go/core/ts
-├── forge.lthn.ai/core/go        (DI container, ServiceRuntime)
-├── forge.lthn.ai/core/go-io     (Sandboxed Medium, MockMedium, Store)
-├── forge.lthn.ai/core/go-scm    (Manifest loading, Marketplace installer)
+├── dappco.re/go/core            (DI container, ServiceRuntime)
+├── dappco.re/go/core/io         (Sandboxed Medium, MockMedium, Store)
+├── dappco.re/go/core/scm        (Manifest loading, Marketplace installer)
 ├── google.golang.org/grpc       (gRPC server + client)
 └── google.golang.org/protobuf   (Protocol buffer runtime)
 ```
