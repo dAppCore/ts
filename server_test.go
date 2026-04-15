@@ -129,6 +129,95 @@ func TestFileWrite_Bad_PermissionDenied(t *testing.T) {
 	assert.Contains(t, err.Error(), "permission denied")
 }
 
+func TestFileList_Good(t *testing.T) {
+	medium := io.NewMockMedium()
+	medium.Files["./data/a.txt"] = "hello"
+	medium.Files["./data/sub/b.txt"] = "world"
+
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { st.Close() })
+
+	srv := NewServer(medium, st)
+	srv.RegisterModule(&manifest.Manifest{
+		Code: "list-mod",
+		Permissions: manifest.Permissions{
+			Read: []string{"./data/"},
+		},
+	})
+
+	resp, err := srv.FileList(context.Background(), &pb.FileListRequest{
+		Path:       "./data",
+		ModuleCode: "list-mod",
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Entries, 2)
+	assert.Equal(t, "a.txt", resp.Entries[0].Name)
+	assert.False(t, resp.Entries[0].IsDir)
+	assert.EqualValues(t, len("hello"), resp.Entries[0].Size)
+	assert.Equal(t, "sub", resp.Entries[1].Name)
+	assert.True(t, resp.Entries[1].IsDir)
+}
+
+func TestFileList_Bad_PermissionDenied(t *testing.T) {
+	srv := newTestServer(t)
+	_, err := srv.FileList(context.Background(), &pb.FileListRequest{
+		Path:       "./secrets",
+		ModuleCode: "test-mod",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "permission denied")
+}
+
+func TestFileList_Ugly_UnknownModule(t *testing.T) {
+	srv := newTestServer(t)
+	_, err := srv.FileList(context.Background(), &pb.FileListRequest{
+		Path:       "./data",
+		ModuleCode: "missing",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown module")
+}
+
+func TestFileDelete_Good(t *testing.T) {
+	srv := newTestServer(t)
+	require.NotNil(t, srv)
+	medium := srv.medium.(*io.MockMedium)
+	medium.Files["./data/delete-me.txt"] = "bye"
+
+	resp, err := srv.FileDelete(context.Background(), &pb.FileDeleteRequest{
+		Path:       "./data/delete-me.txt",
+		ModuleCode: "test-mod",
+	})
+	require.NoError(t, err)
+	assert.True(t, resp.Ok)
+	_, err = srv.FileRead(context.Background(), &pb.FileReadRequest{
+		Path:       "./data/delete-me.txt",
+		ModuleCode: "test-mod",
+	})
+	assert.Error(t, err)
+}
+
+func TestFileDelete_Bad_PermissionDenied(t *testing.T) {
+	srv := newTestServer(t)
+	_, err := srv.FileDelete(context.Background(), &pb.FileDeleteRequest{
+		Path:       "./secrets/delete-me.txt",
+		ModuleCode: "test-mod",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "permission denied")
+}
+
+func TestFileDelete_Ugly_UnknownModule(t *testing.T) {
+	srv := newTestServer(t)
+	_, err := srv.FileDelete(context.Background(), &pb.FileDeleteRequest{
+		Path:       "./data/delete-me.txt",
+		ModuleCode: "missing",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown module")
+}
+
 func TestStoreGetSet_Good(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
@@ -247,6 +336,30 @@ func TestProcessStop_Good(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Ok)
+}
+
+func TestProcessStop_Bad_RequiresModuleCode(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+	_, err := srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
+		ProcessId: "nonexistent",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "module code required")
+}
+
+func TestProcessStop_Bad_OwnershipMismatch(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+	startResp, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{
+		Command: "echo", ModuleCode: "runner-mod",
+	})
+	require.NoError(t, err)
+
+	_, err = srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
+		ProcessId:  startResp.ProcessId,
+		ModuleCode: "other-mod",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot stop")
 }
 
 func TestProcessStop_Bad_NotFound(t *testing.T) {

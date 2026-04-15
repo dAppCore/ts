@@ -91,6 +91,15 @@ func TestDefaultSocketPath_XDG(t *testing.T) {
 	assert.Equal(t, "/run/user/1000/core/core.sock", path)
 }
 
+func TestDefaultSocketPath_Good_EmptyXDGUsesTmp(t *testing.T) {
+	orig := os.Getenv("XDG_RUNTIME_DIR")
+	defer os.Setenv("XDG_RUNTIME_DIR", orig)
+
+	os.Unsetenv("XDG_RUNTIME_DIR")
+	path := DefaultSocketPath()
+	assert.Equal(t, filepath.Join("/tmp", "core", "core.sock"), path)
+}
+
 func TestOptions_DenoSocketPath_Default_Good(t *testing.T) {
 	opts := Options{SocketPath: "/tmp/core/core.sock"}
 	sc := NewSidecar(opts)

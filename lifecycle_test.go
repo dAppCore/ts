@@ -31,6 +31,24 @@ func TestStart_Good(t *testing.T) {
 	assert.False(t, sc.IsRunning())
 }
 
+func TestStart_Bad_AlreadyRunning(t *testing.T) {
+	sockDir := t.TempDir()
+	sc := NewSidecar(Options{
+		DenoPath:   "sleep",
+		SocketPath: filepath.Join(sockDir, "test.sock"),
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	require.NoError(t, sc.Start(ctx, "10"))
+	defer sc.Stop()
+
+	err := sc.Start(ctx, "10")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "already running")
+}
+
 func TestStop_Good_NotStarted(t *testing.T) {
 	sc := NewSidecar(Options{DenoPath: "sleep"})
 	err := sc.Stop()
@@ -67,6 +85,26 @@ func TestStart_Good_EnvPassedToChild(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "child process should receive CORE_SOCKET=%s", sockPath)
+}
+
+func TestExitError_Good_RecordedAfterUnexpectedExit(t *testing.T) {
+	sockDir := t.TempDir()
+	sc := NewSidecar(Options{
+		DenoPath:   "sh",
+		SocketPath: filepath.Join(sockDir, "test.sock"),
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	require.NoError(t, sc.Start(ctx, "-c", "exit 7"))
+
+	require.Eventually(t, func() bool {
+		return !sc.IsRunning()
+	}, 2*time.Second, 10*time.Millisecond, "sidecar should record the child exit")
+
+	require.Error(t, sc.ExitError())
+	assert.Contains(t, sc.ExitError().Error(), "exit status 7")
 }
 
 func TestStart_Good_AppRootSetsWorkingDirectory(t *testing.T) {

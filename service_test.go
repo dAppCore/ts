@@ -262,6 +262,37 @@ permissions:
 	assert.Equal(t, []string{"./view/"}, m.Permissions.Read)
 }
 
+func TestLoadAppManifest_Good_FallsBackToViewYML(t *testing.T) {
+	medium := io.NewMockMedium()
+	medium.Files[".core/view.yml"] = `
+code: view-yml-app
+name: View YML App
+version: "1.0"
+permissions:
+  read: ["./yml/"]
+`
+
+	m, err := loadAppManifest(medium, nil)
+	require.NoError(t, err)
+	require.NotNil(t, m)
+	assert.Equal(t, "view-yml-app", m.Code)
+	assert.Equal(t, []string{"./yml/"}, m.Permissions.Read)
+}
+
+func TestLoadAppManifest_Bad_ParseError(t *testing.T) {
+	medium := io.NewMockMedium()
+	medium.Files[".core/view.yaml"] = `
+code: broken
+permissions:
+  read: ["
+`
+
+	m, err := loadAppManifest(medium, nil)
+	require.Error(t, err)
+	assert.Nil(t, m)
+	assert.Contains(t, err.Error(), "parse .core/view.yaml")
+}
+
 func TestService_OnStartup_Good_DefaultSocketPath(t *testing.T) {
 	tmpDir := shortSocketDir(t)
 	t.Setenv("XDG_RUNTIME_DIR", tmpDir)
@@ -522,6 +553,22 @@ permissions:
 	err = svc.OnStartup(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "manifest")
+}
+
+func TestLooksLikeDenoRuntime_Good(t *testing.T) {
+	assert.True(t, looksLikeDenoRuntime([]string{"run", "main.ts"}))
+	assert.True(t, looksLikeDenoRuntime([]string{"deno", "script.mjs"}))
+	assert.True(t, looksLikeDenoRuntime([]string{"build", "worker.tsx"}))
+}
+
+func TestLooksLikeDenoRuntime_Bad(t *testing.T) {
+	assert.False(t, looksLikeDenoRuntime([]string{"sleep", "10"}))
+	assert.False(t, looksLikeDenoRuntime([]string{"sh", "-c", "echo hi"}))
+}
+
+func TestLooksLikeDenoRuntime_Ugly_EmptyArgs(t *testing.T) {
+	assert.False(t, looksLikeDenoRuntime(nil))
+	assert.False(t, looksLikeDenoRuntime([]string{}))
 }
 
 func TestService_OnStartup_Bad_CleansUpState(t *testing.T) {
