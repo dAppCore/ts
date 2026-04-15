@@ -38,10 +38,10 @@ Deno.test("Local auth dance exposes a reusable helper", async () => {
   const dance = createLocalAuthDance("/tmp/corets");
   const token = await dance.seal("payload");
   const opened = await dance.open(token);
+  const material = await dance.material;
 
   assert(opened === "payload", "dance helper should round-trip payloads");
-  assert(
-    (await dance.material).root === "/tmp/corets",
-    "material should preserve the configured root",
-  );
+  assert(material.root === "/tmp/corets", "material should preserve the configured root");
+  assert(material.algorithm === "RSA-OAEP+AES-GCM", "material should expose the hybrid algorithm");
+  assert(material.publicKey.length > 0, "material should expose the public key");
 });

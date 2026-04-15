@@ -1,45 +1,65 @@
 export interface LocalAuthMaterial {
   root: string;
   fingerprint: string;
+  algorithm: string;
+  publicKey: string;
 }
 
 export interface LocalAuthEnvelope {
   version: 1;
   root: string;
   fingerprint: string;
+  algorithm: string;
   iv: string;
+  key: string;
   cipherText: string;
 }
+
+interface LocalAuthState {
+  material: LocalAuthMaterial;
+  keyPair: CryptoKeyPair;
+}
+
+const localAuthCache = new Map<string, Promise<LocalAuthState>>();
 
 export async function deriveLocalAuthMaterial(
   root = defaultAuthRoot(),
 ): Promise<LocalAuthMaterial> {
-  const normalisedRoot = normaliseAuthRoot(root);
-  const digest = await sha256(normalisedRoot);
-  return {
-    root: normalisedRoot,
-    fingerprint: bytesToHex(digest).slice(0, 32),
-  };
+  return (await getLocalAuthState(root)).material;
 }
 
 export async function sealLocalMessage(
   payload: string,
   root = defaultAuthRoot(),
 ): Promise<string> {
-  const material = await deriveLocalAuthMaterial(root);
-  const key = await importLocalAuthKey(material.root);
+  const state = await getLocalAuthState(root);
+  const aesKey = await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt", "decrypt"],
+  );
+  const exportedAesKey = new Uint8Array(
+    await crypto.subtle.exportKey("raw", aesKey),
+  );
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const cipher = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
-    key,
+    aesKey,
     new TextEncoder().encode(payload),
+  );
+  const encryptedKey = await crypto.subtle.encrypt(
+    { name: "RSA-OAEP" },
+    state.keyPair.publicKey,
+    exportedAesKey,
   );
 
   const envelope: LocalAuthEnvelope = {
     version: 1,
-    root: material.root,
-    fingerprint: material.fingerprint,
+    root: state.material.root,
+    fingerprint: state.material.fingerprint,
+    algorithm: state.material.algorithm,
     iv: bytesToBase64Url(iv),
+    key: bytesToBase64Url(new Uint8Array(encryptedKey)),
     cipherText: bytesToBase64Url(new Uint8Array(cipher)),
   };
   return `core-auth:${bytesToBase64Url(
@@ -52,22 +72,37 @@ export async function openLocalMessage(
   root = defaultAuthRoot(),
 ): Promise<string> {
   const envelope = parseLocalEnvelope(token);
-  const material = await deriveLocalAuthMaterial(root);
+  const state = await getLocalAuthState(root);
 
-  if (envelope.root !== material.root) {
+  if (envelope.root !== state.material.root) {
     throw new Error("local auth root mismatch");
   }
-  if (envelope.fingerprint !== material.fingerprint) {
+  if (envelope.fingerprint !== state.material.fingerprint) {
     throw new Error("local auth fingerprint mismatch");
   }
+  if (envelope.algorithm !== state.material.algorithm) {
+    throw new Error("local auth algorithm mismatch");
+  }
 
-  const key = await importLocalAuthKey(material.root);
+  const encryptedKey = base64UrlToBytes(envelope.key);
+  const rawAesKey = await crypto.subtle.decrypt(
+    { name: "RSA-OAEP" },
+    state.keyPair.privateKey,
+    encryptedKey,
+  );
+  const aesKey = await crypto.subtle.importKey(
+    "raw",
+    rawAesKey,
+    "AES-GCM",
+    false,
+    ["decrypt"],
+  );
   const plain = await crypto.subtle.decrypt(
     {
       name: "AES-GCM",
       iv: base64UrlToBytes(envelope.iv),
     },
-    key,
+    aesKey,
     base64UrlToBytes(envelope.cipherText),
   );
 
@@ -101,17 +136,44 @@ function normaliseAuthRoot(root: string): string {
   return root.trim().replace(/\\/g, "/").replace(/\/+$/, "") || "/";
 }
 
-async function importLocalAuthKey(root: string): Promise<CryptoKey> {
-  const raw = await sha256(root);
-  return crypto.subtle.importKey("raw", raw, "AES-GCM", false, [
-    "encrypt",
-    "decrypt",
-  ]);
+async function getLocalAuthState(root: string): Promise<LocalAuthState> {
+  const normalisedRoot = normaliseAuthRoot(root);
+  let promise = localAuthCache.get(normalisedRoot);
+  if (!promise) {
+    promise = buildLocalAuthState(normalisedRoot);
+    localAuthCache.set(normalisedRoot, promise);
+  }
+  return promise;
 }
 
-async function sha256(value: string): Promise<Uint8Array> {
-  const data = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", data);
+async function buildLocalAuthState(root: string): Promise<LocalAuthState> {
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: "RSA-OAEP",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["encrypt", "decrypt"],
+  );
+  const publicKey = new Uint8Array(
+    await crypto.subtle.exportKey("spki", keyPair.publicKey),
+  );
+  const fingerprint = bytesToHex(await sha256Bytes(publicKey)).slice(0, 32);
+  return {
+    material: {
+      root,
+      fingerprint,
+      algorithm: "RSA-OAEP+AES-GCM",
+      publicKey: bytesToBase64Url(publicKey),
+    },
+    keyPair,
+  };
+}
+
+async function sha256Bytes(bytes: Uint8Array): Promise<Uint8Array> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
   return new Uint8Array(digest);
 }
 
@@ -128,7 +190,9 @@ function parseLocalEnvelope(token: string): LocalAuthEnvelope {
     value.version !== 1 ||
     typeof value.root !== "string" ||
     typeof value.fingerprint !== "string" ||
+    typeof value.algorithm !== "string" ||
     typeof value.iv !== "string" ||
+    typeof value.key !== "string" ||
     typeof value.cipherText !== "string"
   ) {
     throw new Error("invalid local auth envelope");
