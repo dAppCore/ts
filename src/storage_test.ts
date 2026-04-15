@@ -337,6 +337,29 @@ Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", a
   assertEquals(bucketNames.length, 0, "bucket manager should delete buckets");
 });
 
+Deno.test("CoreCacheStorage.match searches remote caches", async () => {
+  const bridge = createBridge();
+  await bridge.cache.open("https://example.com", "remote");
+  await bridge.cache.put(
+    "https://example.com",
+    "remote",
+    { url: "/index.html", method: "GET" },
+    { status: 200, body: "remote-ok" },
+  );
+
+  const polyfills = injectStoragePolyfills("https://example.com", bridge, {
+    target: { navigator: {}, document: {} },
+  });
+
+  const response = await polyfills.caches.match("/index.html");
+
+  assertEquals(
+    response?.body,
+    "remote-ok",
+    "cache storage should search remote caches that were not opened locally",
+  );
+});
+
 Deno.test("CoreIndexedDB.open behaves like an awaitable request", async () => {
   const bridge = createBridge();
   const indexedDB = injectStoragePolyfills("https://example.com", bridge, {

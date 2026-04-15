@@ -15,7 +15,7 @@ function getProto(): any {
   if (!packageDef) {
     packageDef = protoLoader.loadSync(PROTO_PATH, {
       keepCase: true,
-      longs: String,
+      longs: Number,
       enums: String,
       defaults: true,
       oneofs: true,

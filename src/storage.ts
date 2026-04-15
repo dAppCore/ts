@@ -596,12 +596,35 @@ export class CoreCacheStorage {
   async match(
     request: string | URL | CoreCacheRequest,
   ): Promise<CoreCacheResponse | null> {
+    const normalisedRequest = normaliseRequest(request);
+
     for (const cache of this.caches.values()) {
-      const response = await cache.match(request);
+      const response = await cache.match(normalisedRequest);
       if (response) {
         return response;
       }
     }
+
+    const bridge = this.requireBridge();
+    if (!bridge.names) {
+      return null;
+    }
+
+    const localNames = new Set(this.caches.keys());
+    for (const cacheName of await bridge.names(this.origin)) {
+      if (localNames.has(cacheName)) {
+        continue;
+      }
+      const response = await bridge.match(
+        this.origin,
+        cacheName,
+        normalisedRequest,
+      );
+      if (response) {
+        return response;
+      }
+    }
+
     return null;
   }
 
