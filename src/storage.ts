@@ -226,6 +226,9 @@ export class CoreIndexedDB {
 
 export class CoreCookieJar {
   private snapshotValue = "";
+  private cachedCookies: CoreCookieRecord[] = [];
+  private currentPath = "/";
+  private secureContext = false;
 
   constructor(
     private readonly origin: string,
@@ -237,9 +240,11 @@ export class CoreCookieJar {
   }
 
   async refresh(currentPath = "/", secure = false): Promise<string> {
-    const cookies = this.requireBridge().list(this.origin);
+    this.currentPath = currentPath;
+    this.secureContext = secure;
+    this.cachedCookies = await this.requireBridge().list(this.origin);
     this.snapshotValue = serialiseCookies(
-      await cookies,
+      this.cachedCookies,
       this.origin,
       currentPath,
       secure,
@@ -249,16 +254,30 @@ export class CoreCookieJar {
 
   async set(serialized: string): Promise<void> {
     const record = parseCookie(serialized, this.origin);
+    this.cachedCookies = upsertCookie(this.cachedCookies, record);
+    this.snapshotValue = serialiseCookies(
+      this.cachedCookies,
+      this.origin,
+      this.currentPath,
+      this.secureContext || (record.secure ?? false),
+    );
     await this.requireBridge().set(this.origin, record);
-    await this.refresh(record.path ?? "/", record.secure ?? false);
+    await this.refresh(this.currentPath, this.secureContext || (record.secure ?? false));
   }
 
   async delete(
     name: string,
     options?: Pick<CoreCookieRecord, "path" | "domain">,
   ): Promise<void> {
+    this.cachedCookies = removeCookie(this.cachedCookies, name, options);
+    this.snapshotValue = serialiseCookies(
+      this.cachedCookies,
+      this.origin,
+      this.currentPath,
+      this.secureContext,
+    );
     await this.requireBridge().delete(this.origin, name, options);
-    await this.refresh(options?.path ?? "/", false);
+    await this.refresh(this.currentPath, this.secureContext);
   }
 
   private requireBridge(): CoreCookieBridge {
@@ -496,15 +515,15 @@ export function injectStoragePolyfills(
   const storageBuckets = new CoreStorageBucketManager(origin, bridge);
   const storage = new CoreNavigatorStorage(origin, bridge, storageBuckets);
 
-  defineProperty(target, "localStorage", localStorage);
-  defineProperty(target, "sessionStorage", sessionStorage);
-  defineProperty(target, "indexedDB", indexedDB);
-  defineProperty(target, "caches", caches);
+  defineGetter(target, "localStorage", () => localStorage);
+  defineGetter(target, "sessionStorage", () => sessionStorage);
+  defineGetter(target, "indexedDB", () => indexedDB);
+  defineGetter(target, "caches", () => caches);
 
   const navigatorTarget = target.navigator ?? {};
   target.navigator = navigatorTarget;
-  defineProperty(navigatorTarget, "storageBuckets", storageBuckets);
-  defineProperty(navigatorTarget, "storage", storage);
+  defineGetter(navigatorTarget, "storageBuckets", () => storageBuckets);
+  defineGetter(navigatorTarget, "storage", () => storage);
 
   if (target.document) {
     void cookies.refresh();
@@ -667,4 +686,41 @@ function defineProperty(
     value,
     writable: true,
   });
+}
+
+function defineGetter(
+  target: Record<string, unknown>,
+  key: string,
+  get: () => unknown,
+): void {
+  Object.defineProperty(target, key, {
+    configurable: true,
+    enumerable: true,
+    get,
+  });
+}
+
+function upsertCookie(
+  cookies: CoreCookieRecord[],
+  record: CoreCookieRecord,
+): CoreCookieRecord[] {
+  const next = cookies.filter((cookie) =>
+    cookie.name !== record.name ||
+    cookie.path !== record.path ||
+    cookie.domain !== record.domain
+  );
+  next.push(record);
+  return next;
+}
+
+function removeCookie(
+  cookies: CoreCookieRecord[],
+  name: string,
+  options?: Pick<CoreCookieRecord, "path" | "domain">,
+): CoreCookieRecord[] {
+  return cookies.filter((cookie) =>
+    cookie.name !== name ||
+    (options?.path !== undefined && cookie.path !== options.path) ||
+    (options?.domain !== undefined && cookie.domain !== options.domain)
+  );
 }

@@ -235,3 +235,56 @@ Deno.test("CoreOPFS rejects parent traversal", async () => {
     "OPFS should reject parent traversal",
   );
 });
+
+Deno.test("injectStoragePolyfills exposes browser-style getters", () => {
+  const bridge = createBridge();
+  const target = { navigator: {}, document: {} };
+  const polyfills = injectStoragePolyfills("https://example.com", bridge, {
+    target,
+  });
+
+  const localDescriptor = Object.getOwnPropertyDescriptor(target, "localStorage");
+  const storageDescriptor = Object.getOwnPropertyDescriptor(target.navigator, "storage");
+
+  assert(localDescriptor?.get !== undefined, "localStorage should be exposed via a getter");
+  assert(storageDescriptor?.get !== undefined, "navigator.storage should be exposed via a getter");
+  assert(polyfills.localStorage instanceof CoreLocalStorage, "polyfill should return the storage helper");
+});
+
+Deno.test("document.cookie reflects optimistic writes", async () => {
+  let gateResolve: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => {
+    gateResolve = resolve;
+  });
+
+  const bridge: CoreStorageBridge = {
+    store: createBridge().store,
+    cookies: {
+      async list() {
+        return [];
+      },
+      async set() {
+        await gate;
+      },
+      async delete() {
+        await gate;
+      },
+    },
+  };
+
+  const target = { navigator: {}, document: {} };
+  injectStoragePolyfills("https://example.com", bridge, { target });
+
+  const jar = new CoreCookieJar("https://example.com", bridge);
+  await jar.refresh("/", true);
+
+  const pending = jar.set("session_id=abc123; Path=/; Secure");
+  assertEquals(
+    jar.snapshot(),
+    "session_id=abc123",
+    "cookie jar should expose optimistic writes immediately",
+  );
+
+  gateResolve?.();
+  await pending;
+});
