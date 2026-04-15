@@ -46,6 +46,14 @@ if (devRoot) {
   }
 }
 
+function stopDevServer(): void {
+  try {
+    devServer?.stop();
+  } catch {
+    // Best-effort cleanup during bootstrap/shutdown failures.
+  }
+}
+
 // 2. Start DenoService server (Go calls us here via JSON-RPC over Unix socket)
 let denoServer: DenoServer;
 try {
@@ -53,6 +61,7 @@ try {
   console.error("CoreDeno: DenoService server started");
 } catch (err) {
   console.error(`FATAL: failed to start DenoService server: ${err}`);
+  stopDevServer();
   Deno.exit(1);
 }
 
@@ -89,6 +98,7 @@ let coreClient: CoreClient;
     console.error(
       `FATAL: failed to connect to CoreService after retries, last error: ${lastErr}`,
     );
+    stopDevServer();
     denoServer.close();
     Deno.exit(1);
   }
@@ -136,7 +146,7 @@ try {
   });
 } catch {
   // Clean shutdown
-  devServer?.stop();
+  stopDevServer();
   coreClient.close();
   denoServer.close();
 }
