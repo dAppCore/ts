@@ -1,6 +1,8 @@
 import path from "node:path";
 
 import { CoreEventBus, type CoreEventHandler } from "./events.ts";
+import { CoreNatTraversal } from "./nat.ts";
+import { CoreP2PNetwork, createCoreP2PNetwork } from "./p2p.ts";
 
 export interface ElectronBridge {
   action(channel: string, ...args: unknown[]): Promise<unknown> | unknown;
@@ -37,6 +39,8 @@ export interface ElectronShimOptions {
 
 export interface ElectronShim {
   core: CoreShim;
+  crypto: CoreCryptoShim;
+  net: CoreNetShim;
   ipcRenderer: {
     send(channel: string, ...args: unknown[]): Promise<unknown> | unknown;
     invoke(channel: string, ...args: unknown[]): Promise<unknown> | unknown;
@@ -92,6 +96,22 @@ export interface CoreShim {
   fs: ElectronFileProxy;
   path: ElectronPathProxy;
   events: CoreEventBus<Record<string, unknown[]>>;
+}
+
+export interface CoreCryptoShim {
+  webcrypto: Crypto;
+  subtle: SubtleCrypto;
+  getRandomValues<T extends ArrayBufferView>(array: T): T;
+  randomUUID(): string;
+  randomBytes(size: number): Uint8Array;
+}
+
+export interface CoreNetShim {
+  CoreP2PNetwork: typeof CoreP2PNetwork;
+  createCoreP2PNetwork: typeof createCoreP2PNetwork;
+  CoreNatTraversal: typeof CoreNatTraversal;
+  CoreEventBus: typeof CoreEventBus;
+  createCoreNatTraversal(): CoreNatTraversal;
 }
 
 export interface ElectronFileProxy {
@@ -171,8 +191,12 @@ export function buildElectronShim(
 ): ElectronShim {
   const mirroredBridge = createMirroredElectronBridge(bridge, events);
   const core = buildCoreShim(mirroredBridge, fsBridge, origin, events);
+  const cryptoShim = createCoreCryptoShim();
+  const netShim = createCoreNetShim(events);
   return {
     core,
+    crypto: cryptoShim,
+    net: netShim,
     ipcRenderer: {
       send: (channel: string, ...args: unknown[]) => core.ipc.action(channel, ...args),
       invoke: (channel: string, ...args: unknown[]) => core.ipc.query(channel, ...args),
@@ -262,13 +286,9 @@ export function buildRequireShim(shim: ElectronShim): (module: string) => unknow
       case "path/win32":
         return shim.path.win32;
       case "crypto":
-        throw new Error(
-          "require('crypto') is not available in CoreTS. Use CoreCrypto instead.",
-        );
+        return shim.crypto;
       case "net":
-        throw new Error(
-          "require('net') is not available in CoreTS. Use CoreNet instead.",
-        );
+        return shim.net;
       default:
         throw new Error(
           `require('${module}') is not available. Use Core imports instead.`,
@@ -447,6 +467,42 @@ function createMirroredElectronBridge(
       }),
     off: (channel: string, handler: CoreEventHandler<unknown[]>) => bridge.off(channel, handler),
     offAll: (channel?: string) => bridge.offAll(channel),
+  };
+}
+
+function createCoreCryptoShim(): CoreCryptoShim {
+  const webcrypto = globalThis.crypto;
+
+  return {
+    webcrypto,
+    get subtle() {
+      return webcrypto.subtle;
+    },
+    getRandomValues<T extends ArrayBufferView>(array: T): T {
+      return webcrypto.getRandomValues(array);
+    },
+    randomUUID(): string {
+      return webcrypto.randomUUID();
+    },
+    randomBytes(size: number): Uint8Array {
+      const bytes = new Uint8Array(size);
+      webcrypto.getRandomValues(bytes);
+      return bytes;
+    },
+  };
+}
+
+function createCoreNetShim(
+  _events: CoreEventBus<Record<string, unknown[]>>,
+): CoreNetShim {
+  return {
+    CoreP2PNetwork,
+    createCoreP2PNetwork,
+    CoreNatTraversal,
+    CoreEventBus,
+    createCoreNatTraversal(): CoreNatTraversal {
+      return new CoreNatTraversal();
+    },
   };
 }
 

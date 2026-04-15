@@ -110,23 +110,38 @@ async function dispatch(
   req: RPCRequest,
   registry: ModuleRegistry,
 ): Promise<Record<string, unknown>> {
+  const params = req.params ?? {};
+
   switch (req.method) {
     case "Ping":
       return { ok: true };
     case "LoadModule": {
+      const loadParams = params as {
+        code?: string;
+        entry_point?: string;
+        permissions?: {
+          read?: string[];
+          write?: string[];
+          net?: string[];
+          run?: string[];
+        };
+      };
       const result = await registry.load(
-        req.code ?? "",
-        req.entry_point ?? "",
-        req.permissions ?? {},
+        loadParams.code ?? req.code ?? "",
+        loadParams.entry_point ?? req.entry_point ?? "",
+        loadParams.permissions ?? req.permissions ?? {},
       );
       return result as unknown as Record<string, unknown>;
     }
     case "UnloadModule": {
-      const ok = registry.unload(req.code ?? "");
+      const unloadParams = params as { code?: string };
+      const ok = registry.unload(unloadParams.code ?? req.code ?? "");
       return { ok };
     }
     case "ModuleStatus": {
-      return { code: req.code, status: registry.status(req.code ?? "") };
+      const statusParams = params as { code?: string };
+      const code = statusParams.code ?? req.code ?? "";
+      return { code, status: registry.status(code) };
     }
     default:
       return { error: `unknown method: ${req.method}` };

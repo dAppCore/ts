@@ -60,6 +60,7 @@ Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
   shim.core.events.on("app:ready", (payload) => {
     seen.push(payload);
   });
+  shim.core.ipc.on("app:ready", () => undefined);
 
   await shim.ipcRenderer.send("app:ready", { version: "1.0" });
   await shim.shell.openExternal("https://example.com");
@@ -86,8 +87,8 @@ Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
     "fs.readFileSync should use the synchronous bridge surface when available",
   );
   assertEquals(
-    shim.fs.readdirSync("/var"),
-    ["demo.txt"],
+    JSON.stringify(shim.fs.readdirSync("/var")),
+    JSON.stringify(["demo.txt"]),
     "fs.readdirSync should use the synchronous bridge surface when available",
   );
 });
@@ -113,13 +114,13 @@ Deno.test("CoreElectronRuntime mirrors bridge events into the browser event bus"
     seen.push(payload);
   });
 
-  await runtime.shimObject().ipcRenderer.on("app:ready", () => undefined);
+  runtime.shimObject().ipcRenderer.on("app:ready", () => undefined);
   await onHandler?.([{ version: "1.0" }]);
 
   assertEquals(seen.length, 1, "bridge events should reach the event bus");
   assertEquals(
-    seen[0],
-    [{ version: "1.0" }],
+    JSON.stringify(seen[0]),
+    JSON.stringify([{ version: "1.0" }]),
     "event bus should receive the same payload as the bridge handler",
   );
 });
@@ -168,26 +169,29 @@ Deno.test("Electron require shim only exposes supported modules", () => {
     "\\",
     "path.win32 should always use the Windows separator",
   );
+  assert(requireShim("crypto") === shim.crypto, "require('crypto') should return the Core crypto shim");
+  assert(
+    requireShim("node:crypto") === shim.crypto,
+    "require('node:crypto') should return the Core crypto shim",
+  );
+  assert(
+    typeof shim.crypto.randomUUID === "function",
+    "crypto shim should expose randomUUID",
+  );
+  assert(
+    shim.crypto.randomBytes(8).length === 8,
+    "crypto shim should expose randomBytes",
+  );
 
-  let message = "";
-  try {
-    requireShim("crypto");
-  } catch (error) {
-    message = error instanceof Error ? error.message : String(error);
-  }
-
-  assert(message.includes("require('crypto')"), "crypto should have a targeted rejection");
-  assert(message.includes("CoreCrypto"), "crypto rejection should point callers to CoreCrypto");
-
-  message = "";
-  try {
-    requireShim("net");
-  } catch (error) {
-    message = error instanceof Error ? error.message : String(error);
-  }
-
-  assert(message.includes("require('net')"), "net should have a targeted rejection");
-  assert(message.includes("CoreNet"), "net rejection should point callers to CoreNet");
+  assert(requireShim("net") === shim.net, "require('net') should return the Core net shim");
+  assert(
+    requireShim("node:net") === shim.net,
+    "require('node:net') should return the Core net shim",
+  );
+  assert(
+    typeof shim.net.createCoreP2PNetwork === "function",
+    "net shim should expose the Core P2P network constructor",
+  );
 });
 
 Deno.test("Electron injector defines globals", () => {
