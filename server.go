@@ -157,18 +157,12 @@ func (s *Server) FileDelete(_ context.Context, req *pb.FileDeleteRequest) (*pb.F
 
 // storeGroupAllowed checks that the requested group is not a reserved system namespace.
 // Groups prefixed with "_" are reserved for internal use (e.g. _coredeno, _modules).
-// When moduleCode is set, the module can only access its own namespace.
-func storeGroupAllowed(group, moduleCode string) error {
+// The caller's module code is included for audit/context only; non-reserved groups are allowed.
+func storeGroupAllowed(group, _ string) error {
 	if strings.HasPrefix(group, "_") {
 		return status.Errorf(codes.PermissionDenied, "reserved store group: %s", group)
 	}
-	if moduleCode == "" {
-		return nil
-	}
-	if group == moduleCode || strings.HasPrefix(group, moduleCode+".") {
-		return nil
-	}
-	return status.Errorf(codes.PermissionDenied, "module %s cannot access store group %s", moduleCode, group)
+	return nil
 }
 
 // StoreGet implements CoreService.StoreGet with reserved namespace protection.

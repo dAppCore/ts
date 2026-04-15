@@ -133,7 +133,7 @@ func TestStoreGetSet_Good_ModuleNamespace(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := srv.StoreSet(ctx, &pb.StoreSetRequest{
-		Group:      "test-mod",
+		Group:      "shared",
 		Key:        "theme",
 		Value:      "dark",
 		ModuleCode: "test-mod",
@@ -141,7 +141,7 @@ func TestStoreGetSet_Good_ModuleNamespace(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := srv.StoreGet(ctx, &pb.StoreGetRequest{
-		Group:      "test-mod",
+		Group:      "shared",
 		Key:        "theme",
 		ModuleCode: "test-mod",
 	})
@@ -150,18 +150,18 @@ func TestStoreGetSet_Good_ModuleNamespace(t *testing.T) {
 	assert.Equal(t, "dark", resp.Value)
 }
 
-func TestStoreGetSet_Bad_ModuleNamespaceMismatch(t *testing.T) {
+func TestStoreGetSet_Bad_ReservedGroup(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 
 	_, err := srv.StoreSet(ctx, &pb.StoreSetRequest{
-		Group:      "cfg",
+		Group:      "_coredeno",
 		Key:        "theme",
 		Value:      "dark",
 		ModuleCode: "test-mod",
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot access store group")
+	assert.Contains(t, err.Error(), "reserved store group")
 }
 
 func TestStoreGet_Good_NotFound(t *testing.T) {
