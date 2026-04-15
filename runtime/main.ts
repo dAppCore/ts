@@ -43,6 +43,11 @@ if (devRoot) {
     devServer = new CoreDevServer({
       root: devRoot,
       hmrPath: Deno.env.get("CORE_HMR_PATH") ?? "/_core/hmr",
+      onReload: () => {
+        void registry.reloadAll().catch((err) => {
+          console.error(`CoreDeno: HMR reload failed: ${err}`);
+        });
+      },
     });
     await devServer.start();
     console.error(`CoreDeno: dev server watching ${devRoot}`);

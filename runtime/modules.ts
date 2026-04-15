@@ -13,6 +13,29 @@ export type ModuleStatus =
   | "STOPPED"
   | "ERRORED";
 
+export interface ModuleWorkerOptions extends WorkerOptions {
+  deno?: {
+    permissions?: {
+      read?: string[];
+      write?: string[];
+      net?: string[];
+      run?: string[];
+      env?: boolean;
+      sys?: boolean;
+      ffi?: boolean;
+    };
+  };
+}
+
+export type ModuleWorkerFactory = (
+  scriptUrl: string,
+  options: ModuleWorkerOptions,
+) => Worker;
+
+export interface ModuleRegistryOptions {
+  workerFactory?: ModuleWorkerFactory;
+}
+
 export interface ModulePermissions {
   read?: string[];
   write?: string[];
@@ -44,7 +67,7 @@ export class ModuleRegistry {
   private coreClient: CoreClient | null = null;
   private workerEntryUrl: string;
 
-  constructor() {
+  constructor(private readonly options: ModuleRegistryOptions = {}) {
     this.workerEntryUrl = new URL("./worker-entry.ts", import.meta.url).href;
   }
 
@@ -90,7 +113,7 @@ export class ModuleRegistry {
     if (permissions.read) readPerms.push(...permissions.read);
 
     // Create Worker with permission sandbox
-    const worker = new Worker(this.workerEntryUrl, {
+    const workerOptions: ModuleWorkerOptions = {
       type: "module",
       name: code,
       // deno-lint-ignore no-explicit-any
@@ -105,7 +128,11 @@ export class ModuleRegistry {
           ffi: false,
         },
       },
-    } as any);
+    };
+
+    const worker = this.options.workerFactory
+      ? this.options.workerFactory(this.workerEntryUrl, workerOptions)
+      : new Worker(this.workerEntryUrl, workerOptions);
 
     mod.worker = worker;
 
@@ -234,6 +261,22 @@ export class ModuleRegistry {
 
   status(code: string): ModuleStatus {
     return this.modules.get(code)?.status ?? "UNKNOWN";
+  }
+
+  async reloadAll(): Promise<LoadResult[]> {
+    const snapshot = Array.from(this.modules.values())
+      .filter((mod) => mod.status !== "STOPPED")
+      .map((mod) => ({
+        code: mod.code,
+        entryPoint: mod.entryPoint,
+        permissions: mod.permissions,
+      }));
+
+    const results: LoadResult[] = [];
+    for (const mod of snapshot) {
+      results.push(await this.load(mod.code, mod.entryPoint, mod.permissions));
+    }
+    return results;
   }
 
   list(): Array<{ code: string; status: ModuleStatus }> {
