@@ -308,6 +308,9 @@ Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", a
   const bucket = await polyfills.storageBuckets.open("photos", { quota: 1000 });
   const bucketAgain = await polyfills.storageBuckets.open("photos");
   const estimate = await polyfills.storage.estimate();
+  const persistedBefore = await polyfills.storage.persisted();
+  const persistResult = await polyfills.storage.persist();
+  const persistedAfter = await polyfills.storage.persisted();
   await polyfills.storageBuckets.delete("photos");
   const bucketNames = await polyfills.storageBuckets.keys();
   const remoteCacheNames = await polyfills.caches.keys();
@@ -328,6 +331,9 @@ Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", a
   assertEquals(bucket.name, "photos", "bucket manager should open buckets");
   assert(bucket === bucketAgain, "bucket manager should cache opened buckets");
   assertEquals(estimate.quota, 1000, "navigator.storage.estimate should reflect bucket quota");
+  assertEquals(persistedBefore, false, "navigator.storage.persisted should default to false");
+  assertEquals(persistResult, true, "navigator.storage.persist should opt into persistence");
+  assertEquals(persistedAfter, true, "navigator.storage.persisted should reflect persisted state");
   assertEquals(bucketNames.length, 0, "bucket manager should delete buckets");
 });
 

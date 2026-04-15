@@ -816,6 +816,7 @@ export class CoreOPFS {
 
 export class CoreNavigatorStorage {
   private readonly opfs: CoreOPFS;
+  private persistedState = false;
 
   constructor(
     origin: string,
@@ -834,6 +835,15 @@ export class CoreNavigatorStorage {
     return quota === undefined ? {} : { quota, usage: 0 };
   }
 
+  async persist(): Promise<boolean> {
+    this.persistedState = true;
+    return true;
+  }
+
+  async persisted(): Promise<boolean> {
+    return this.persistedState || this.hasPersistedBucket();
+  }
+
   get storageBuckets(): CoreStorageBucketManager {
     return this.buckets;
   }
@@ -841,6 +851,10 @@ export class CoreNavigatorStorage {
   private bucketQuota(): number | undefined {
     const quota = this.bucketsQuota();
     return quota.length === 0 ? undefined : quota.reduce((total, value) => total + value, 0);
+  }
+
+  private hasPersistedBucket(): boolean {
+    return this.buckets.snapshot().some((bucket) => bucket.persisted === true);
   }
 
   private bucketsQuota(): number[] {
