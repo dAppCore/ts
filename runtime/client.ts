@@ -1,7 +1,7 @@
 // CoreService gRPC client — Deno calls Go for I/O operations.
 // All filesystem, store, and process operations route through this client.
 
-import { grpc, protoLoader } from "../deps.ts";
+import { grpc, protoLoader } from "./grpc.ts";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
