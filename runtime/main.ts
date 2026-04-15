@@ -54,8 +54,24 @@ function stopDevServer(): void {
   }
 }
 
+function shutdownRuntime(): void {
+  stopDevServer();
+  try {
+    coreClient?.close();
+  } catch {
+    // Best-effort cleanup during bootstrap/shutdown failures.
+  }
+  try {
+    denoServer?.close();
+  } catch {
+    // Best-effort cleanup during bootstrap/shutdown failures.
+  }
+  coreClient = null;
+  denoServer = null;
+}
+
 // 2. Start DenoService server (Go calls us here via JSON-RPC over Unix socket)
-let denoServer: DenoServer;
+let denoServer: DenoServer | null = null;
 try {
   denoServer = await startDenoServer(denoSocket, registry);
   console.error("CoreDeno: DenoService server started");
@@ -66,9 +82,10 @@ try {
 }
 
 // 3. Connect to CoreService (we call Go here) with retry
-let coreClient: CoreClient;
+let coreClient: CoreClient | null = null;
 {
-  coreClient = createCoreClient(coreSocket);
+  const runtimeClient = createCoreClient(coreSocket);
+  coreClient = runtimeClient;
   const maxRetries = 20;
   let connected = false;
   let lastErr: unknown;
@@ -81,7 +98,7 @@ let coreClient: CoreClient;
             setTimeout(() => reject(new Error("call timeout")), 2000),
           ),
         ]);
-      const resp = await timeoutCall(coreClient.ping());
+      const resp = await timeoutCall(runtimeClient.ping());
       if (resp.ok) {
         connected = true;
         break;
@@ -99,13 +116,13 @@ let coreClient: CoreClient;
       `FATAL: failed to connect to CoreService after retries, last error: ${lastErr}`,
     );
     stopDevServer();
-    denoServer.close();
+    denoServer?.close();
     Deno.exit(1);
   }
   console.error("CoreDeno: CoreService client connected");
   setLocaleBridge({
     localeGet(locale: string) {
-      return coreClient.localeGet(locale);
+      return runtimeClient.localeGet(locale);
     },
   });
 
@@ -114,21 +131,20 @@ let coreClient: CoreClient;
   const healthKey = "startup";
   const healthValue = `ok:${Date.now()}`;
   try {
-    await coreClient.storeSet(healthGroup, healthKey, healthValue);
-    const roundTrip = await coreClient.storeGet(healthGroup, healthKey);
+    await runtimeClient.storeSet(healthGroup, healthKey, healthValue);
+    const roundTrip = await runtimeClient.storeGet(healthGroup, healthKey);
     if (!roundTrip.found || roundTrip.value !== healthValue) {
       throw new Error("health check round-trip failed");
     }
   } catch (err) {
     console.error(`FATAL: failed CoreService health check: ${err}`);
-    denoServer.close();
-    coreClient.close();
+    shutdownRuntime();
     Deno.exit(1);
   }
 }
 
 // 4. Inject CoreClient into registry for I/O bridge
-registry.setCoreClient(coreClient);
+registry.setCoreClient(coreClient!);
 
 // 5. Signal readiness
 console.error("CoreDeno: ready");
@@ -146,7 +162,5 @@ try {
   });
 } catch {
   // Clean shutdown
-  stopDevServer();
-  coreClient.close();
-  denoServer.close();
+  shutdownRuntime();
 }
