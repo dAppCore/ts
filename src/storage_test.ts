@@ -234,6 +234,8 @@ Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", a
   const cacheNames = await polyfills.caches.keys();
   const deleted = await polyfills.caches.delete("v1");
   const bucket = await polyfills.storageBuckets.open("photos", { quota: 1000 });
+  const bucketAgain = await polyfills.storageBuckets.open("photos");
+  const estimate = await polyfills.storage.estimate();
   await polyfills.storageBuckets.delete("photos");
   const bucketNames = await polyfills.storageBuckets.keys();
 
@@ -242,6 +244,8 @@ Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", a
   assertEquals(cacheNames, ["v1"], "cache storage should expose opened cache names");
   assertEquals(deleted, true, "cache storage should delete opened caches");
   assertEquals(bucket.name, "photos", "bucket manager should open buckets");
+  assert(bucket === bucketAgain, "bucket manager should cache opened buckets");
+  assertEquals(estimate.quota, 1000, "navigator.storage.estimate should reflect bucket quota");
   assertEquals(bucketNames.length, 0, "bucket manager should delete buckets");
 });
 

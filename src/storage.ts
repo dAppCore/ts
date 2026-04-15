@@ -610,11 +610,21 @@ export class CoreStorageBucket {
     private readonly bridge: CoreStorageBridge,
     readonly name: string,
     readonly options?: StorageBucketOptions,
+    private readonly onDelete?: (name: string) => void,
   ) {}
+
+  get quota(): number | undefined {
+    return this.options?.quota;
+  }
+
+  get persisted(): boolean | undefined {
+    return this.options?.persisted;
+  }
 
   async delete(): Promise<void> {
     const buckets = this.requireBridge();
     await buckets.delete(this.origin, this.name);
+    this.onDelete?.(this.name);
   }
 
   private requireBridge(): CoreBucketBridge {
@@ -626,6 +636,8 @@ export class CoreStorageBucket {
 }
 
 export class CoreStorageBucketManager {
+  private readonly buckets = new Map<string, CoreStorageBucket>();
+
   constructor(
     private readonly origin: string,
     private readonly bridge: CoreStorageBridge,
@@ -635,22 +647,44 @@ export class CoreStorageBucketManager {
     name: string,
     options?: StorageBucketOptions,
   ): Promise<CoreStorageBucket> {
+    const existing = this.buckets.get(name);
+    if (existing) {
+      return existing;
+    }
     const buckets = this.requireBridge();
     await buckets.open(this.origin, name, options);
-    return new CoreStorageBucket(this.origin, this.bridge, name, options);
+    const bucket = new CoreStorageBucket(
+      this.origin,
+      this.bridge,
+      name,
+      options,
+      (bucketName) => {
+        this.buckets.delete(bucketName);
+      },
+    );
+    this.buckets.set(name, bucket);
+    return bucket;
   }
 
   async keys(): Promise<string[]> {
     const buckets = this.requireBridge();
-    if (!buckets.keys) {
-      return [];
+    if (buckets.keys) {
+      const remote = await buckets.keys(this.origin);
+      if (remote.length > 0 || this.buckets.size === 0) {
+        return remote;
+      }
     }
-    return buckets.keys(this.origin);
+    return Array.from(this.buckets.keys());
   }
 
   async delete(name: string): Promise<void> {
     const buckets = this.requireBridge();
     await buckets.delete(this.origin, name);
+    this.buckets.delete(name);
+  }
+
+  snapshot(): CoreStorageBucket[] {
+    return Array.from(this.buckets.values());
   }
 
   private requireBridge(): CoreBucketBridge {
@@ -753,11 +787,27 @@ export class CoreNavigatorStorage {
   }
 
   async estimate(): Promise<{ quota?: number; usage?: number }> {
-    return {};
+    const quota = this.bucketQuota();
+    return quota === undefined ? {} : { quota, usage: 0 };
   }
 
-  storageBuckets(): CoreStorageBucketManager {
+  get storageBuckets(): CoreStorageBucketManager {
     return this.buckets;
+  }
+
+  private bucketQuota(): number | undefined {
+    const quota = this.bucketsQuota();
+    return quota.length === 0 ? undefined : quota.reduce((total, value) => total + value, 0);
+  }
+
+  private bucketsQuota(): number[] {
+    const quotas: number[] = [];
+    for (const bucket of this.buckets.snapshot()) {
+      if (typeof bucket.quota === "number" && Number.isFinite(bucket.quota)) {
+        quotas.push(bucket.quota);
+      }
+    }
+    return quotas;
   }
 }
 
