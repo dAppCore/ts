@@ -150,17 +150,23 @@ func (s *Server) FileDelete(_ context.Context, req *pb.FileDeleteRequest) (*pb.F
 
 // storeGroupAllowed checks that the requested group is not a reserved system namespace.
 // Groups prefixed with "_" are reserved for internal use (e.g. _coredeno, _modules).
-// TODO: once the proto carries module_code on store requests, enforce per-module namespace isolation.
-func storeGroupAllowed(group string) error {
+// When moduleCode is set, the module can only access its own namespace.
+func storeGroupAllowed(group, moduleCode string) error {
 	if strings.HasPrefix(group, "_") {
 		return status.Errorf(codes.PermissionDenied, "reserved store group: %s", group)
 	}
-	return nil
+	if moduleCode == "" {
+		return nil
+	}
+	if group == moduleCode || strings.HasPrefix(group, moduleCode+".") {
+		return nil
+	}
+	return status.Errorf(codes.PermissionDenied, "module %s cannot access store group %s", moduleCode, group)
 }
 
 // StoreGet implements CoreService.StoreGet with reserved namespace protection.
 func (s *Server) StoreGet(_ context.Context, req *pb.StoreGetRequest) (*pb.StoreGetResponse, error) {
-	if err := storeGroupAllowed(req.Group); err != nil {
+	if err := storeGroupAllowed(req.Group, req.ModuleCode); err != nil {
 		return nil, err
 	}
 	val, err := s.store.Get(req.Group, req.Key)
@@ -175,7 +181,7 @@ func (s *Server) StoreGet(_ context.Context, req *pb.StoreGetRequest) (*pb.Store
 
 // StoreSet implements CoreService.StoreSet with reserved namespace protection.
 func (s *Server) StoreSet(_ context.Context, req *pb.StoreSetRequest) (*pb.StoreSetResponse, error) {
-	if err := storeGroupAllowed(req.Group); err != nil {
+	if err := storeGroupAllowed(req.Group, req.ModuleCode); err != nil {
 		return nil, err
 	}
 	if err := s.store.Set(req.Group, req.Key, req.Value); err != nil {

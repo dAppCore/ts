@@ -149,12 +149,17 @@ export class ModuleRegistry {
     const c = this.coreClient!;
     switch (method) {
       case "StoreGet":
-        return c.storeGet(params.group as string, params.key as string);
+        return c.storeGet(
+          params.group as string,
+          params.key as string,
+          moduleCode,
+        );
       case "StoreSet":
         return c.storeSet(
           params.group as string,
           params.key as string,
           params.value as string,
+          moduleCode,
         );
       case "FileRead":
         return c.fileRead(params.path as string, moduleCode);

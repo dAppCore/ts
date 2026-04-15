@@ -53,10 +53,19 @@ message FileEntry {
 message FileDeleteRequest { string path = 1; string module_code = 2; }
 message FileDeleteResponse { bool ok = 1; }
 
-message StoreGetRequest { string group = 1; string key = 2; }
+message StoreGetRequest {
+  string group = 1;
+  string key = 2;
+  string module_code = 3;
+}
 message StoreGetResponse { string value = 1; bool found = 2; }
 
-message StoreSetRequest { string group = 1; string key = 2; string value = 3; }
+message StoreSetRequest {
+  string group = 1;
+  string key = 2;
+  string value = 3;
+  string module_code = 4;
+}
 message StoreSetResponse { bool ok = 1; }
 
 message ProcessStartRequest { string command = 1; repeated string args = 2; string module_code = 3; }

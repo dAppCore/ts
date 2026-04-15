@@ -612,6 +612,7 @@ type StoreGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Group         string                 `protobuf:"bytes,1,opt,name=group,proto3" json:"group,omitempty"`
 	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	ModuleCode    string                 `protobuf:"bytes,3,opt,name=module_code,json=moduleCode,proto3" json:"module_code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -656,6 +657,13 @@ func (x *StoreGetRequest) GetGroup() string {
 func (x *StoreGetRequest) GetKey() string {
 	if x != nil {
 		return x.Key
+	}
+	return ""
+}
+
+func (x *StoreGetRequest) GetModuleCode() string {
+	if x != nil {
+		return x.ModuleCode
 	}
 	return ""
 }
@@ -717,6 +725,7 @@ type StoreSetRequest struct {
 	Group         string                 `protobuf:"bytes,1,opt,name=group,proto3" json:"group,omitempty"`
 	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
 	Value         string                 `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	ModuleCode    string                 `protobuf:"bytes,4,opt,name=module_code,json=moduleCode,proto3" json:"module_code,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -768,6 +777,13 @@ func (x *StoreSetRequest) GetKey() string {
 func (x *StoreSetRequest) GetValue() string {
 	if x != nil {
 		return x.Value
+	}
+	return ""
+}
+
+func (x *StoreSetRequest) GetModuleCode() string {
+	if x != nil {
+		return x.ModuleCode
 	}
 	return ""
 }
@@ -1348,17 +1364,21 @@ const file_proto_coredeno_proto_rawDesc = "" +
 	"\vmodule_code\x18\x02 \x01(\tR\n" +
 	"moduleCode\"$\n" +
 	"\x12FileDeleteResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"9\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"Z\n" +
 	"\x0fStoreGetRequest\x12\x14\n" +
 	"\x05group\x18\x01 \x01(\tR\x05group\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key\">\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key\x12\x1f\n" +
+	"\vmodule_code\x18\x03 \x01(\tR\n" +
+	"moduleCode\">\n" +
 	"\x10StoreGetResponse\x12\x14\n" +
 	"\x05value\x18\x01 \x01(\tR\x05value\x12\x14\n" +
-	"\x05found\x18\x02 \x01(\bR\x05found\"O\n" +
+	"\x05found\x18\x02 \x01(\bR\x05found\"p\n" +
 	"\x0fStoreSetRequest\x12\x14\n" +
 	"\x05group\x18\x01 \x01(\tR\x05group\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x03 \x01(\tR\x05value\"\"\n" +
+	"\x05value\x18\x03 \x01(\tR\x05value\x12\x1f\n" +
+	"\vmodule_code\x18\x04 \x01(\tR\n" +
+	"moduleCode\"\"\n" +
 	"\x10StoreSetResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\"d\n" +
 	"\x13ProcessStartRequest\x12\x18\n" +

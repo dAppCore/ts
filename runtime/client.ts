@@ -27,8 +27,17 @@ function getProto(): any {
 export interface CoreClient {
   raw: any;
   ping(): Promise<{ ok: boolean }>;
-  storeGet(group: string, key: string): Promise<{ value: string; found: boolean }>;
-  storeSet(group: string, key: string, value: string): Promise<{ ok: boolean }>;
+  storeGet(
+    group: string,
+    key: string,
+    moduleCode?: string,
+  ): Promise<{ value: string; found: boolean }>;
+  storeSet(
+    group: string,
+    key: string,
+    value: string,
+    moduleCode?: string,
+  ): Promise<{ ok: boolean }>;
   fileRead(path: string, moduleCode: string): Promise<{ content: string }>;
   fileWrite(path: string, content: string, moduleCode: string): Promise<{ ok: boolean }>;
   fileList(path: string, moduleCode: string): Promise<{ entries: Array<{ name: string; is_dir: boolean; size: number }> }>;
@@ -61,12 +70,21 @@ export function createCoreClient(socketPath: string): CoreClient {
       return promisify(client, "Ping", {});
     },
 
-    storeGet(group: string, key: string) {
-      return promisify(client, "StoreGet", { group, key });
+    storeGet(group: string, key: string, moduleCode = "") {
+      return promisify(client, "StoreGet", {
+        group,
+        key,
+        module_code: moduleCode,
+      });
     },
 
-    storeSet(group: string, key: string, value: string) {
-      return promisify(client, "StoreSet", { group, key, value });
+    storeSet(group: string, key: string, value: string, moduleCode = "") {
+      return promisify(client, "StoreSet", {
+        group,
+        key,
+        value,
+        module_code: moduleCode,
+      });
     },
 
     fileRead(path: string, moduleCode: string) {
