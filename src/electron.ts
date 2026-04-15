@@ -89,6 +89,11 @@ export interface ElectronFileProxy {
   unlink(path: string): Promise<void>;
   readdir(path: string): Promise<string[]>;
   mkdir(path: string): Promise<void>;
+  readFileSync(path: string): string | null;
+  writeFileSync(path: string, content: string): void;
+  unlinkSync(path: string): void;
+  readdirSync(path: string): string[];
+  mkdirSync(path: string): void;
   promises: {
     readFile(path: string): Promise<string | null>;
     writeFile(path: string, content: string): Promise<void>;
@@ -255,6 +260,18 @@ function buildFileProxy(fsBridge: ElectronFileBridge | undefined, origin: string
   const unsupported = async (_path: string): Promise<never> => {
     throw new Error(`fs bridge is not configured for ${origin}`);
   };
+  const unsupportedSync = (): never => {
+    throw new Error(`fs bridge is not configured for ${origin}`);
+  };
+
+  const syncOrThrow = <T>(value: T | Promise<T>): T => {
+    if (isPromiseLike(value)) {
+      throw new Error(
+        `fs bridge is asynchronous for ${origin}; use fs.promises instead`,
+      );
+    }
+    return value;
+  };
 
   if (!fsBridge) {
     return {
@@ -269,6 +286,11 @@ function buildFileProxy(fsBridge: ElectronFileBridge | undefined, origin: string
       mkdir: async (_path: string): Promise<void> => {
         throw new Error(`fs bridge is not configured for ${origin}`);
       },
+      readFileSync: unsupportedSync,
+      writeFileSync: unsupportedSync,
+      unlinkSync: unsupportedSync,
+      readdirSync: unsupportedSync,
+      mkdirSync: unsupportedSync,
       promises: {
         readFile: unsupported,
         writeFile: async (_path: string, _content: string): Promise<void> => {
@@ -297,6 +319,17 @@ function buildFileProxy(fsBridge: ElectronFileBridge | undefined, origin: string
     unlink,
     readdir,
     mkdir,
+    readFileSync: (filePath: string) => syncOrThrow(fsBridge.readFile(filePath)),
+    writeFileSync: (filePath: string, content: string) => {
+      syncOrThrow(fsBridge.writeFile(filePath, content));
+    },
+    unlinkSync: (filePath: string) => {
+      syncOrThrow(fsBridge.deleteFile(filePath));
+    },
+    readdirSync: (dirPath: string) => syncOrThrow(fsBridge.readdir(dirPath)),
+    mkdirSync: (dirPath: string) => {
+      syncOrThrow(fsBridge.mkdir(dirPath));
+    },
     promises: {
       readFile,
       writeFile,
@@ -346,4 +379,8 @@ function isWindowsPlatform(): boolean {
 
 function normaliseModuleName(module: string): string {
   return module.startsWith("node:") ? module.slice(5) : module;
+}
+
+function isPromiseLike<T>(value: unknown): value is PromiseLike<T> {
+  return !!value && typeof value === "object" && typeof (value as PromiseLike<T>).then === "function";
 }

@@ -11,6 +11,12 @@ function assert(condition: boolean, message: string): void {
   }
 }
 
+function assertEquals<T>(actual: T, expected: T, message: string): void {
+  if (!Object.is(actual, expected)) {
+    throw new Error(`${message}: expected ${expected}, got ${actual}`);
+  }
+}
+
 Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
   const calls: Array<{ channel: string; args: unknown[] }> = [];
   const shim = buildElectronShim({
@@ -26,6 +32,22 @@ Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
     once: () => () => undefined,
     off: () => undefined,
     offAll: () => undefined,
+  }, {
+    readFile(path) {
+      return path === "/var/demo.txt" ? "file-data" : null;
+    },
+    writeFile() {
+      return undefined;
+    },
+    deleteFile() {
+      return undefined;
+    },
+    readdir() {
+      return ["demo.txt"];
+    },
+    mkdir() {
+      return undefined;
+    },
   });
 
   await shim.ipcRenderer.send("app:ready", { version: "1.0" });
@@ -44,6 +66,16 @@ Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
   assert(
     shim.path.resolve("/tmp", "..", "var") === expectedPath,
     "path.resolve should follow the host platform",
+  );
+  assertEquals(
+    shim.fs.readFileSync("/var/demo.txt"),
+    "file-data",
+    "fs.readFileSync should use the synchronous bridge surface when available",
+  );
+  assertEquals(
+    shim.fs.readdirSync("/var"),
+    ["demo.txt"],
+    "fs.readdirSync should use the synchronous bridge surface when available",
   );
 });
 
