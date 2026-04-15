@@ -8,7 +8,7 @@ import (
 )
 
 func TestExecProcessRunner_Good(t *testing.T) {
-	runner := newExecProcessRunner()
+	runner := newExecProcessRunner(nil)
 	require.NotNil(t, runner)
 
 	handle, err := runner.Start(context.Background(), "sleep", "5")

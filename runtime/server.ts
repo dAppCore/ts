@@ -12,6 +12,10 @@ export async function startDenoServer(
   socketPath: string,
   registry: ModuleRegistry,
 ): Promise<DenoServer> {
+  const socketDir = socketPath.includes("/")
+    ? socketPath.slice(0, socketPath.lastIndexOf("/"))
+    : "";
+
   // Remove stale socket
   try {
     Deno.removeSync(socketPath);
@@ -19,7 +23,21 @@ export async function startDenoServer(
     // ignore
   }
 
+  if (socketDir) {
+    await Deno.mkdir(socketDir, { recursive: true, mode: 0o700 });
+    try {
+      await Deno.chmod(socketDir, 0o700);
+    } catch {
+      // best-effort on platforms that do not support chmod for unix socket dirs
+    }
+  }
+
   const listener = Deno.listen({ transport: "unix", path: socketPath });
+  try {
+    await Deno.chmod(socketPath, 0o600);
+  } catch {
+    // best-effort on platforms that do not support chmod for unix sockets
+  }
 
   const handleConnection = async (conn: Deno.UnixConn) => {
     const reader = conn.readable.getReader();
@@ -126,6 +144,12 @@ async function dispatch(
           run?: string[];
         };
       };
+      if (!isNonEmpty(loadParams.code ?? req.code)) {
+        return { error: "module code required" };
+      }
+      if (!isNonEmpty(loadParams.entry_point ?? req.entry_point)) {
+        return { error: "module entry point required" };
+      }
       const result = await registry.load(
         loadParams.code ?? req.code ?? "",
         loadParams.entry_point ?? req.entry_point ?? "",
@@ -135,12 +159,18 @@ async function dispatch(
     }
     case "UnloadModule": {
       const unloadParams = params as { code?: string };
+      if (!isNonEmpty(unloadParams.code ?? req.code)) {
+        return { error: "module code required" };
+      }
       const ok = registry.unload(unloadParams.code ?? req.code ?? "");
       return { ok };
     }
     case "ModuleStatus": {
       const statusParams = params as { code?: string };
       const code = statusParams.code ?? req.code ?? "";
+      if (!isNonEmpty(code)) {
+        return { error: "module code required" };
+      }
       return { code, status: registry.status(code) };
     }
     default:
@@ -176,4 +206,8 @@ function formatResponse(
     id: req.id ?? null,
     result: response,
   };
+}
+
+function isNonEmpty(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }

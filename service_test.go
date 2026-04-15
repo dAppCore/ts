@@ -455,6 +455,25 @@ func TestService_LoadModule_Bad_RollsBackManifest(t *testing.T) {
 	assert.Contains(t, err.Error(), "unknown module")
 }
 
+func TestService_LoadModule_Bad_RejectsBlankIdentity(t *testing.T) {
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { st.Close() })
+
+	svc := &Service{
+		grpcServer: NewServer(io.NewMockMedium(), st),
+	}
+	svc.setDenoClient(&DenoClient{})
+
+	_, loadErr := svc.LoadModule("  ", "file:///module.ts", ModulePermissions{})
+	require.Error(t, loadErr)
+	assert.Contains(t, loadErr.Error(), "module code required")
+
+	_, loadErr = svc.LoadModule("module", "   ", ModulePermissions{})
+	require.Error(t, loadErr)
+	assert.Contains(t, loadErr.Error(), "module entry point required")
+}
+
 func TestService_UnloadModule_Good_UnregistersManifest(t *testing.T) {
 	tmpDir := shortSocketDir(t)
 	sockPath := filepath.Join(tmpDir, "deno.sock")

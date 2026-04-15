@@ -321,6 +321,27 @@ func TestProcessStart_Bad_NoProcessService(t *testing.T) {
 	assert.Equal(t, codes.Unimplemented, st.Code())
 }
 
+func TestProcessStart_Bad_MissingIdentity(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+	_, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{
+		Command: "echo",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "module code required")
+}
+
+func TestProcessStart_Bad_BlankCommand(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+	_, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{
+		Command:    "   ",
+		ModuleCode: "runner-mod",
+	})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
 func TestProcessStop_Good(t *testing.T) {
 	srv, _ := newTestServerWithProcess(t)
 	// Start a process first
@@ -345,6 +366,18 @@ func TestProcessStop_Bad_RequiresModuleCode(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "module code required")
+}
+
+func TestProcessStop_Bad_BlankProcessID(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+	_, err := srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
+		ProcessId:  "   ",
+		ModuleCode: "runner-mod",
+	})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
 }
 
 func TestProcessStop_Bad_OwnershipMismatch(t *testing.T) {

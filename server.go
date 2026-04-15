@@ -57,6 +57,9 @@ func NewServer(medium io.Medium, st *store.Store) *Server {
 
 // RegisterModule adds a module's manifest to the permission registry.
 func (s *Server) RegisterModule(m *manifest.Manifest) {
+	if m == nil || strings.TrimSpace(m.Code) == "" {
+		return
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.manifests[m.Code] = m
@@ -64,6 +67,9 @@ func (s *Server) RegisterModule(m *manifest.Manifest) {
 
 // UnregisterModule removes a module from the permission registry.
 func (s *Server) UnregisterModule(code string) {
+	if strings.TrimSpace(code) == "" {
+		return
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.manifests, code)
@@ -213,6 +219,12 @@ func (s *Server) ProcessStart(ctx context.Context, req *pb.ProcessStartRequest) 
 	if s.processes == nil {
 		return nil, status.Error(codes.Unimplemented, "process service not available")
 	}
+	if strings.TrimSpace(req.ModuleCode) == "" {
+		return nil, status.Error(codes.PermissionDenied, "permission denied: module code required to start processes")
+	}
+	if strings.TrimSpace(req.Command) == "" {
+		return nil, status.Error(codes.InvalidArgument, "process command required")
+	}
 	moduleManifest, err := s.getManifest(req.ModuleCode)
 	if err != nil {
 		return nil, err
@@ -239,8 +251,11 @@ func (s *Server) ProcessStop(_ context.Context, req *pb.ProcessStopRequest) (*pb
 	if s.processes == nil {
 		return nil, status.Error(codes.Unimplemented, "process service not available")
 	}
-	if req.ModuleCode == "" {
+	if strings.TrimSpace(req.ModuleCode) == "" {
 		return nil, status.Error(codes.PermissionDenied, "permission denied: module code required to stop processes")
+	}
+	if strings.TrimSpace(req.ProcessId) == "" {
+		return nil, status.Error(codes.InvalidArgument, "process id required")
 	}
 
 	s.mu.RLock()
@@ -259,8 +274,12 @@ func (s *Server) ProcessStop(_ context.Context, req *pb.ProcessStopRequest) (*pb
 		}
 		return nil, fmt.Errorf("process stop: %w", err)
 	}
-	s.mu.Lock()
-	delete(s.processOwners, req.ProcessId)
-	s.mu.Unlock()
+	s.clearProcessOwner(req.ProcessId)
 	return &pb.ProcessStopResponse{Ok: true}, nil
+}
+
+func (s *Server) clearProcessOwner(processID string) {
+	s.mu.Lock()
+	delete(s.processOwners, processID)
+	s.mu.Unlock()
 }

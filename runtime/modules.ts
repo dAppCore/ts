@@ -87,6 +87,13 @@ export class ModuleRegistry {
     entryPoint: string,
     permissions: ModulePermissions,
   ): Promise<LoadResult> {
+    if (!isNonEmpty(code)) {
+      return { ok: false, error: "module code required" };
+    }
+    if (!isNonEmpty(entryPoint)) {
+      return { ok: false, error: "module entry point required" };
+    }
+
     // Terminate existing worker if reloading
     const existingModule = this.modules.get(code);
     if (existingModule?.worker) {
@@ -217,39 +224,36 @@ export class ModuleRegistry {
     switch (method) {
       case "LocaleGet":
         return c.localeGet((params as CoreRPCParams["LocaleGet"]).locale);
-      case "StoreGet":
-        {
-          const storeParams = params as CoreRPCParams["StoreGet"];
-          return c.storeGet(
-            storeParams.group,
-            storeParams.key,
-            moduleCode,
-          );
-        }
-      case "StoreSet":
-        {
-          const storeParams = params as CoreRPCParams["StoreSet"];
-          return c.storeSet(
-            storeParams.group,
-            storeParams.key,
-            storeParams.value,
-            moduleCode,
-          );
-        }
+      case "StoreGet": {
+        const storeParams = params as CoreRPCParams["StoreGet"];
+        return c.storeGet(
+          storeParams.group,
+          storeParams.key,
+          moduleCode,
+        );
+      }
+      case "StoreSet": {
+        const storeParams = params as CoreRPCParams["StoreSet"];
+        return c.storeSet(
+          storeParams.group,
+          storeParams.key,
+          storeParams.value,
+          moduleCode,
+        );
+      }
       case "FileRead":
         return c.fileRead(
           (params as CoreRPCParams["FileRead"]).path,
           moduleCode,
         );
-      case "FileWrite":
-        {
-          const fileParams = params as CoreRPCParams["FileWrite"];
-          return c.fileWrite(
-            fileParams.path,
-            fileParams.content,
-            moduleCode,
-          );
-        }
+      case "FileWrite": {
+        const fileParams = params as CoreRPCParams["FileWrite"];
+        return c.fileWrite(
+          fileParams.path,
+          fileParams.content,
+          moduleCode,
+        );
+      }
       case "FileList":
         return c.fileList(
           (params as CoreRPCParams["FileList"]).path,
@@ -260,15 +264,14 @@ export class ModuleRegistry {
           (params as CoreRPCParams["FileDelete"]).path,
           moduleCode,
         );
-      case "ProcessStart":
-        {
-          const processParams = params as CoreRPCParams["ProcessStart"];
-          return c.processStart(
-            processParams.command,
-            processParams.args,
-            moduleCode,
-          );
-        }
+      case "ProcessStart": {
+        const processParams = params as CoreRPCParams["ProcessStart"];
+        return c.processStart(
+          processParams.command,
+          processParams.args,
+          moduleCode,
+        );
+      }
       case "ProcessStop":
         return c.processStop(
           (params as CoreRPCParams["ProcessStop"]).process_id,
@@ -280,6 +283,9 @@ export class ModuleRegistry {
   }
 
   unload(code: string): boolean {
+    if (!isNonEmpty(code)) {
+      return false;
+    }
     const moduleState = this.modules.get(code);
     if (!moduleState) return false;
     if (moduleState.loadWaiter) {
@@ -299,6 +305,9 @@ export class ModuleRegistry {
   }
 
   status(code: string): ModuleStatus {
+    if (!isNonEmpty(code)) {
+      return "UNKNOWN";
+    }
     return this.modules.get(code)?.status ?? "UNKNOWN";
   }
 
@@ -444,4 +453,8 @@ function isWithinRoot(rootDir: string, candidatePath: string): boolean {
     : `${normalisedRoot}/`;
   return normalisedCandidate === normalisedRoot ||
     normalisedCandidate.startsWith(prefix);
+}
+
+function isNonEmpty(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }

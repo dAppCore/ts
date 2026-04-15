@@ -3,12 +3,13 @@ package ts
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -99,7 +100,7 @@ func (s *Service) OnStartup(ctx context.Context) (err error) {
 
 	// 3. Create gRPC Server
 	s.grpcServer = NewServer(medium, s.store)
-	s.grpcServer.SetProcessRunner(newExecProcessRunner())
+	s.grpcServer.SetProcessRunner(newExecProcessRunner(s.grpcServer.clearProcessOwner))
 
 	// 4. Load manifest if AppRoot set (non-fatal if missing)
 	if opts.AppRoot != "" {
@@ -290,6 +291,12 @@ func (s *Service) Installer() *marketplace.Installer {
 func (s *Service) LoadModule(code, entryPoint string, perms ModulePermissions) (*LoadModuleResponse, error) {
 	if s.grpcServer == nil {
 		return nil, fmt.Errorf("coredeno: gRPC server not started")
+	}
+	if strings.TrimSpace(code) == "" {
+		return nil, fmt.Errorf("coredeno: module code required")
+	}
+	if strings.TrimSpace(entryPoint) == "" {
+		return nil, fmt.Errorf("coredeno: module entry point required")
 	}
 	client := s.DenoClient()
 	if client == nil {
@@ -632,15 +639,17 @@ func waitForGRPCSocket(ctx context.Context, path string, timeout time.Duration, 
 type execProcessRunner struct {
 	mu        sync.Mutex
 	processes map[string]*exec.Cmd
+	onExit    func(string)
 }
 
 type execProcessHandle struct {
 	id string
 }
 
-func newExecProcessRunner() ProcessRunner {
+func newExecProcessRunner(onExit func(string)) ProcessRunner {
 	return &execProcessRunner{
 		processes: make(map[string]*exec.Cmd),
+		onExit:    onExit,
 	}
 }
 
@@ -654,7 +663,12 @@ func (r *execProcessRunner) Start(ctx context.Context, command string, args ...s
 		return nil, fmt.Errorf("coredeno: process start: %w", err)
 	}
 
-	id := strconv.Itoa(cmd.Process.Pid)
+	id, err := newProcessID()
+	if err != nil {
+		_ = cmd.Process.Kill()
+		_, _ = cmd.Process.Wait()
+		return nil, fmt.Errorf("coredeno: process id: %w", err)
+	}
 
 	r.mu.Lock()
 	r.processes[id] = cmd
@@ -664,7 +678,11 @@ func (r *execProcessRunner) Start(ctx context.Context, command string, args ...s
 		_ = cmd.Wait()
 		r.mu.Lock()
 		delete(r.processes, id)
+		onExit := r.onExit
 		r.mu.Unlock()
+		if onExit != nil {
+			onExit(id)
+		}
 	}()
 
 	return &execProcessHandle{id: id}, nil
@@ -713,6 +731,14 @@ func (r *execProcessRunner) Close() error {
 	}
 
 	return nil
+}
+
+func newProcessID() (string, error) {
+	var raw [16]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(raw[:]), nil
 }
 
 func (s *Service) closeProcessRunner() {
