@@ -284,3 +284,34 @@ Deno.test("Core bridge exposes the RFC core.ipc surface", () => {
   assert(core.ipc.action("gui.ping") === "action", "core.ipc.action should proxy actions");
   assert(core.ipc.query("gui.ping") === "query", "core.ipc.query should proxy queries");
 });
+
+Deno.test("Electron ipcRenderer listeners receive variadic payload arguments", async () => {
+  let onHandler: ((payload: unknown[]) => void | Promise<void>) | undefined;
+  const shim = buildElectronShim({
+    action: () => undefined,
+    query: () => undefined,
+    on(channel, handler) {
+      if (channel === "agent.completed") {
+        onHandler = handler;
+      }
+      return () => undefined;
+    },
+    once: () => () => undefined,
+    off: () => undefined,
+    offAll: () => undefined,
+  });
+
+  const seen: unknown[][] = [];
+  shim.ipcRenderer.on("agent.completed", (...args: unknown[]) => {
+    seen.push(args);
+  });
+
+  await onHandler?.(["done", { id: 7 }]);
+
+  assertEquals(seen.length, 1, "listener should be invoked once");
+  assertEquals(
+    JSON.stringify(seen[0]),
+    JSON.stringify(["done", { id: 7 }]),
+    "listener should receive the payload as variadic arguments",
+  );
+});

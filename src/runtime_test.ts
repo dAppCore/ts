@@ -145,8 +145,8 @@ Deno.test("injectCoreRuntime forwards an Electron fs bridge", async () => {
     "injectCoreRuntime should expose the configured fs bridge through require('fs')",
   );
   assertEquals(
-    fsProxy.readdirSync("/var"),
-    ["demo.txt"],
+    JSON.stringify(fsProxy.readdirSync("/var")),
+    JSON.stringify(["demo.txt"]),
     "injectCoreRuntime should expose the configured fs bridge through require('fs')",
   );
   assertEquals(
@@ -220,8 +220,8 @@ Deno.test("injectCoreRuntime reuses the storage filesystem bridge for require('f
     "injectCoreRuntime should derive an fs proxy from the storage bridge",
   );
   assertEquals(
-    await fsProxy.promises.readdir("/var"),
-    ["demo.txt"],
+    JSON.stringify(await fsProxy.promises.readdir("/var")),
+    JSON.stringify(["demo.txt"]),
     "injectCoreRuntime should derive directory listing support from the storage bridge",
   );
   assertEquals(fsCalls[0].origin, "app-demo", "derived fs bridge should preserve the origin");

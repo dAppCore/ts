@@ -1,4 +1,4 @@
-import { CoreRouter } from "./router.ts";
+import { CoreRouter, createWailsCoreRouteBridge } from "./router.ts";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
@@ -137,7 +137,7 @@ Deno.test("CoreRouter attach reacts to hash changes", async () => {
 
   target.location.hash = "#/second";
   assert(listener !== undefined, "hashchange listener should be registered");
-  listener();
+  listener?.();
   await Promise.resolve();
 
   assertEquals(seen[1], "/second", "hashchange should trigger navigation");
@@ -172,7 +172,7 @@ Deno.test("CoreRouter intercepts core:// anchor clicks", async () => {
   const result = await router.handleLinkEvent(linkEvent);
 
   assert(prevented, "core links should prevent the browser default");
-  assert(result?.handled, "core links should be handled by the router");
+  assert(result?.handled === true, "core links should be handled by the router");
   assertEquals(result?.path, "agent", "core links should strip the scheme");
   assertEquals(
     result?.query.get("tab"),
@@ -199,6 +199,10 @@ Deno.test("CoreRouter mount wires hash and link interception together", async ()
       },
     },
   });
+  router.handle("/first", (route) => {
+    seen.push(route.path);
+    return route.path;
+  });
 
   const detach = router.mount({
     hashTarget: {
@@ -211,10 +215,26 @@ Deno.test("CoreRouter mount wires hash and link interception together", async ()
       },
     },
     linkTarget: {
-      addEventListener(_type: "click", listener: (event) => void) {
+      addEventListener(
+        _type: "click",
+        listener: (event: {
+          button?: number;
+          defaultPrevented?: boolean;
+          preventDefault(): void;
+          target?: unknown;
+        }) => void,
+      ) {
         clickListener = listener;
       },
-      removeEventListener(_type: "click", _listener: (event) => void) {
+      removeEventListener(
+        _type: "click",
+        _listener: (event: {
+          button?: number;
+          defaultPrevented?: boolean;
+          preventDefault(): void;
+          target?: unknown;
+        }) => void,
+      ) {
         clickListener = undefined;
       },
     },
@@ -243,4 +263,37 @@ Deno.test("CoreRouter mount wires hash and link interception together", async ()
   detach();
   assert(hashListener === undefined, "detach should remove hash listeners");
   assert(clickListener === undefined, "detach should remove link listeners");
+});
+
+Deno.test("createWailsCoreRouteBridge maps core routes to predictable Wails channels", async () => {
+  const calls: Array<{ channel: string; payload: unknown }> = [];
+  const bridge = createWailsCoreRouteBridge({
+    query(channel: string, payload?: unknown) {
+      calls.push({ channel, payload });
+      return { channel, payload };
+    },
+  });
+
+  const query = new URLSearchParams("tab=general&view=compact");
+  const result = await bridge.dispatch("settings/profile", query) as {
+    channel: string;
+    payload: unknown;
+  };
+
+  assertEquals(
+    result.channel,
+    "gui.route.settings.profile",
+    "Wails bridge should receive the dotted route channel",
+  );
+  assertEquals(
+    JSON.stringify(calls[0].payload),
+    JSON.stringify({
+      path: "settings/profile",
+      query: {
+        tab: "general",
+        view: "compact",
+      },
+    }),
+    "Wails bridge should receive the stripped path and query payload",
+  );
 });

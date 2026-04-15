@@ -44,9 +44,9 @@ export interface ElectronShim {
   ipcRenderer: {
     send(channel: string, ...args: unknown[]): Promise<unknown> | unknown;
     invoke(channel: string, ...args: unknown[]): Promise<unknown> | unknown;
-    on(channel: string, handler: CoreEventHandler<unknown[]>): () => void;
-    once(channel: string, handler: CoreEventHandler<unknown[]>): () => void;
-    removeListener(channel: string, handler: CoreEventHandler<unknown[]>): void;
+    on(channel: string, handler: ElectronIPCHandler): () => void;
+    once(channel: string, handler: ElectronIPCHandler): () => void;
+    removeListener(channel: string, handler: ElectronIPCHandler): void;
     removeAllListeners(channel?: string): void;
   };
   shell: {
@@ -97,6 +97,8 @@ export interface CoreShim {
   path: ElectronPathProxy;
   events: CoreEventBus<Record<string, unknown[]>>;
 }
+
+export type ElectronIPCHandler = (...args: unknown[]) => void | Promise<void>;
 
 export interface CoreCryptoShim {
   webcrypto: Crypto;
@@ -193,18 +195,12 @@ export function buildElectronShim(
   const core = buildCoreShim(mirroredBridge, fsBridge, origin, events);
   const cryptoShim = createCoreCryptoShim();
   const netShim = createCoreNetShim(events);
+  const ipcRenderer = createElectronIPCProxy(core.ipc);
   return {
     core,
     crypto: cryptoShim,
     net: netShim,
-    ipcRenderer: {
-      send: (channel: string, ...args: unknown[]) => core.ipc.action(channel, ...args),
-      invoke: (channel: string, ...args: unknown[]) => core.ipc.query(channel, ...args),
-      on: (channel: string, handler: CoreEventHandler<unknown[]>) => core.ipc.on(channel, handler),
-      once: (channel: string, handler: CoreEventHandler<unknown[]>) => core.ipc.once(channel, handler),
-      removeListener: (channel: string, handler: CoreEventHandler<unknown[]>) => core.ipc.off(channel, handler),
-      removeAllListeners: (channel?: string) => core.ipc.offAll(channel),
-    },
+    ipcRenderer,
     shell: {
       openExternal: (url: string) => core.browser.open(url),
       openPath: (path: string) => core.browser.openFile(path),
@@ -442,6 +438,81 @@ function defineGetter(
     enumerable: true,
     get,
   });
+}
+
+function createElectronIPCProxy(
+  ipc: CoreShim["ipc"],
+): ElectronShim["ipcRenderer"] {
+  const listeners = new Map<string, Map<ElectronIPCHandler, CoreEventHandler<unknown[]>>>();
+
+  const remember = (
+    channel: string,
+    handler: ElectronIPCHandler,
+    wrapped: CoreEventHandler<unknown[]>,
+  ): void => {
+    let bucket = listeners.get(channel);
+    if (!bucket) {
+      bucket = new Map();
+      listeners.set(channel, bucket);
+    }
+    bucket.set(handler, wrapped);
+  };
+
+  const forget = (channel: string, handler: ElectronIPCHandler): CoreEventHandler<unknown[]> | undefined => {
+    const bucket = listeners.get(channel);
+    if (!bucket) {
+      return undefined;
+    }
+    const wrapped = bucket.get(handler);
+    if (wrapped) {
+      bucket.delete(handler);
+      if (bucket.size === 0) {
+        listeners.delete(channel);
+      }
+    }
+    return wrapped;
+  };
+
+  const clear = (channel?: string): void => {
+    if (channel) {
+      listeners.delete(channel);
+      return;
+    }
+    listeners.clear();
+  };
+
+  return {
+    send: (channel: string, ...args: unknown[]) => ipc.action(channel, ...args),
+    invoke: (channel: string, ...args: unknown[]) => ipc.query(channel, ...args),
+    on(channel: string, handler: ElectronIPCHandler): () => void {
+      const wrapped: CoreEventHandler<unknown[]> = (payload) => handler(...payload);
+      remember(channel, handler, wrapped);
+      const unsubscribe = ipc.on(channel, wrapped);
+      return () => {
+        forget(channel, handler);
+        unsubscribe();
+      };
+    },
+    once(channel: string, handler: ElectronIPCHandler): () => void {
+      const wrapped: CoreEventHandler<unknown[]> = (payload) => handler(...payload);
+      remember(channel, handler, wrapped);
+      const unsubscribe = ipc.once(channel, wrapped);
+      return () => {
+        forget(channel, handler);
+        unsubscribe();
+      };
+    },
+    removeListener(channel: string, handler: ElectronIPCHandler): void {
+      const wrapped = forget(channel, handler);
+      if (wrapped) {
+        ipc.off(channel, wrapped);
+      }
+    },
+    removeAllListeners(channel?: string): void {
+      clear(channel);
+      ipc.offAll(channel);
+    },
+  };
 }
 
 function createMirroredElectronBridge(

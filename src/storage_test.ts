@@ -337,6 +337,9 @@ Deno.test("parseCookie normalises lowercase SameSite values", () => {
 
 Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", async () => {
   const bridge = createBridge();
+  if (!bridge.cache) {
+    throw new Error("cache bridge should be configured");
+  }
   await bridge.cache.open("https://example.com", "shared");
   const polyfills = injectStoragePolyfills("https://example.com", bridge, {
     target: { navigator: {}, document: {} },
@@ -361,14 +364,14 @@ Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", a
   assertEquals(response?.body, "ok", "cache storage should round-trip entries");
   assertEquals(storageMatch?.body, "ok", "cache storage should search opened caches");
   assertEquals(
-    cacheNames,
-    ["v1", "shared"],
+    JSON.stringify(cacheNames),
+    JSON.stringify(["v1", "shared"]),
     "cache storage should expose opened and bridge-side cache names",
   );
   assertEquals(deleted, true, "cache storage should delete opened caches");
   assertEquals(
-    remoteCacheNames,
-    ["shared"],
+    JSON.stringify(remoteCacheNames),
+    JSON.stringify(["shared"]),
     "cache storage should expose bridge-side cache names",
   );
   assertEquals(bucket.name, "photos", "bucket manager should open buckets");
@@ -382,6 +385,9 @@ Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", a
 
 Deno.test("CoreCacheStorage.match searches remote caches", async () => {
   const bridge = createBridge();
+  if (!bridge.cache) {
+    throw new Error("cache bridge should be configured");
+  }
   await bridge.cache.open("https://example.com", "remote");
   await bridge.cache.put(
     "https://example.com",
@@ -481,8 +487,8 @@ Deno.test("CoreOPFS create walks parent directories", async () => {
   await opfs.getDirectoryHandle("images/raw", { create: true });
 
   assertEquals(
-    mkdirs,
-    ["notes", "notes/archive", "images", "images/raw"],
+    JSON.stringify(mkdirs),
+    JSON.stringify(["notes", "notes/archive", "images", "images/raw"]),
     "OPFS should materialise parent directories before nested entries",
   );
 });

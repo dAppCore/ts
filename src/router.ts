@@ -16,6 +16,14 @@ export interface CoreRouteBridge<T = unknown> {
   dispatch(path: string, query: URLSearchParams): Promise<T> | T;
 }
 
+export interface WailsCoreRouteBridge<T = unknown> {
+  query(channel: string, payload?: unknown): Promise<T> | T;
+}
+
+export interface WailsCoreRouteBridgeOptions {
+  channelPrefix?: string;
+}
+
 export type RouteHandler<T = unknown> = (
   route: RouteContext,
 ) => Promise<T> | T;
@@ -330,8 +338,43 @@ export class CoreRouter<T = unknown> {
   }
 }
 
+// Example:
+//   const bridge = createWailsCoreRouteBridge(wails, { channelPrefix: "gui.route" });
+//   await bridge.dispatch("settings/profile", new URLSearchParams("tab=general"));
+//   // -> wails.query("gui.route.settings.profile", { path: "settings/profile", query: { tab: "general" } })
+export function createWailsCoreRouteBridge<T = unknown>(
+  bridge: WailsCoreRouteBridge<T>,
+  options: WailsCoreRouteBridgeOptions = {},
+): CoreRouteBridge<T> {
+  return {
+    dispatch(path: string, query: URLSearchParams): Promise<T> | T {
+      const channel = buildCoreRouteChannel(
+        path,
+        options.channelPrefix ?? "gui.route",
+      );
+      return bridge.query(channel, {
+        path: normaliseCorePath(path),
+        query: Object.fromEntries(query.entries()),
+      });
+    },
+  };
+}
+
 function normaliseCorePath(path: string): string {
   return path.replace(/^\/+/, "").replace(/\/+$/, "");
+}
+
+function buildCoreRouteChannel(path: string, channelPrefix: string): string {
+  const routePath = normaliseCorePath(path);
+  if (routePath === "") {
+    return channelPrefix;
+  }
+  const channelPath = routePath
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .join(".");
+  return channelPath === "" ? channelPrefix : `${channelPrefix}.${channelPath}`;
 }
 
 function normaliseHttpPath(path: string): string {
