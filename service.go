@@ -57,7 +57,7 @@ func NewServiceFactory(opts Options) func(*core.Core) (any, error) {
 //
 // Sequence: medium → store → server → manifest → gRPC listener → sidecar.
 func (s *Service) OnStartup(ctx context.Context) error {
-	opts := s.Options()
+	opts := s.effectiveOptions()
 
 	// 1. Create sandboxed Medium (or mock if no AppRoot)
 	var medium io.Medium
@@ -118,7 +118,7 @@ func (s *Service) OnStartup(ctx context.Context) error {
 		s.supervisorCancel = supervisorCancel
 		s.supervisorDone = make(chan struct{})
 
-		// Wait for core socket so sidecar can connect to our gRPC server
+		// Wait for core socket so sidecar can connect to our gRPC server.
 		if err := waitForGRPCSocket(ctx, opts.SocketPath, 5*time.Second, s.grpcDone); err != nil {
 			supervisorCancel()
 			cleanupGRPC(false)
@@ -132,7 +132,7 @@ func (s *Service) OnStartup(ctx context.Context) error {
 		}
 
 		// 7. Wait for Deno's server and connect as client
-		if opts.DenoSocketPath != "" {
+		if s.shouldConnectDeno() {
 			dc, err := dialDenoReady(supervisorCtx, opts.DenoSocketPath, 10*time.Second)
 			if err != nil {
 				_ = s.sidecar.Stop()
@@ -376,9 +376,6 @@ func (s *Service) superviseSidecar(ctx context.Context) {
 			}
 
 			client := s.DenoClient()
-			if s.Options().DenoSocketPath == "" {
-				continue
-			}
 			if client == nil {
 				_ = s.reconnectDeno(ctx)
 				continue
@@ -394,7 +391,9 @@ func (s *Service) superviseSidecar(ctx context.Context) {
 func (s *Service) restartSidecar(ctx context.Context) error {
 	s.closeDenoClient()
 
-	if err := s.sidecar.Start(ctx, s.Options().SidecarArgs...); err != nil {
+	opts := s.effectiveOptions()
+
+	if err := s.sidecar.Start(ctx, opts.SidecarArgs...); err != nil {
 		return err
 	}
 
@@ -407,17 +406,30 @@ func (s *Service) restartSidecar(ctx context.Context) error {
 }
 
 func (s *Service) reconnectDeno(ctx context.Context) error {
-	if s.Options().DenoSocketPath == "" {
+	if !s.shouldConnectDeno() {
 		return nil
 	}
 
-	dc, err := dialDenoReady(ctx, s.Options().DenoSocketPath, 10*time.Second)
+	opts := s.effectiveOptions()
+
+	dc, err := dialDenoReady(ctx, opts.DenoSocketPath, 10*time.Second)
 	if err != nil {
 		return err
 	}
 	s.setDenoClient(dc)
 
 	return s.reloadDesiredModules()
+}
+
+func (s *Service) shouldConnectDeno() bool {
+	return s.Options().DenoSocketPath != ""
+}
+
+func (s *Service) effectiveOptions() Options {
+	if s.sidecar != nil {
+		return s.sidecar.opts
+	}
+	return s.Options()
 }
 
 func (s *Service) reloadDesiredModules() error {

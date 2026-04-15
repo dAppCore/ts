@@ -155,6 +155,35 @@ permissions:
 	assert.False(t, svc.sidecar.IsRunning(), "sidecar should be stopped")
 }
 
+func TestService_OnStartup_Good_DefaultSocketPath(t *testing.T) {
+	tmpDir := shortSocketDir(t)
+	t.Setenv("XDG_RUNTIME_DIR", tmpDir)
+
+	c := core.New()
+
+	factory := NewServiceFactory(Options{
+		DenoPath: "sleep",
+	})
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err = svc.OnStartup(ctx)
+	require.NoError(t, err)
+
+	sockPath := filepath.Join(tmpDir, "core", "core.sock")
+	require.Eventually(t, func() bool {
+		_, err := os.Stat(sockPath)
+		return err == nil
+	}, 2*time.Second, 10*time.Millisecond, "default gRPC socket should appear")
+
+	err = svc.OnShutdown(context.Background())
+	assert.NoError(t, err)
+}
+
 func TestService_OnStartup_Good_NoManifest(t *testing.T) {
 	tmpDir := shortSocketDir(t)
 	sockPath := filepath.Join(tmpDir, "core.sock")

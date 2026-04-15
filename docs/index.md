@@ -110,7 +110,7 @@ type Options struct {
 }
 ```
 
-If `SocketPath` is not set, it defaults to `$XDG_RUNTIME_DIR/core/deno.sock` (or `/tmp/core/deno.sock` on macOS).
+If `SocketPath` is not set, it defaults to `$XDG_RUNTIME_DIR/core/core.sock` (or `/tmp/core/core.sock` on macOS).
 
 If `DenoSocketPath` is not set, it defaults to the same directory as `SocketPath` with filename `deno.sock`.
 

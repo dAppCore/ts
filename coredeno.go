@@ -48,13 +48,13 @@ func (p Permissions) Flags() []string {
 	return flags
 }
 
-// DefaultSocketPath returns the default Unix socket path.
+// DefaultSocketPath returns the default Unix socket path for CoreService.
 func DefaultSocketPath() string {
 	xdg := os.Getenv("XDG_RUNTIME_DIR")
 	if xdg == "" {
 		xdg = "/tmp"
 	}
-	return filepath.Join(xdg, "core", "deno.sock")
+	return filepath.Join(xdg, "core", "core.sock")
 }
 
 // Sidecar manages a Deno child process.
