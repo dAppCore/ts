@@ -23,6 +23,15 @@ func TestCheckPath_Good_EmptyDenyAll(t *testing.T) {
 	assert.False(t, CheckPath("./anything", []string{}))
 }
 
+func TestCheckPath_Good_RootGrant(t *testing.T) {
+	allowed := []string{"./"}
+
+	assert.True(t, CheckPath("./data/file.txt", allowed))
+	assert.True(t, CheckPath("data/file.txt", allowed))
+	assert.True(t, CheckPath(".", allowed))
+	assert.False(t, CheckPath("../escape/file", allowed))
+}
+
 func TestCheckNet_Good_Allowed(t *testing.T) {
 	allowed := []string{"pool.lthn.io:3333", "api.lthn.io:443"}
 	assert.True(t, CheckNet("pool.lthn.io:3333", allowed))
