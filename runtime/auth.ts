@@ -51,7 +51,7 @@ export async function sealLocalMessage(
   const message = await openpgp.createMessage({ text: payload });
   const cipherText = await openpgp.encrypt({
     message,
-    encryptionKeys: (await state.publicKey) as any,
+    passwords: [state.material.rootPassword],
     format: "armored",
   });
 
@@ -101,7 +101,7 @@ export async function openLocalMessage(
   });
   const decrypted = await openpgp.decrypt({
     message,
-    decryptionKeys: (await state.privateKey) as any,
+    passwords: [state.material.rootPassword],
   });
 
   return typeof decrypted.data === "string"
