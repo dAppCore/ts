@@ -50,7 +50,7 @@ function promisify<T>(client: any, method: string, request: any): Promise<T> {
 export function createCoreClient(socketPath: string): CoreClient {
   const proto = getProto();
   const client = new proto.CoreService(
-    `unix:${socketPath}`,
+    `unix://${socketPath}`,
     grpc.credentials.createInsecure(),
   );
 

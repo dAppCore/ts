@@ -150,11 +150,13 @@ export function buildElectronShim(
 
 export function buildRequireShim(shim: ElectronShim): (module: string) => unknown {
   return (module: string) => {
-    switch (module) {
+    switch (normaliseModuleName(module)) {
       case "electron":
         return shim;
       case "fs":
         return shim.fs;
+      case "fs/promises":
+        return shim.fs.promises;
       case "path":
         return shim.path;
       default:
@@ -253,4 +255,8 @@ function define(target: Record<string, unknown>, key: string, value: unknown): v
     value,
     writable: true,
   });
+}
+
+function normaliseModuleName(module: string): string {
+  return module.startsWith("node:") ? module.slice(5) : module;
 }

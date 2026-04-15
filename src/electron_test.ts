@@ -52,7 +52,19 @@ Deno.test("Electron require shim only exposes supported modules", () => {
 
   assert(requireShim("electron") === shim, "require('electron') should return the shim");
   assert(requireShim("fs") === shim.fs, "require('fs') should return the filesystem proxy");
+  assert(
+    requireShim("node:fs") === shim.fs,
+    "require('node:fs') should return the filesystem proxy",
+  );
+  assert(
+    requireShim("fs/promises") === shim.fs.promises,
+    "require('fs/promises') should return the promise API",
+  );
   assert(requireShim("path") === shim.path, "require('path') should return the path proxy");
+  assert(
+    requireShim("node:path") === shim.path,
+    "require('node:path') should return the path proxy",
+  );
 
   let message = "";
   try {
