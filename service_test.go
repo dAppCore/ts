@@ -3,6 +3,8 @@ package ts
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/json"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +12,8 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
+	io "dappco.re/go/core/io"
+	"dappco.re/go/core/io/store"
 	pb "dappco.re/go/core/ts/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -256,6 +260,62 @@ permissions:
 
 	err = svc.OnShutdown(context.Background())
 	assert.NoError(t, err)
+}
+
+func TestService_LoadModule_Bad_RollsBackManifest(t *testing.T) {
+	tmpDir := shortSocketDir(t)
+	sockPath := filepath.Join(tmpDir, "deno.sock")
+
+	listener, err := net.Listen("unix", sockPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = listener.Close() })
+
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		decoder := json.NewDecoder(conn)
+		encoder := json.NewEncoder(conn)
+
+		var req map[string]any
+		if err := decoder.Decode(&req); err != nil {
+			return
+		}
+
+		_ = encoder.Encode(map[string]any{
+			"ok": false,
+		})
+	}()
+
+	client, err := DialDeno(sockPath)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = client.Close() })
+
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+
+	svc := &Service{
+		grpcServer: NewServer(io.NewMockMedium(), st),
+	}
+	svc.setDenoClient(client)
+
+	resp, err := svc.LoadModule("bad-mod", filepath.Join(tmpDir, "module.ts"), ModulePermissions{
+		Read: []string{"./data/"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.False(t, resp.Ok)
+
+	_, err = svc.GRPCServer().FileRead(context.Background(), &pb.FileReadRequest{
+		Path:       "./data/test.txt",
+		ModuleCode: "bad-mod",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown module")
 }
 
 func TestService_OnStartup_Bad_InvalidManifestSignature(t *testing.T) {

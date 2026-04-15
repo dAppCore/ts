@@ -61,6 +61,13 @@ func (s *Server) RegisterModule(m *manifest.Manifest) {
 	s.manifests[m.Code] = m
 }
 
+// UnregisterModule removes a module from the permission registry.
+func (s *Server) UnregisterModule(code string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.manifests, code)
+}
+
 // getManifest looks up a module and returns an error if unknown.
 func (s *Server) getManifest(code string) (*manifest.Manifest, error) {
 	s.mu.RLock()

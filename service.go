@@ -294,10 +294,13 @@ func (s *Service) LoadModule(code, entryPoint string, perms ModulePermissions) (
 
 	resp, err := client.LoadModule(code, entryPoint, perms)
 	if err != nil {
+		s.grpcServer.UnregisterModule(code)
 		return nil, err
 	}
 	if resp.Ok {
 		s.rememberModule(code, entryPoint, perms)
+	} else {
+		s.grpcServer.UnregisterModule(code)
 	}
 	return resp, nil
 }
