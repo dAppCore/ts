@@ -17,7 +17,12 @@ type DenoClient struct {
 	reader *bufio.Reader
 }
 
-const denoClientTimeout = 2 * time.Second
+const (
+	denoPingTimeout         = 2 * time.Second
+	denoModuleLoadTimeout   = 10 * time.Second
+	denoModuleStopTimeout   = 5 * time.Second
+	denoModuleStatusTimeout = 2 * time.Second
+)
 
 // DialDeno connects to the Deno JSON-RPC server on the given Unix socket path.
 func DialDeno(socketPath string) (*DenoClient, error) {
@@ -49,7 +54,7 @@ func (c *DenoClient) Close() error {
 	return err
 }
 
-func (c *DenoClient) call(req map[string]any) (map[string]any, error) {
+func (c *DenoClient) call(req map[string]any, timeout time.Duration) (map[string]any, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -57,7 +62,11 @@ func (c *DenoClient) call(req map[string]any) (map[string]any, error) {
 		return nil, fmt.Errorf("deno: client closed")
 	}
 
-	if err := c.conn.SetDeadline(time.Now().Add(denoClientTimeout)); err != nil {
+	if timeout <= 0 {
+		timeout = denoPingTimeout
+	}
+
+	if err := c.conn.SetDeadline(time.Now().Add(timeout)); err != nil {
 		return nil, fmt.Errorf("deadline: %w", err)
 	}
 	defer func() {
@@ -94,7 +103,7 @@ func (c *DenoClient) call(req map[string]any) (map[string]any, error) {
 func (c *DenoClient) Ping() error {
 	resp, err := c.call(map[string]any{
 		"method": "Ping",
-	})
+	}, denoPingTimeout)
 	if err != nil {
 		return err
 	}
@@ -125,7 +134,7 @@ func (c *DenoClient) LoadModule(code, entryPoint string, perms ModulePermissions
 		"code":        code,
 		"entry_point": entryPoint,
 		"permissions": perms,
-	})
+	}, denoModuleLoadTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +155,7 @@ func (c *DenoClient) UnloadModule(code string) (*UnloadModuleResponse, error) {
 	resp, err := c.call(map[string]any{
 		"method": "UnloadModule",
 		"code":   code,
-	})
+	}, denoModuleStopTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +175,7 @@ func (c *DenoClient) ModuleStatus(code string) (*ModuleStatusResponse, error) {
 	resp, err := c.call(map[string]any{
 		"method": "ModuleStatus",
 		"code":   code,
-	})
+	}, denoModuleStatusTimeout)
 	if err != nil {
 		return nil, err
 	}
