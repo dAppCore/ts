@@ -38,8 +38,18 @@ export class CoreRouter<T = unknown> {
 
   constructor(private readonly options: CoreRouterOptions<T>) {}
 
-  handle(target: string, handler: RouteHandler<T>): this {
-    const route = this.parse(target);
+  handle(target: string, handler: RouteHandler<T>): this;
+  handle(scheme: string, path: string, handler: RouteHandler<T>): this;
+  handle(
+    target: string,
+    pathOrHandler: string | RouteHandler<T>,
+    maybeHandler?: RouteHandler<T>,
+  ): this {
+    const { route, handler } = this.resolveHandleArgs(
+      target,
+      pathOrHandler,
+      maybeHandler,
+    );
     this.routes.set(this.routeKey(route.scheme, route.path), handler);
     return this;
   }
@@ -147,6 +157,33 @@ export class CoreRouter<T = unknown> {
   private routeKey(scheme: string, path: string): string {
     return `${scheme}:${path}`;
   }
+
+  private resolveHandleArgs(
+    target: string,
+    pathOrHandler: string | RouteHandler<T>,
+    maybeHandler?: RouteHandler<T>,
+  ): { route: RouteContext; handler: RouteHandler<T> } {
+    if (typeof pathOrHandler === "function") {
+      return {
+        route: this.parse(target),
+        handler: pathOrHandler,
+      };
+    }
+
+    if (!maybeHandler) {
+      throw new Error("CoreRouter.handle requires a route handler");
+    }
+
+    const scheme = target.trim();
+    const path = normaliseHandlePath(pathOrHandler);
+    const href = scheme.includes("://")
+      ? (scheme.endsWith("://") ? `${scheme}${path}` : scheme)
+      : `${scheme}://${path}`;
+    return {
+      route: this.parse(href),
+      handler: maybeHandler,
+    };
+  }
 }
 
 function normaliseCorePath(path: string): string {
@@ -158,4 +195,15 @@ function normaliseHttpPath(path: string): string {
     return "/";
   }
   return path.startsWith("/") ? path : `/${path}`;
+}
+
+function normaliseHandlePath(path: string): string {
+  const trimmed = path.trim();
+  if (trimmed === "") {
+    return "";
+  }
+  if (trimmed.startsWith("/")) {
+    return trimmed.replace(/^\/+/, "");
+  }
+  return trimmed;
 }

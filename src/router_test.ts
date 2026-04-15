@@ -44,6 +44,22 @@ Deno.test("CoreRouter resolves hash routes through registered handlers", async (
   assertEquals(result.value, "/settings", "hash route should keep its path");
 });
 
+Deno.test("CoreRouter handles scheme and path registration", async () => {
+  const router = new CoreRouter({
+    bridge: { dispatch: () => undefined },
+  });
+
+  router.handle("core", "settings", (route) => route.href);
+  const result = await router.navigate("core://settings");
+
+  assert(result.handled, "scheme/path routes should be handled");
+  assertEquals(
+    result.value,
+    "core://settings",
+    "scheme/path registration should normalise to a core route",
+  );
+});
+
 Deno.test("CoreRouter falls back to httpNavigate for standard routes", async () => {
   const router = new CoreRouter({
     bridge: { dispatch: () => undefined },

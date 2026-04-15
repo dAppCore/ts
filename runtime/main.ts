@@ -6,6 +6,7 @@
 import "./polyfill.ts";
 
 import { createCoreClient, type CoreClient } from "./client.ts";
+import { CoreDevServer } from "./dev.ts";
 import { startDenoServer, type DenoServer } from "./server.ts";
 import { ModuleRegistry } from "./modules.ts";
 
@@ -27,6 +28,22 @@ console.error(`CoreDeno: DENO_SOCKET=${denoSocket}`);
 
 // 1. Create module registry
 const registry = new ModuleRegistry();
+
+// Optional dev server: watch source trees and trigger HMR reload hooks.
+let devServer: CoreDevServer | null = null;
+const devRoot = Deno.env.get("CORE_DEV_ROOT");
+if (devRoot) {
+  try {
+    devServer = new CoreDevServer({
+      root: devRoot,
+      hmrPath: Deno.env.get("CORE_HMR_PATH") ?? "/_core/hmr",
+    });
+    await devServer.start();
+    console.error(`CoreDeno: dev server watching ${devRoot}`);
+  } catch (err) {
+    console.error(`CoreDeno: dev server unavailable: ${err}`);
+  }
+}
 
 // 2. Start DenoService server (Go calls us here via JSON-RPC over Unix socket)
 let denoServer: DenoServer;
@@ -113,6 +130,7 @@ try {
   });
 } catch {
   // Clean shutdown
+  devServer?.stop();
   coreClient.close();
   denoServer.close();
 }
