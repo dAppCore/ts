@@ -5,84 +5,53 @@
 // The parent (ModuleRegistry) injects module_code into all gRPC calls,
 // so modules can't spoof their identity.
 
-// I/O bridge: request/response correlation over postMessage
-const pending = new Map<number, { resolve: Function; reject: Function }>();
-let nextId = 0;
+import { type RuntimeIPCMessage, RuntimeRPCClient } from "./ipc.ts";
 
-function rpc(
-  method: string,
-  params: Record<string, unknown>,
-): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const id = ++nextId;
-    pending.set(id, { resolve, reject });
-    self.postMessage({ type: "rpc", id, method, params });
-  });
-}
+const workerScope = globalThis as unknown as {
+  postMessage(message: RuntimeIPCMessage): void;
+  addEventListener(
+    type: "message",
+    listener: (event: MessageEvent<RuntimeIPCMessage>) => void | Promise<void>,
+  ): void;
+};
 
-// Typed core object passed to module's init() function.
-// Each method maps to a CoreService gRPC call relayed through the parent.
-const core = {
-  localeGet(locale: string) {
-    return rpc("LocaleGet", { locale });
-  },
-  storeGet(group: string, key: string) {
-    return rpc("StoreGet", { group, key });
-  },
-  storeSet(group: string, key: string, value: string) {
-    return rpc("StoreSet", { group, key, value });
-  },
-  fileRead(path: string) {
-    return rpc("FileRead", { path });
-  },
-  fileWrite(path: string, content: string) {
-    return rpc("FileWrite", { path, content });
-  },
-  fileList(path: string) {
-    return rpc("FileList", { path });
-  },
-  fileDelete(path: string) {
-    return rpc("FileDelete", { path });
-  },
-  processStart(command: string, args: string[]) {
-    return rpc("ProcessStart", { command, args });
-  },
-  processStop(processId: string) {
-    return rpc("ProcessStop", { process_id: processId });
+const channel = {
+  post(message: RuntimeIPCMessage): void {
+    workerScope.postMessage(message);
   },
 };
 
+const rpcClient = new RuntimeRPCClient(channel);
+const core = rpcClient.createCoreBridge();
+
 // Handle messages from parent: RPC responses and load commands
-self.addEventListener("message", async (e: MessageEvent) => {
-  const msg = e.data;
+workerScope.addEventListener(
+  "message",
+  async (e: MessageEvent<RuntimeIPCMessage>) => {
+    const msg = e.data as RuntimeIPCMessage;
 
-  if (msg.type === "rpc_response") {
-    const p = pending.get(msg.id);
-    if (p) {
-      pending.delete(msg.id);
-      if (msg.error) p.reject(new Error(msg.error));
-      else p.resolve(msg.result);
+    if (rpcClient.handle(msg)) {
+      return;
     }
-    return;
-  }
 
-  if (msg.type === "load") {
-    try {
-      const mod = await import(msg.url);
-      if (typeof mod.init === "function") {
-        await mod.init(core);
+    if (msg.type === "load") {
+      try {
+        const mod = await import(msg.url);
+        if (typeof mod.init === "function") {
+          await mod.init(core);
+        }
+        workerScope.postMessage({ type: "loaded", ok: true });
+      } catch (err) {
+        workerScope.postMessage({
+          type: "loaded",
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
-      self.postMessage({ type: "loaded", ok: true });
-    } catch (err) {
-      self.postMessage({
-        type: "loaded",
-        ok: false,
-        error: err instanceof Error ? err.message : String(err),
-      });
+      return;
     }
-    return;
-  }
-});
+  },
+);
 
 // Signal ready — parent will respond with {type: "load", url: "..."}
-self.postMessage({ type: "ready" });
+workerScope.postMessage({ type: "ready" });

@@ -1,4 +1,4 @@
-import * as openpgp from "npm:openpgp@^6.1.0";
+import { openpgp } from "../deps.ts";
 
 export interface LocalAuthMaterial {
   root: string;
@@ -63,9 +63,11 @@ export async function sealLocalMessage(
     rootPassword: state.material.rootPassword,
     cipherText,
   };
-  return `core-auth:${bytesToBase64Url(
-    new TextEncoder().encode(JSON.stringify(envelope)),
-  )}`;
+  return `core-auth:${
+    bytesToBase64Url(
+      new TextEncoder().encode(JSON.stringify(envelope)),
+    )
+  }`;
 }
 
 // Example:
@@ -159,7 +161,10 @@ async function buildLocalAuthState(root: string): Promise<LocalAuthState> {
   });
 
   const publicKeyBytes = new TextEncoder().encode(keyPair.publicKey);
-  const fingerprint = bytesToHex(await sha256Bytes(publicKeyBytes)).slice(0, 32);
+  const fingerprint = bytesToHex(await sha256Bytes(publicKeyBytes)).slice(
+    0,
+    32,
+  );
 
   return {
     material: {
@@ -183,7 +188,10 @@ async function buildLocalAuthState(root: string): Promise<LocalAuthState> {
 }
 
 async function sha256Bytes(bytes: Uint8Array): Promise<Uint8Array> {
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+  );
   return new Uint8Array(digest);
 }
 
@@ -205,7 +213,8 @@ function parseLocalEnvelope(token: string): LocalAuthEnvelope {
     typeof value.root !== "string" ||
     typeof value.fingerprint !== "string" ||
     typeof value.algorithm !== "string" ||
-    (value.rootPassword !== undefined && typeof value.rootPassword !== "string") ||
+    (value.rootPassword !== undefined &&
+      typeof value.rootPassword !== "string") ||
     typeof value.cipherText !== "string"
   ) {
     throw new Error("invalid local auth envelope");
@@ -215,7 +224,9 @@ function parseLocalEnvelope(token: string): LocalAuthEnvelope {
 }
 
 function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
 }
 
 function bytesToBase64Url(bytes: Uint8Array): string {
@@ -223,7 +234,10 @@ function bytesToBase64Url(bytes: Uint8Array): string {
   for (const byte of bytes) {
     binary += String.fromCharCode(byte);
   }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(
+    /=+$/g,
+    "",
+  );
 }
 
 function base64UrlToBytes(value: string): Uint8Array {

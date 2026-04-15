@@ -1,8 +1,7 @@
 // CoreService gRPC client — Deno calls Go for I/O operations.
 // All filesystem, store, and process operations route through this client.
 
-import * as grpc from "@grpc/grpc-js";
-import * as protoLoader from "@grpc/proto-loader";
+import { grpc, protoLoader } from "../deps.ts";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -40,10 +39,23 @@ export interface CoreClient {
     moduleCode?: string,
   ): Promise<{ ok: boolean }>;
   fileRead(path: string, moduleCode: string): Promise<{ content: string }>;
-  fileWrite(path: string, content: string, moduleCode: string): Promise<{ ok: boolean }>;
-  fileList(path: string, moduleCode: string): Promise<{ entries: Array<{ name: string; is_dir: boolean; size: number }> }>;
+  fileWrite(
+    path: string,
+    content: string,
+    moduleCode: string,
+  ): Promise<{ ok: boolean }>;
+  fileList(
+    path: string,
+    moduleCode: string,
+  ): Promise<
+    { entries: Array<{ name: string; is_dir: boolean; size: number }> }
+  >;
   fileDelete(path: string, moduleCode: string): Promise<{ ok: boolean }>;
-  processStart(command: string, args: string[], moduleCode: string): Promise<{ process_id: string }>;
+  processStart(
+    command: string,
+    args: string[],
+    moduleCode: string,
+  ): Promise<{ process_id: string }>;
   processStop(processId: string, moduleCode: string): Promise<{ ok: boolean }>;
   close(): void;
 }
@@ -97,7 +109,11 @@ export function createCoreClient(socketPath: string): CoreClient {
     },
 
     fileWrite(path: string, content: string, moduleCode: string) {
-      return promisify(client, "FileWrite", { path, content, module_code: moduleCode });
+      return promisify(client, "FileWrite", {
+        path,
+        content,
+        module_code: moduleCode,
+      });
     },
 
     fileList(path: string, moduleCode: string) {
@@ -109,7 +125,11 @@ export function createCoreClient(socketPath: string): CoreClient {
     },
 
     processStart(command: string, args: string[], moduleCode: string) {
-      return promisify(client, "ProcessStart", { command, args, module_code: moduleCode });
+      return promisify(client, "ProcessStart", {
+        command,
+        args,
+        module_code: moduleCode,
+      });
     },
 
     processStop(processId: string, moduleCode: string) {

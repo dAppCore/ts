@@ -97,14 +97,19 @@ interface RPCRequest {
   params?: Record<string, unknown>;
   code?: string;
   entry_point?: string;
-  permissions?: { read?: string[]; write?: string[]; net?: string[]; run?: string[] };
+  permissions?: {
+    read?: string[];
+    write?: string[];
+    net?: string[];
+    run?: string[];
+  };
   process_id?: string;
 }
 
 async function dispatch(
   req: RPCRequest,
   registry: ModuleRegistry,
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   switch (req.method) {
     case "Ping":
       return { ok: true };
@@ -114,7 +119,7 @@ async function dispatch(
         req.entry_point ?? "",
         req.permissions ?? {},
       );
-      return result;
+      return result as Record<string, unknown>;
     }
     case "UnloadModule": {
       const ok = registry.unload(req.code ?? "");

@@ -3,6 +3,13 @@
 // I/O bridge relays Worker postMessage calls to CoreService gRPC.
 
 import type { CoreClient } from "./client.ts";
+import {
+  type CoreRPCMethod,
+  type CoreRPCParams,
+  type IPCLoadedMessage,
+  RuntimeHostBridge,
+  type RuntimeIPCMessage,
+} from "./ipc.ts";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -75,7 +82,11 @@ export class ModuleRegistry {
     this.coreClient = client;
   }
 
-  load(code: string, entryPoint: string, permissions: ModulePermissions): Promise<LoadResult> {
+  async load(
+    code: string,
+    entryPoint: string,
+    permissions: ModulePermissions,
+  ): Promise<LoadResult> {
     // Terminate existing worker if reloading
     const existingModule = this.modules.get(code);
     if (existingModule?.worker) {
@@ -100,6 +111,15 @@ export class ModuleRegistry {
 
     // Resolve entry point URL for the module
     const moduleUrl = resolveModuleUrl(entryPoint);
+    try {
+      await assertModuleIsolation(entryPoint);
+    } catch (error) {
+      moduleState.status = "ERRORED";
+      const message = error instanceof Error ? error.message : String(error);
+      moduleState.loadWaiter?.resolve({ ok: false, error: message });
+      moduleState.loadWaiter = undefined;
+      return await loadWaiter.promise;
+    }
 
     // Build read permissions: worker-entry.ts dir + module source + declared reads
     const readPerms: string[] = [
@@ -137,49 +157,44 @@ export class ModuleRegistry {
     moduleState.worker = worker;
 
     // I/O bridge: relay Worker RPC to CoreClient
+    const hostBridge = new RuntimeHostBridge(
+      {
+        post(message: RuntimeIPCMessage): void {
+          worker.postMessage(message);
+        },
+      },
+      {
+        onReady() {
+          worker.postMessage({ type: "load", url: moduleUrl });
+        },
+        onLoaded(message: IPCLoadedMessage) {
+          moduleState.status = message.ok ? "RUNNING" : "ERRORED";
+          if (message.ok) {
+            console.error(`CoreDeno: module running: ${code}`);
+            moduleState.loadWaiter?.resolve({ ok: true });
+          } else {
+            console.error(`CoreDeno: module error: ${code}: ${message.error}`);
+            moduleState.loadWaiter?.resolve({
+              ok: false,
+              error: message.error ?? "module failed to load",
+            });
+          }
+          moduleState.loadWaiter = undefined;
+        },
+        dispatch: async (
+          method: CoreRPCMethod,
+          params: CoreRPCParams[CoreRPCMethod],
+        ) => {
+          if (!this.coreClient) {
+            throw new Error("CoreService client is not connected");
+          }
+          return await this.dispatchRPC(code, method, params);
+        },
+      },
+    );
+
     worker.onmessage = async (e: MessageEvent) => {
-      const msg = e.data;
-
-      if (msg.type === "ready") {
-        worker.postMessage({ type: "load", url: moduleUrl });
-        return;
-      }
-
-      if (msg.type === "loaded") {
-        moduleState.status = msg.ok ? "RUNNING" : "ERRORED";
-        if (msg.ok) {
-          console.error(`CoreDeno: module running: ${code}`);
-          moduleState.loadWaiter?.resolve({ ok: true });
-        } else {
-          console.error(`CoreDeno: module error: ${code}: ${msg.error}`);
-          moduleState.loadWaiter?.resolve({ ok: false, error: msg.error ?? "module failed to load" });
-        }
-        moduleState.loadWaiter = undefined;
-        return;
-      }
-
-      if (msg.type === "rpc" && this.coreClient) {
-        try {
-          const result = await this.dispatchRPC(
-            code,
-            msg.method,
-            msg.params,
-          );
-          worker.postMessage({ type: "rpc_response", id: msg.id, result });
-        } catch (err) {
-          worker.postMessage({
-            type: "rpc_response",
-            id: msg.id,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      } else if (msg.type === "rpc") {
-        worker.postMessage({
-          type: "rpc_response",
-          id: msg.id,
-          error: "CoreService client is not connected",
-        });
-      }
+      await hostBridge.handle(e.data as RuntimeIPCMessage);
     };
 
     worker.onerror = (e: ErrorEvent) => {
@@ -195,46 +210,62 @@ export class ModuleRegistry {
 
   private async dispatchRPC(
     moduleCode: string,
-    method: string,
-    params: Record<string, unknown>,
+    method: CoreRPCMethod,
+    params: CoreRPCParams[CoreRPCMethod],
   ): Promise<unknown> {
     const c = this.coreClient!;
     switch (method) {
       case "LocaleGet":
-        return c.localeGet(params.locale as string);
+        return c.localeGet((params as CoreRPCParams["LocaleGet"]).locale);
       case "StoreGet":
+        params = params as CoreRPCParams["StoreGet"];
         return c.storeGet(
-          params.group as string,
-          params.key as string,
+          params.group,
+          params.key,
           moduleCode,
         );
       case "StoreSet":
+        params = params as CoreRPCParams["StoreSet"];
         return c.storeSet(
-          params.group as string,
-          params.key as string,
-          params.value as string,
+          params.group,
+          params.key,
+          params.value,
           moduleCode,
         );
       case "FileRead":
-        return c.fileRead(params.path as string, moduleCode);
+        return c.fileRead(
+          (params as CoreRPCParams["FileRead"]).path,
+          moduleCode,
+        );
       case "FileWrite":
+        params = params as CoreRPCParams["FileWrite"];
         return c.fileWrite(
-          params.path as string,
-          params.content as string,
+          params.path,
+          params.content,
           moduleCode,
         );
       case "FileList":
-        return c.fileList(params.path as string, moduleCode);
+        return c.fileList(
+          (params as CoreRPCParams["FileList"]).path,
+          moduleCode,
+        );
       case "FileDelete":
-        return c.fileDelete(params.path as string, moduleCode);
+        return c.fileDelete(
+          (params as CoreRPCParams["FileDelete"]).path,
+          moduleCode,
+        );
       case "ProcessStart":
+        params = params as CoreRPCParams["ProcessStart"];
         return c.processStart(
-          params.command as string,
-          params.args as string[],
+          params.command,
+          params.args,
           moduleCode,
         );
       case "ProcessStop":
-        return c.processStop(params.process_id as string, moduleCode);
+        return c.processStop(
+          (params as CoreRPCParams["ProcessStop"]).process_id,
+          moduleCode,
+        );
       default:
         throw new Error(`unknown RPC method: ${method}`);
     }
@@ -274,11 +305,13 @@ export class ModuleRegistry {
 
     const results: LoadResult[] = [];
     for (const moduleState of snapshot) {
-      results.push(await this.load(
-        moduleState.code,
-        moduleState.entryPoint,
-        moduleState.permissions,
-      ));
+      results.push(
+        await this.load(
+          moduleState.code,
+          moduleState.entryPoint,
+          moduleState.permissions,
+        ),
+      );
     }
     return results;
   }
@@ -319,4 +352,88 @@ function resolveModulePath(entryPoint: string): string | null {
     return fileURLToPath(entryPoint);
   }
   return resolve(Deno.cwd(), entryPoint);
+}
+
+async function assertModuleIsolation(entryPoint: string): Promise<void> {
+  const modulePath = resolveModulePath(entryPoint);
+  if (!modulePath) {
+    return;
+  }
+
+  try {
+    const stat = await Deno.stat(modulePath);
+    if (!stat.isFile) {
+      return;
+    }
+  } catch {
+    return;
+  }
+
+  const rootDir = dirname(modulePath);
+  const visited = new Set<string>();
+  await walkModuleGraph(modulePath, rootDir, visited);
+}
+
+async function walkModuleGraph(
+  modulePath: string,
+  rootDir: string,
+  visited: Set<string>,
+): Promise<void> {
+  const normalisedPath = resolve(modulePath);
+  if (visited.has(normalisedPath)) {
+    return;
+  }
+  visited.add(normalisedPath);
+
+  const source = await Deno.readTextFile(normalisedPath);
+  for (const specifier of extractModuleSpecifiers(source)) {
+    if (!isLocalModuleSpecifier(specifier)) {
+      continue;
+    }
+
+    const resolvedPath = resolve(dirname(normalisedPath), specifier);
+    if (!isWithinRoot(rootDir, resolvedPath)) {
+      throw new Error(
+        `module isolation violation: ${normalisedPath} imports ${specifier} outside ${rootDir}`,
+      );
+    }
+
+    try {
+      const stat = await Deno.stat(resolvedPath);
+      if (stat.isFile) {
+        await walkModuleGraph(resolvedPath, rootDir, visited);
+      }
+    } catch {
+      // Ignore unresolved imports here; Deno will report ordinary module errors later.
+    }
+  }
+}
+
+function extractModuleSpecifiers(source: string): string[] {
+  const pattern =
+    /(?:import|export)\s+(?:[^"'`]*?\s+from\s+)?["']([^"'`]+)["']|import\(\s*["']([^"'`]+)["']\s*\)/g;
+  const matches: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(source)) !== null) {
+    const specifier = match[1] ?? match[2];
+    if (specifier) {
+      matches.push(specifier);
+    }
+  }
+  return matches;
+}
+
+function isLocalModuleSpecifier(specifier: string): boolean {
+  return specifier.startsWith("./") || specifier.startsWith("../") ||
+    specifier.startsWith("file://");
+}
+
+function isWithinRoot(rootDir: string, candidatePath: string): boolean {
+  const normalisedRoot = resolve(rootDir);
+  const normalisedCandidate = resolve(candidatePath);
+  const prefix = normalisedRoot.endsWith("/") || normalisedRoot.endsWith("\\")
+    ? normalisedRoot
+    : `${normalisedRoot}/`;
+  return normalisedCandidate === normalisedRoot ||
+    normalisedCandidate.startsWith(prefix);
 }

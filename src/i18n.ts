@@ -13,6 +13,11 @@ export interface I18nSubjectLike {
   Informal(): I18nSubjectLike;
   SetFormality(formality: I18nFormality): I18nSubjectLike;
   String(): string;
+  CountInt(): number;
+  GenderString(): string;
+  LocationString(): string;
+  FormalityString(): I18nFormality;
+  IsPlural(): boolean;
 }
 
 export type I18nFormality = "neutral" | "formal" | "informal";
@@ -28,7 +33,9 @@ export interface LocaleGetResponse {
 }
 
 export interface CoreLocaleBridge {
-  localeGet(locale: string): Promise<LocaleGetResponse | null | undefined | string>;
+  localeGet(
+    locale: string,
+  ): Promise<LocaleGetResponse | null | undefined | string>;
 }
 
 export interface SharedLocaleOptions {
@@ -40,7 +47,11 @@ type TranslationValue = string | Record<string, unknown>;
 type TemplateContext = Record<string, unknown>;
 
 const builtInLocales = new Map<string, I18nDictionary>();
-const sharedLocaleRoot = ".core/locales";
+const sharedLocaleRoots = [
+  ".core/locales",
+  "~/.core/locales",
+  "~/.core/locale",
+];
 let defaultLocaleBridge: CoreLocaleBridge | null = null;
 
 export class CoreI18nSubject implements I18nSubjectLike {
@@ -167,7 +178,10 @@ export class CoreI18n {
       return renderTemplate(resolved, context, this);
     }
     if (resolved && typeof resolved === "object") {
-      const plural = this.pickPlural(resolved as Record<string, unknown>, context);
+      const plural = this.pickPlural(
+        resolved as Record<string, unknown>,
+        context,
+      );
       if (typeof plural === "string") {
         return renderTemplate(plural, context, this);
       }
@@ -222,7 +236,10 @@ export class CoreI18n {
     });
 
     for (const arg of args) {
-      if (typeof arg === "string" || typeof arg === "number" || typeof arg === "boolean") {
+      if (
+        typeof arg === "string" || typeof arg === "number" ||
+        typeof arg === "boolean"
+      ) {
         context.Value = arg;
         context.Subject = stringValue(arg);
         continue;
@@ -310,7 +327,10 @@ export class CoreI18n {
   }
 }
 
-export function registerTranslations(locale: string, dictionary: I18nDictionary): void {
+export function registerTranslations(
+  locale: string,
+  dictionary: I18nDictionary,
+): void {
   defaultI18n.register(locale, dictionary);
 }
 
@@ -338,8 +358,13 @@ export async function loadTranslations(
     registerTranslations(locale, await loadTranslationSource(url));
     return;
   } catch {
-    if (typeof Deno !== "undefined" && typeof Deno.readTextFile === "function") {
-      registerTranslations(locale, await parseTranslationSource(await Deno.readTextFile(source)));
+    if (
+      typeof Deno !== "undefined" && typeof Deno.readTextFile === "function"
+    ) {
+      registerTranslations(
+        locale,
+        await parseTranslationSource(await Deno.readTextFile(source)),
+      );
       return;
     }
     throw new Error(`unable to load translations from ${source}`);
@@ -381,18 +406,20 @@ export async function loadSharedLocale(
     }
   }
 
-  const root = options.localeRoot ?? sharedLocaleRoot;
+  const roots = options.localeRoot ? [options.localeRoot] : sharedLocaleRoots;
   if (typeof Deno !== "undefined" && typeof Deno.readTextFile === "function") {
-    for (const path of localeCandidates(locale, root)) {
-      let json: string;
-      try {
-        json = await Deno.readTextFile(path);
-      } catch {
-        // Fall through to the next candidate.
-        continue;
+    for (const root of roots) {
+      for (const path of localeCandidates(locale, expandHomePath(root))) {
+        let json: string;
+        try {
+          json = await Deno.readTextFile(path);
+        } catch {
+          // Fall through to the next candidate.
+          continue;
+        }
+        loadTranslationsFromText(locale, json);
+        return true;
       }
-      loadTranslationsFromText(locale, json);
-      return true;
     }
   }
 
@@ -525,9 +552,11 @@ export function formatNumber(
       }).format(number);
     case "percent":
     case "pct":
-      return `${new Intl.NumberFormat(undefined, {
-        maximumFractionDigits: 2,
-      }).format(number * 100)}%`;
+      return `${
+        new Intl.NumberFormat(undefined, {
+          maximumFractionDigits: 2,
+        }).format(number * 100)
+      }%`;
     case "bytes":
     case "size":
       return formatBytes(number);
@@ -546,7 +575,8 @@ export function formatNumber(
 export const defaultI18n = new CoreI18n();
 
 function isDictionary(value: unknown): value is I18nDictionary {
-  return !!value && typeof value === "object" && !Array.isArray(value) && !(value instanceof Response);
+  return !!value && typeof value === "object" && !Array.isArray(value) &&
+    !(value instanceof Response);
 }
 
 async function parseTranslationSource(
@@ -557,7 +587,9 @@ async function parseTranslationSource(
   }
 
   if (!source.ok) {
-    throw new Error(`failed to load translations: ${source.status} ${source.statusText}`);
+    throw new Error(
+      `failed to load translations: ${source.status} ${source.statusText}`,
+    );
   }
 
   return parseTranslationJSON(await source.text());
@@ -565,8 +597,12 @@ async function parseTranslationSource(
 
 async function loadTranslationSource(url: URL): Promise<I18nDictionary> {
   if (url.protocol === "file:") {
-    if (typeof Deno !== "undefined" && typeof Deno.readTextFile === "function") {
-      return parseTranslationSource(await Deno.readTextFile(fileURLToPath(url)));
+    if (
+      typeof Deno !== "undefined" && typeof Deno.readTextFile === "function"
+    ) {
+      return parseTranslationSource(
+        await Deno.readTextFile(fileURLToPath(url)),
+      );
     }
     throw new Error(`unable to load translations from ${url.toString()}`);
   }
@@ -598,6 +634,27 @@ function localeCandidates(locale: string, rootDir: string): string[] {
     paths.push(join(rootDir, variant, "index.json"));
   }
   return paths;
+}
+
+function expandHomePath(path: string): string {
+  if (!path.startsWith("~")) {
+    return path;
+  }
+
+  if (typeof Deno === "undefined" || typeof Deno.env?.get !== "function") {
+    return path;
+  }
+
+  const home = Deno.env.get("HOME");
+  if (!home) {
+    return path;
+  }
+
+  if (path === "~") {
+    return home;
+  }
+
+  return join(home, path.slice(2));
 }
 
 function parseTranslationJSON(json: string): I18nDictionary {
@@ -661,7 +718,9 @@ function renderTemplate(
       case "article":
         return article(stripQuotes(resolveToken(tail[0] ?? "", context, i18n)));
       case "past":
-        return pastTense(stripQuotes(resolveToken(tail[0] ?? "", context, i18n)));
+        return pastTense(
+          stripQuotes(resolveToken(tail[0] ?? "", context, i18n)),
+        );
       case "gerund":
         return gerund(stripQuotes(resolveToken(tail[0] ?? "", context, i18n)));
       default:
@@ -679,7 +738,7 @@ function resolveToken(
   if (trimmed === "") {
     return "";
   }
-  if (trimmed.startsWith("\"") || trimmed.startsWith("'")) {
+  if (trimmed.startsWith('"') || trimmed.startsWith("'")) {
     return stripQuotes(trimmed);
   }
   if (trimmed.startsWith(".")) {
@@ -696,7 +755,7 @@ function resolveToken(
 
 function stripQuotes(value: string): string {
   if (
-    (value.startsWith("\"") && value.endsWith("\"")) ||
+    (value.startsWith('"') && value.endsWith('"')) ||
     (value.startsWith("'") && value.endsWith("'"))
   ) {
     return value.slice(1, -1);
