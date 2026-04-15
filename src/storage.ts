@@ -377,7 +377,7 @@ function createStorageFacade(storage: CoreLocalStorage): BrowserStorageFacade {
         value,
       });
       cache.set(key, value);
-      void source.bridge.store.set(source.namespace, key, value).catch(() => {
+      void source.setItem(key, value).catch(() => {
         // Keep the optimistic in-memory view available even if the bridge fails.
       });
     },
@@ -387,7 +387,7 @@ function createStorageFacade(storage: CoreLocalStorage): BrowserStorageFacade {
         key,
       });
       cache.delete(key);
-      void source.bridge.store.delete(source.namespace, key).catch(() => {
+      void source.removeItem(key).catch(() => {
         // Keep the optimistic in-memory view available even if the bridge fails.
       });
     },
@@ -396,7 +396,7 @@ function createStorageFacade(storage: CoreLocalStorage): BrowserStorageFacade {
         kind: "clear",
       });
       cache.clear();
-      void source.bridge.store.clear(source.namespace).catch(() => {
+      void source.clear().catch(() => {
         // Keep the optimistic in-memory view available even if the bridge fails.
       });
     },

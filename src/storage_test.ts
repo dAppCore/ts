@@ -24,12 +24,25 @@ function assertEquals<T>(actual: T, expected: T, message: string): void {
   }
 }
 
-function createBridge(): CoreStorageBridge {
+function createBridge(): CoreStorageBridge & {
+  storeSetCalls: Array<{
+    namespace: string;
+    key: string;
+    value: string;
+    options?: { ttl?: "session"; sessionId?: string };
+  }>;
+} {
   const storage = new Map<string, Map<string, string>>();
   const cookies = new Map<string, CoreCookieRecord[]>();
   const caches = new Map<string, Map<string, string>>();
   const buckets = new Map<string, Set<string>>();
   const files = new Map<string, Map<string, string>>();
+  const storeSetCalls: Array<{
+    namespace: string;
+    key: string;
+    value: string;
+    options?: { ttl?: "session"; sessionId?: string };
+  }> = [];
 
   const store = (namespace: string): Map<string, string> => {
     let value = storage.get(namespace);
@@ -77,11 +90,13 @@ function createBridge(): CoreStorageBridge {
   };
 
   return {
+    storeSetCalls,
     store: {
       async get(namespace, key) {
         return store(namespace).get(key) ?? null;
       },
-      async set(namespace, key, value) {
+      async set(namespace, key, value, options?: { ttl?: "session"; sessionId?: string }) {
+        storeSetCalls.push({ namespace, key, value, options });
         store(namespace).set(key, value);
       },
       async delete(namespace, key) {
@@ -189,6 +204,34 @@ Deno.test("CoreSessionStorage forwards session TTL metadata", async () => {
     await storage.getItem("wizard_step"),
     "3",
     "session storage should use the shared store bridge",
+  );
+});
+
+Deno.test("Injected sessionStorage forwards session TTL metadata", async () => {
+  const bridge = createBridge();
+  const target: Record<string, unknown> = { navigator: {}, document: {} };
+  const polyfills = injectStoragePolyfills("app://demo", bridge, {
+    sessionId: "session-1",
+    target,
+  });
+  assert(polyfills.sessionStorage !== undefined, "sessionStorage polyfill should exist");
+
+  (target.sessionStorage as { setItem(key: string, value: string): void }).setItem(
+    "wizard_step",
+    "3",
+  );
+  await Promise.resolve();
+
+  assertEquals(bridge.storeSetCalls.length, 1, "sessionStorage should write once");
+  assertEquals(
+    bridge.storeSetCalls[0].options?.ttl,
+    "session",
+    "sessionStorage should set session TTL",
+  );
+  assertEquals(
+    bridge.storeSetCalls[0].options?.sessionId,
+    "session-1",
+    "sessionStorage should pass the configured session id",
   );
 });
 
