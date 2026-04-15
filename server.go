@@ -74,7 +74,7 @@ func (s *Server) getManifest(code string) (*manifest.Manifest, error) {
 	defer s.mu.RUnlock()
 	m, ok := s.manifests[code]
 	if !ok {
-		return nil, fmt.Errorf("unknown module: %s", code)
+		return nil, status.Errorf(codes.NotFound, "unknown module: %s", code)
 	}
 	return m, nil
 }
@@ -91,7 +91,7 @@ func (s *Server) FileRead(_ context.Context, req *pb.FileReadRequest) (*pb.FileR
 		return nil, err
 	}
 	if !CheckPath(req.Path, m.Permissions.Read) {
-		return nil, fmt.Errorf("permission denied: %s cannot read %s", req.ModuleCode, req.Path)
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot read %s", req.ModuleCode, req.Path)
 	}
 	content, err := s.medium.Read(req.Path)
 	if err != nil {
@@ -107,7 +107,7 @@ func (s *Server) FileWrite(_ context.Context, req *pb.FileWriteRequest) (*pb.Fil
 		return nil, err
 	}
 	if !CheckPath(req.Path, m.Permissions.Write) {
-		return nil, fmt.Errorf("permission denied: %s cannot write %s", req.ModuleCode, req.Path)
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot write %s", req.ModuleCode, req.Path)
 	}
 	if err := s.medium.Write(req.Path, req.Content); err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ func (s *Server) FileList(_ context.Context, req *pb.FileListRequest) (*pb.FileL
 		return nil, err
 	}
 	if !CheckPath(req.Path, m.Permissions.Read) {
-		return nil, fmt.Errorf("permission denied: %s cannot list %s", req.ModuleCode, req.Path)
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot list %s", req.ModuleCode, req.Path)
 	}
 	entries, err := s.medium.List(req.Path)
 	if err != nil {
@@ -147,7 +147,7 @@ func (s *Server) FileDelete(_ context.Context, req *pb.FileDeleteRequest) (*pb.F
 		return nil, err
 	}
 	if !CheckPath(req.Path, m.Permissions.Write) {
-		return nil, fmt.Errorf("permission denied: %s cannot delete %s", req.ModuleCode, req.Path)
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot delete %s", req.ModuleCode, req.Path)
 	}
 	if err := s.medium.Delete(req.Path); err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ func (s *Server) ProcessStart(ctx context.Context, req *pb.ProcessStartRequest) 
 		return nil, err
 	}
 	if !CheckRun(req.Command, m.Permissions.Run) {
-		return nil, fmt.Errorf("permission denied: %s cannot run %s", req.ModuleCode, req.Command)
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot run %s", req.ModuleCode, req.Command)
 	}
 	proc, err := s.processes.Start(ctx, req.Command, req.Args...)
 	if err != nil {
@@ -236,10 +236,10 @@ func (s *Server) ProcessStop(_ context.Context, req *pb.ProcessStopRequest) (*pb
 		owner, ok := s.processOwners[req.ProcessId]
 		s.mu.RUnlock()
 		if !ok {
-			return nil, fmt.Errorf("permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
+			return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
 		}
 		if owner != req.ModuleCode {
-			return nil, fmt.Errorf("permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
+			return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
 		}
 	}
 
