@@ -215,6 +215,39 @@ Deno.test("Electron injector defines globals", () => {
   assert(requireDescriptor?.configurable === false, "require global should be immutable");
 });
 
+Deno.test("Electron injector exposes the Wails bridge when provided", () => {
+  const globalTarget: Record<string, unknown> = {};
+  const wailsBridge = {
+    action: () => undefined,
+    query: () => undefined,
+    on: () => () => undefined,
+    once: () => () => undefined,
+    off: () => undefined,
+    offAll: () => undefined,
+  };
+
+  injectElectronShim({
+    action: () => undefined,
+    query: () => undefined,
+    on: () => () => undefined,
+    once: () => () => undefined,
+    off: () => undefined,
+    offAll: () => undefined,
+  }, {
+    target: globalTarget,
+    wails: wailsBridge,
+  });
+
+  const wailsDescriptor = Object.getOwnPropertyDescriptor(globalTarget, "wails");
+
+  assert(wailsDescriptor?.get !== undefined, "wails global should be injected via a getter");
+  assert(wailsDescriptor?.configurable === false, "wails global should be immutable");
+  assert(
+    (globalTarget.wails as typeof wailsBridge) === wailsBridge,
+    "wails global should expose the provided bridge",
+  );
+});
+
 Deno.test("Core bridge exposes the RFC core.ipc surface", () => {
   const core = buildCoreShim({
     action: () => "action",

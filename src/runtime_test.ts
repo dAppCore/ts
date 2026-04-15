@@ -227,3 +227,26 @@ Deno.test("injectCoreRuntime reuses the storage filesystem bridge for require('f
   assertEquals(fsCalls[0].origin, "app-demo", "derived fs bridge should preserve the origin");
   assertEquals(fsCalls[1].origin, "app-demo", "derived fs bridge should preserve the origin");
 });
+
+Deno.test("injectCoreRuntime exposes the Wails bridge without a separate Electron bridge", () => {
+  const wailsBridge: ElectronBridge = {
+    action: () => undefined,
+    query: () => undefined,
+    on: () => () => undefined,
+    once: () => () => undefined,
+    off: () => undefined,
+    offAll: () => undefined,
+  };
+
+  const target: Record<string, unknown> = { navigator: {}, document: {} };
+  const runtime = injectCoreRuntime({
+    origin: "app-demo",
+    wails: wailsBridge,
+    target,
+  });
+
+  assert(runtime.electron !== undefined, "Wails-only injection should still build the electron shim");
+  assert(runtime.wails === wailsBridge, "Wails-only injection should return the provided bridge");
+  assert(target.electron !== undefined, "electron should be injected for Wails-only mode");
+  assert(target.wails === wailsBridge, "wails should be injected for Wails-only mode");
+});

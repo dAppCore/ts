@@ -31,6 +31,7 @@ export interface ElectronFileBridge {
 export interface ElectronShimOptions {
   origin?: string;
   fs?: ElectronFileBridge;
+  wails?: WailsBridge;
   target?: Record<string, unknown>;
 }
 
@@ -285,6 +286,9 @@ export function injectElectronShim(
   defineGetter(target, "core", () => shim.core);
   const requireShim = buildRequireShim(shim);
   defineGetter(target, "electron", () => shim);
+  if (options.wails) {
+    defineGetter(target, "wails", () => options.wails);
+  }
   defineGetter(target, "require", () => requireShim);
   return shim;
 }

@@ -72,18 +72,14 @@ export function injectCoreRuntime(
       target,
       fs: options.fs ?? adaptStorageFileBridge(options.origin, options.storage?.fs),
       origin: options.origin,
+      wails: options.wails,
     };
     const bridge = options.electron ?? options.wails;
     if (bridge) {
       result.electron = injectElectronShim(bridge, electronOptions);
     }
   }
-
   if (options.wails) {
-    Object.defineProperty(target, "wails", {
-      get: () => options.wails,
-      configurable: false,
-    });
     result.wails = options.wails;
   }
 
