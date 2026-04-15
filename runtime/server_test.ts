@@ -196,3 +196,39 @@ Deno.test("TestServer_startDenoServer_Ugly", async () => {
     await Deno.remove(tempDir, { recursive: true });
   }
 });
+
+Deno.test("TestServer_startDenoServer_Bad_SocketDirSymlink", async () => {
+  const tempDir = await Deno.makeTempDir();
+  const targetDir = `${tempDir}/target`;
+  const linkDir = `${tempDir}/link`;
+  await Deno.mkdir(targetDir, { recursive: true });
+  try {
+    await Deno.symlink(targetDir, linkDir);
+  } catch (error) {
+    console.warn(`symlinks are not available: ${error}`);
+    await Deno.remove(tempDir, { recursive: true });
+    return;
+  }
+
+  const registry = {
+    load: async () => ({ ok: true }),
+    unload: () => true,
+    status: () => "RUNNING",
+    reloadAll: async () => [{ ok: true }],
+  } as const;
+
+  await startDenoServer(`${linkDir}/core.sock`, registry as never).then(
+    () => {
+      throw new Error("startDenoServer should reject symlinked socket parents");
+    },
+    (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      assert(
+        message.includes("symlink"),
+        "startDenoServer should reject socket directories that are symlinks",
+      );
+    },
+  );
+
+  await Deno.remove(tempDir, { recursive: true });
+});

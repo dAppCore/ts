@@ -20,8 +20,14 @@ func ListenGRPC(ctx context.Context, socketPath string, srv *Server) error {
 	}
 
 	sockDir := filepath.Dir(socketPath)
+	if err := ensureSecureSocketDir(sockDir); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(sockDir, 0700); err != nil {
 		return fmt.Errorf("mkdir %s: %w", sockDir, err)
+	}
+	if err := os.Chmod(sockDir, 0700); err != nil {
+		return fmt.Errorf("chmod socket dir: %w", err)
 	}
 
 	listener, err := net.Listen("unix", socketPath)

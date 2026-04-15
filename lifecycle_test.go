@@ -203,3 +203,25 @@ func TestSocketDirCreated_Good(t *testing.T) {
 	_, err = os.Stat(filepath.Join(dir, "sub"))
 	assert.NoError(t, err, "socket directory should be created")
 }
+
+func TestStart_Bad_SocketDirSymlink(t *testing.T) {
+	baseDir := t.TempDir()
+	targetDir := filepath.Join(baseDir, "target")
+	linkDir := filepath.Join(baseDir, "link")
+	require.NoError(t, os.MkdirAll(targetDir, 0755))
+	if err := os.Symlink(targetDir, linkDir); err != nil {
+		t.Skipf("symlinks are not available: %v", err)
+	}
+
+	sc := NewSidecar(Options{
+		DenoPath:   "sleep",
+		SocketPath: filepath.Join(linkDir, "core.sock"),
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	err := sc.Start(ctx, "10")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "symlink")
+}

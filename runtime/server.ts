@@ -3,6 +3,7 @@
 // Requests may be legacy CoreTS envelopes or JSON-RPC 2.0 objects.
 
 import { ModuleRegistry } from "./modules.ts";
+import { dirname } from "node:path";
 
 export interface DenoServer {
   close(): void;
@@ -26,6 +27,7 @@ export async function startDenoServer(
   }
 
   if (socketDir) {
+    await ensureSecureSocketDir(socketDir);
     await Deno.mkdir(socketDir, { recursive: true, mode: 0o700 });
     try {
       await Deno.chmod(socketDir, 0o700);
@@ -258,6 +260,36 @@ function methodNotFound(message: string): RPCDispatchResponse {
       message,
     },
   };
+}
+
+async function ensureSecureSocketDir(dir: string): Promise<void> {
+  const clean = dir.trim();
+  if (!clean || clean === ".") {
+    return;
+  }
+
+  const parent = dirname(clean);
+  if (parent && parent !== clean) {
+    await ensureSecureSocketDir(parent);
+  }
+
+  try {
+    const info = await Deno.lstat(clean);
+    if (info.isSymlink) {
+      if (dirname(clean) === "/") {
+        return;
+      }
+      throw new Error(`socket directory ${clean} is a symlink`);
+    }
+    if (!info.isDirectory) {
+      throw new Error(`socket directory ${clean} exists and is not a directory`);
+    }
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) {
+      return;
+    }
+    throw err;
+  }
 }
 
 function isNonEmpty(value: unknown): value is string {

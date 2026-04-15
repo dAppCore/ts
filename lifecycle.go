@@ -23,15 +23,27 @@ func (s *Sidecar) Start(ctx context.Context, args ...string) error {
 
 	// Ensure socket directory exists with owner-only permissions
 	sockDir := filepath.Dir(s.opts.SocketPath)
+	if err := ensureSecureSocketDir(sockDir); err != nil {
+		return fmt.Errorf("coredeno: socket dir: %w", err)
+	}
 	if err := os.MkdirAll(sockDir, 0700); err != nil {
 		return fmt.Errorf("coredeno: mkdir %s: %w", sockDir, err)
+	}
+	if err := os.Chmod(sockDir, 0700); err != nil {
+		return fmt.Errorf("coredeno: chmod socket dir: %w", err)
 	}
 
 	if s.opts.DenoSocketPath != "" {
 		denoSockDir := filepath.Dir(s.opts.DenoSocketPath)
 		if denoSockDir != "" && denoSockDir != "." {
+			if err := ensureSecureSocketDir(denoSockDir); err != nil {
+				return fmt.Errorf("coredeno: socket dir: %w", err)
+			}
 			if err := os.MkdirAll(denoSockDir, 0700); err != nil {
 				return fmt.Errorf("coredeno: mkdir %s: %w", denoSockDir, err)
+			}
+			if err := os.Chmod(denoSockDir, 0700); err != nil {
+				return fmt.Errorf("coredeno: chmod socket dir: %w", err)
 			}
 		}
 	}

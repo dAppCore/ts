@@ -177,3 +177,24 @@ func TestListenGRPC_Bad_CannotCreateSocketDir(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not a directory")
 }
+
+func TestListenGRPC_Bad_SocketDirSymlink(t *testing.T) {
+	baseDir := t.TempDir()
+	targetDir := filepath.Join(baseDir, "target")
+	linkDir := filepath.Join(baseDir, "link")
+	require.NoError(t, os.MkdirAll(targetDir, 0755))
+	if err := os.Symlink(targetDir, linkDir); err != nil {
+		t.Skipf("symlinks are not available: %v", err)
+	}
+
+	medium := io.NewMockMedium()
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	defer st.Close()
+
+	srv := NewServer(medium, st)
+
+	err = ListenGRPC(context.Background(), filepath.Join(linkDir, "core.sock"), srv)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "symlink")
+}
