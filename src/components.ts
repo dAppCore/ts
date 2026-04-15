@@ -69,5 +69,15 @@ function flattenRenderOutput(
     return value.flatMap((item) => flattenRenderOutput(item));
   }
 
+  if (typeof value === "string") {
+    return fragmentNodes(value);
+  }
+
   return [value];
+}
+
+function fragmentNodes(html: string): Node[] {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+  return Array.from(template.content.childNodes);
 }
