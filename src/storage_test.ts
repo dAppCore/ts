@@ -425,6 +425,46 @@ Deno.test("injectStoragePolyfills exposes synchronous storage facades", () => {
   assertEquals(target.sessionStorage?.length, 1, "sessionStorage facade should count keys");
 });
 
+Deno.test("storage facade keeps optimistic writes when hydration resolves late", async () => {
+  let releaseHydration: (() => void) | undefined;
+  const hydration = new Promise<void>((resolve) => {
+    releaseHydration = resolve;
+  });
+
+  const bridge: CoreStorageBridge = {
+    store: {
+      async get(_namespace, key) {
+        return key === "theme" ? "light" : null;
+      },
+      async set() {},
+      async delete() {},
+      async list() {
+        await hydration;
+        return ["theme"];
+      },
+      async clear() {},
+    },
+  };
+
+  const target = { navigator: {}, document: {} } as Record<string, unknown> & {
+    localStorage?: {
+      getItem(key: string): string | null;
+      setItem(key: string, value: string): void;
+    };
+  };
+
+  injectStoragePolyfills("https://example.com", bridge, { target });
+  target.localStorage?.setItem("theme", "dark");
+  releaseHydration?.();
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assertEquals(
+    target.localStorage?.getItem("theme"),
+    "dark",
+    "localStorage should keep the optimistic write after hydration",
+  );
+});
+
 Deno.test("document.cookie reflects optimistic writes", async () => {
   let gateResolve: (() => void) | undefined;
   const gate = new Promise<void>((resolve) => {

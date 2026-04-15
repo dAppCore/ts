@@ -320,6 +320,7 @@ function createStorageFacade(storage: CoreLocalStorage): BrowserStorageFacade {
   const cache = new Map<string, string>();
   let hydrated = false;
   let hydration: Promise<void> | null = null;
+  const mutations: Array<StorageMutation> = [];
 
   const hydrate = (): Promise<void> => {
     if (hydration) {
@@ -327,16 +328,29 @@ function createStorageFacade(storage: CoreLocalStorage): BrowserStorageFacade {
     }
 
     hydration = (async () => {
+      const nextCache = new Map<string, string>();
       const keys = await source.bridge.store.list(source.namespace);
-      cache.clear();
       for (const key of keys) {
         const value = await source.bridge.store.get(source.namespace, key);
         if (value !== null) {
-          cache.set(key, value);
+          nextCache.set(key, value);
         }
       }
+
+      // Replay all local writes so the optimistic in-memory view wins over the
+      // remote snapshot that arrived afterwards.
+      for (const mutation of mutations) {
+        applyStorageMutation(nextCache, mutation);
+      }
+
+      cache.clear();
+      for (const [key, value] of nextCache) {
+        cache.set(key, value);
+      }
       hydrated = true;
+      mutations.length = 0;
     })();
+    void hydration.catch(() => undefined);
 
     return hydration;
   };
@@ -357,18 +371,30 @@ function createStorageFacade(storage: CoreLocalStorage): BrowserStorageFacade {
       return cache.get(key) ?? null;
     },
     setItem(key: string, value: string): void {
+      recordStorageMutation(mutations, {
+        kind: "set",
+        key,
+        value,
+      });
       cache.set(key, value);
       void source.bridge.store.set(source.namespace, key, value).catch(() => {
         // Keep the optimistic in-memory view available even if the bridge fails.
       });
     },
     removeItem(key: string): void {
+      recordStorageMutation(mutations, {
+        kind: "delete",
+        key,
+      });
       cache.delete(key);
       void source.bridge.store.delete(source.namespace, key).catch(() => {
         // Keep the optimistic in-memory view available even if the bridge fails.
       });
     },
     clear(): void {
+      recordStorageMutation(mutations, {
+        kind: "clear",
+      });
       cache.clear();
       void source.bridge.store.clear(source.namespace).catch(() => {
         // Keep the optimistic in-memory view available even if the bridge fails.
@@ -1104,4 +1130,33 @@ function removeCookie(
     }
     return false;
   });
+}
+
+type StorageMutation =
+  | { kind: "set"; key: string; value: string }
+  | { kind: "delete"; key: string }
+  | { kind: "clear" };
+
+function recordStorageMutation(
+  mutations: StorageMutation[],
+  mutation: StorageMutation,
+): void {
+  mutations.push(mutation);
+}
+
+function applyStorageMutation(
+  cache: Map<string, string>,
+  mutation: StorageMutation,
+): void {
+  switch (mutation.kind) {
+    case "set":
+      cache.set(mutation.key, mutation.value);
+      return;
+    case "delete":
+      cache.delete(mutation.key);
+      return;
+    case "clear":
+      cache.clear();
+      return;
+  }
 }
