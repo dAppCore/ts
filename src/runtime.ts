@@ -8,6 +8,7 @@ import {
 } from "./electron.ts";
 import {
   injectStoragePolyfills,
+  type CoreFileBridge,
   type CoreStorageBridge,
   type CoreStoragePolyfills,
   type InjectStoragePolyfillsOptions,
@@ -27,6 +28,7 @@ export interface CoreRuntimeInjection {
   storage?: CoreStoragePolyfills;
   electron?: ElectronShim;
   wails?: WailsBridge;
+  ready: Promise<void>;
 }
 
 /**
@@ -39,7 +41,10 @@ export function injectCoreRuntime(
   options: CoreRuntimeInjectionOptions,
 ): CoreRuntimeInjection {
   const target = options.target ?? (globalThis as Record<string, unknown>);
-  const result: CoreRuntimeInjection = {};
+  const pending: Promise<void>[] = [];
+  const result: CoreRuntimeInjection = {
+    ready: Promise.resolve(),
+  };
 
   if (options.storage) {
     const storageOptions: InjectStoragePolyfillsOptions = {
@@ -51,12 +56,13 @@ export function injectCoreRuntime(
       options.storage,
       storageOptions,
     );
+    pending.push(result.storage.ready);
   }
 
   if (options.electron || options.wails) {
     const electronOptions: ElectronShimOptions = {
       target,
-      fs: options.fs,
+      fs: options.fs ?? adaptStorageFileBridge(options.origin, options.storage?.fs),
       origin: options.origin,
     };
     const bridge = options.electron ?? options.wails;
@@ -73,5 +79,37 @@ export function injectCoreRuntime(
     result.wails = options.wails;
   }
 
+  result.ready = pending.length === 0
+    ? Promise.resolve()
+    : Promise.all(pending).then(() => undefined);
+  void result.ready.catch(() => undefined);
+
   return result;
+}
+
+export function adaptStorageFileBridge(
+  origin: string,
+  bridge?: CoreFileBridge,
+): ElectronFileBridge | undefined {
+  if (!bridge) {
+    return undefined;
+  }
+
+  return {
+    readFile(path: string) {
+      return bridge.read(origin, path);
+    },
+    writeFile(path: string, content: string) {
+      return bridge.write(origin, path, content);
+    },
+    deleteFile(path: string) {
+      return bridge.delete(origin, path);
+    },
+    readdir(path: string) {
+      return bridge.list(origin, path);
+    },
+    mkdir(path: string) {
+      return bridge.mkdir(origin, path);
+    },
+  };
 }

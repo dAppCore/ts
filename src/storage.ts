@@ -140,6 +140,7 @@ export interface CoreStoragePolyfills {
   caches: CoreCacheStorage;
   storageBuckets: CoreStorageBucketManager;
   storage: CoreNavigatorStorage;
+  ready: Promise<void>;
 }
 
 interface BrowserStorageFacade {
@@ -149,6 +150,11 @@ interface BrowserStorageFacade {
   setItem(key: string, value: string): void;
   removeItem(key: string): void;
   clear(): void;
+}
+
+interface StorageFacadeBundle {
+  facade: BrowserStorageFacade;
+  ready: Promise<void>;
 }
 
 export interface CoreIndexedDBDatabase {
@@ -310,7 +316,7 @@ export class CoreLocalStorage {
   }
 }
 
-function createStorageFacade(storage: CoreLocalStorage): BrowserStorageFacade {
+function createStorageFacade(storage: CoreLocalStorage): StorageFacadeBundle {
   type StorageSource = CoreLocalStorage & {
     bridge: CoreStorageBridge;
     namespace: string;
@@ -355,50 +361,54 @@ function createStorageFacade(storage: CoreLocalStorage): BrowserStorageFacade {
     return hydration;
   };
 
-  void hydrate();
+  const ready = hydrate();
+  void ready.catch(() => undefined);
 
   return {
-    get length(): number {
-      return cache.size;
-    },
-    key(index: number): string | null {
-      return Array.from(cache.keys())[index] ?? null;
-    },
-    getItem(key: string): string | null {
-      if (!hydrated && cache.size === 0) {
-        void hydrate();
-      }
-      return cache.get(key) ?? null;
-    },
-    setItem(key: string, value: string): void {
-      recordStorageMutation(mutations, {
-        kind: "set",
-        key,
-        value,
-      });
-      cache.set(key, value);
-      void source.setItem(key, value).catch(() => {
-        // Keep the optimistic in-memory view available even if the bridge fails.
-      });
-    },
-    removeItem(key: string): void {
-      recordStorageMutation(mutations, {
-        kind: "delete",
-        key,
-      });
-      cache.delete(key);
-      void source.removeItem(key).catch(() => {
-        // Keep the optimistic in-memory view available even if the bridge fails.
-      });
-    },
-    clear(): void {
-      recordStorageMutation(mutations, {
-        kind: "clear",
-      });
-      cache.clear();
-      void source.clear().catch(() => {
-        // Keep the optimistic in-memory view available even if the bridge fails.
-      });
+    ready,
+    facade: {
+      get length(): number {
+        return cache.size;
+      },
+      key(index: number): string | null {
+        return Array.from(cache.keys())[index] ?? null;
+      },
+      getItem(key: string): string | null {
+        if (!hydrated && cache.size === 0) {
+          void hydrate();
+        }
+        return cache.get(key) ?? null;
+      },
+      setItem(key: string, value: string): void {
+        recordStorageMutation(mutations, {
+          kind: "set",
+          key,
+          value,
+        });
+        cache.set(key, value);
+        void source.setItem(key, value).catch(() => {
+          // Keep the optimistic in-memory view available even if the bridge fails.
+        });
+      },
+      removeItem(key: string): void {
+        recordStorageMutation(mutations, {
+          kind: "delete",
+          key,
+        });
+        cache.delete(key);
+        void source.removeItem(key).catch(() => {
+          // Keep the optimistic in-memory view available even if the bridge fails.
+        });
+      },
+      clear(): void {
+        recordStorageMutation(mutations, {
+          kind: "clear",
+        });
+        cache.clear();
+        void source.clear().catch(() => {
+          // Keep the optimistic in-memory view available even if the bridge fails.
+        });
+      },
     },
   };
 }
@@ -914,8 +924,8 @@ export function injectStoragePolyfills(
   const storageBuckets = new CoreStorageBucketManager(origin, bridge);
   const storage = new CoreNavigatorStorage(origin, bridge, storageBuckets);
 
-  defineGetter(target, "localStorage", () => localStorageFacade);
-  defineGetter(target, "sessionStorage", () => sessionStorageFacade);
+  defineGetter(target, "localStorage", () => localStorageFacade.facade);
+  defineGetter(target, "sessionStorage", () => sessionStorageFacade.facade);
   defineGetter(target, "indexedDB", () => indexedDB);
   defineGetter(target, "caches", () => caches);
 
@@ -926,17 +936,28 @@ export function injectStoragePolyfills(
   defineGetter(navigatorTarget, "storageBuckets", () => storageBuckets);
   defineGetter(navigatorTarget, "storage", () => storage);
 
+  let cookieReady = Promise.resolve();
   if (target.document) {
-    void cookies.refresh();
+    if (bridge.cookies) {
+      cookieReady = cookies.refresh().then(() => undefined);
+      void cookieReady.catch(() => undefined);
+    }
     Object.defineProperty(target.document, "cookie", {
       configurable: true,
       enumerable: true,
       get: () => cookies.snapshot(),
       set: (value: string) => {
-        void cookies.set(value);
+        void cookies.set(value).catch(() => undefined);
       },
     });
   }
+
+  const ready = Promise.all([
+    localStorageFacade.ready,
+    sessionStorageFacade.ready,
+    cookieReady,
+  ]).then(() => undefined);
+  void ready.catch(() => undefined);
 
   return {
     localStorage,
@@ -946,6 +967,7 @@ export function injectStoragePolyfills(
     caches,
     storageBuckets,
     storage,
+    ready,
   };
 }
 

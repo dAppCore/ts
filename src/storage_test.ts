@@ -459,6 +459,52 @@ Deno.test("injectStoragePolyfills exposes browser-style getters", () => {
   assert(polyfills.localStorage instanceof CoreLocalStorage, "polyfill should return the storage helper");
 });
 
+Deno.test("injectStoragePolyfills ready hydrates stored values before use", async () => {
+  const bridge = createBridge();
+  await new CoreLocalStorage("https://example.com", bridge).setItem("theme", "dark");
+  await new CoreSessionStorage("https://example.com", bridge, "session-1").setItem(
+    "wizard_step",
+    "3",
+  );
+  await bridge.cookies?.set("https://example.com", {
+    name: "session_id",
+    value: "abc123",
+    path: "/",
+  });
+
+  const target = {
+    navigator: {},
+    document: {},
+  } as Record<string, unknown> & {
+    localStorage?: { getItem(key: string): string | null };
+    sessionStorage?: { getItem(key: string): string | null };
+    document?: { cookie?: string };
+  };
+
+  const polyfills = injectStoragePolyfills("https://example.com", bridge, {
+    sessionId: "session-1",
+    target,
+  });
+
+  await polyfills.ready;
+
+  assertEquals(
+    target.localStorage?.getItem("theme"),
+    "dark",
+    "ready should hydrate localStorage before page scripts read it",
+  );
+  assertEquals(
+    target.sessionStorage?.getItem("wizard_step"),
+    "3",
+    "ready should hydrate sessionStorage before page scripts read it",
+  );
+  assertEquals(
+    target.document?.cookie,
+    "session_id=abc123",
+    "ready should refresh the cookie snapshot before page scripts read it",
+  );
+});
+
 Deno.test("injectStoragePolyfills creates a navigator getter when missing", () => {
   const bridge = createBridge();
   const target = { navigator: undefined, document: {} } as Record<string, unknown> & {

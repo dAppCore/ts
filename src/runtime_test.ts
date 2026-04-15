@@ -66,6 +66,7 @@ Deno.test("injectCoreRuntime composes storage and electron preload surfaces", as
   assert(runtime.storage !== undefined, "storage polyfills should be injected");
   assert(runtime.electron !== undefined, "electron shim should be injected");
   assert(runtime.wails !== undefined, "wails bridge should be injected");
+  await runtime.ready;
   assert(target.localStorage !== undefined, "localStorage should be defined on the target");
   assert(target.sessionStorage !== undefined, "sessionStorage should be defined on the target");
   assert(target.electron !== undefined, "electron should be defined on the target");
@@ -153,4 +154,76 @@ Deno.test("injectCoreRuntime forwards an Electron fs bridge", async () => {
     "readFile",
     "fs bridge should be consulted through the composite injector",
   );
+});
+
+Deno.test("injectCoreRuntime reuses the storage filesystem bridge for require('fs')", async () => {
+  const fsCalls: Array<{ kind: string; origin: string; path: string; content?: string }> = [];
+  const electronBridge: ElectronBridge = {
+    action: () => undefined,
+    query: () => undefined,
+    on: () => () => undefined,
+    once: () => () => undefined,
+    off: () => undefined,
+    offAll: () => undefined,
+  };
+
+  const target: Record<string, unknown> = { navigator: {}, document: {} };
+  injectCoreRuntime({
+    origin: "app-demo",
+    electron: electronBridge,
+    storage: {
+      store: {
+        async get() {
+          return null;
+        },
+        async set() {},
+        async delete() {},
+        async list() {
+          return [];
+        },
+        async clear() {},
+      },
+      fs: {
+        async read(origin, path) {
+          fsCalls.push({ kind: "read", origin, path });
+          return path === "/var/demo.txt" ? "file-data" : null;
+        },
+        async write(origin, path, content) {
+          fsCalls.push({ kind: "write", origin, path, content });
+        },
+        async delete(origin, path) {
+          fsCalls.push({ kind: "delete", origin, path });
+        },
+        async list(origin, path) {
+          fsCalls.push({ kind: "list", origin, path });
+          return ["demo.txt"];
+        },
+        async mkdir(origin, path) {
+          fsCalls.push({ kind: "mkdir", origin, path });
+        },
+      },
+    },
+    target,
+  });
+
+  const requireShim = target.require as (module: string) => unknown;
+  const fsProxy = requireShim("fs") as {
+    promises: {
+      readFile(path: string): Promise<string | null>;
+      readdir(path: string): Promise<string[]>;
+    };
+  };
+
+  assertEquals(
+    await fsProxy.promises.readFile("/var/demo.txt"),
+    "file-data",
+    "injectCoreRuntime should derive an fs proxy from the storage bridge",
+  );
+  assertEquals(
+    await fsProxy.promises.readdir("/var"),
+    ["demo.txt"],
+    "injectCoreRuntime should derive directory listing support from the storage bridge",
+  );
+  assertEquals(fsCalls[0].origin, "app-demo", "derived fs bridge should preserve the origin");
+  assertEquals(fsCalls[1].origin, "app-demo", "derived fs bridge should preserve the origin");
 });
