@@ -218,6 +218,9 @@ func (s *Server) ProcessStart(ctx context.Context, req *pb.ProcessStartRequest) 
 	}
 	proc, err := s.processes.Start(ctx, req.Command, req.Args...)
 	if err != nil {
+		if errors.Is(err, errProcessUnavailable) {
+			return nil, status.Error(codes.Unimplemented, "process service not available")
+		}
 		return nil, fmt.Errorf("process start: %w", err)
 	}
 	processID := proc.Info().ID
@@ -246,6 +249,9 @@ func (s *Server) ProcessStop(_ context.Context, req *pb.ProcessStopRequest) (*pb
 	}
 
 	if err := s.processes.Kill(req.ProcessId); err != nil {
+		if errors.Is(err, errProcessUnavailable) {
+			return nil, status.Error(codes.Unimplemented, "process service not available")
+		}
 		return nil, fmt.Errorf("process stop: %w", err)
 	}
 	s.mu.Lock()

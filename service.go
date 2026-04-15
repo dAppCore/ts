@@ -3,9 +3,12 @@ package ts
 import (
 	"context"
 	"crypto/ed25519"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -42,6 +45,10 @@ type moduleSpec struct {
 	EntryPoint  string
 	Permissions ModulePermissions
 }
+
+// errProcessUnavailable marks the process bridge as unavailable when the host
+// Core application has not registered a process capability.
+var errProcessUnavailable = errors.New("coredeno: process capability unavailable")
 
 // NewServiceFactory returns a factory function for framework registration via WithService.
 func NewServiceFactory(opts Options) func(*core.Core) (any, error) {
@@ -92,6 +99,7 @@ func (s *Service) OnStartup(ctx context.Context) (err error) {
 
 	// 3. Create gRPC Server
 	s.grpcServer = NewServer(medium, s.store)
+	s.grpcServer.SetProcessRunner(newExecProcessRunner())
 
 	// 4. Load manifest if AppRoot set (non-fatal if missing)
 	if opts.AppRoot != "" {
@@ -225,6 +233,9 @@ func (s *Service) OnShutdown(_ context.Context) error {
 	// Close Deno client connection
 	s.closeDenoClient()
 
+	// Stop any managed subprocesses before the sidecar exits.
+	s.closeProcessRunner()
+
 	// Stop sidecar
 	_ = s.sidecar.Stop()
 
@@ -351,6 +362,7 @@ func (s *Service) closeDenoClient() {
 func (s *Service) cleanupStartupState() {
 	s.closeDenoClient()
 	s.clearDesiredModules()
+	s.closeProcessRunner()
 
 	if s.supervisorCancel != nil {
 		s.supervisorCancel()
@@ -614,5 +626,100 @@ func waitForGRPCSocket(ctx context.Context, path string, timeout time.Duration, 
 			return ctx.Err()
 		case <-time.After(50 * time.Millisecond):
 		}
+	}
+}
+
+type execProcessRunner struct {
+	mu        sync.Mutex
+	processes map[string]*exec.Cmd
+}
+
+type execProcessHandle struct {
+	id string
+}
+
+func newExecProcessRunner() ProcessRunner {
+	return &execProcessRunner{
+		processes: make(map[string]*exec.Cmd),
+	}
+}
+
+func (r *execProcessRunner) Start(ctx context.Context, command string, args ...string) (ProcessHandle, error) {
+	if r == nil {
+		return nil, errProcessUnavailable
+	}
+
+	cmd := exec.CommandContext(ctx, command, args...)
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("coredeno: process start: %w", err)
+	}
+
+	id := strconv.Itoa(cmd.Process.Pid)
+
+	r.mu.Lock()
+	r.processes[id] = cmd
+	r.mu.Unlock()
+
+	go func() {
+		_ = cmd.Wait()
+		r.mu.Lock()
+		delete(r.processes, id)
+		r.mu.Unlock()
+	}()
+
+	return &execProcessHandle{id: id}, nil
+}
+
+func (r *execProcessRunner) Kill(id string) error {
+	if r == nil {
+		return errProcessUnavailable
+	}
+
+	r.mu.Lock()
+	cmd, ok := r.processes[id]
+	r.mu.Unlock()
+	if !ok || cmd == nil || cmd.Process == nil {
+		return fmt.Errorf("process not found: %s", id)
+	}
+
+	if err := cmd.Process.Kill(); err != nil {
+		return fmt.Errorf("coredeno: process stop: %w", err)
+	}
+	return nil
+}
+
+func (h *execProcessHandle) Info() ProcessInfo {
+	return ProcessInfo{ID: h.id}
+}
+
+func (r *execProcessRunner) Close() error {
+	if r == nil {
+		return nil
+	}
+
+	r.mu.Lock()
+	cmds := make([]*exec.Cmd, 0, len(r.processes))
+	for _, cmd := range r.processes {
+		cmds = append(cmds, cmd)
+	}
+	r.processes = make(map[string]*exec.Cmd)
+	r.mu.Unlock()
+
+	for _, cmd := range cmds {
+		if cmd == nil || cmd.Process == nil {
+			continue
+		}
+		_ = cmd.Process.Kill()
+	}
+
+	return nil
+}
+
+func (s *Service) closeProcessRunner() {
+	if s.grpcServer == nil || s.grpcServer.processes == nil {
+		return
+	}
+	if closer, ok := s.grpcServer.processes.(interface{ Close() error }); ok {
+		_ = closer.Close()
 	}
 }

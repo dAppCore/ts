@@ -210,6 +210,33 @@ permissions:
 	assert.False(t, svc.sidecar.IsRunning(), "sidecar should be stopped")
 }
 
+func TestService_OnStartup_Good_ConfiguresProcessRunner(t *testing.T) {
+	tmpDir := shortSocketDir(t)
+	sockPath := filepath.Join(tmpDir, "core.sock")
+
+	c := core.New()
+
+	factory := NewServiceFactory(Options{
+		DenoPath:   "sleep",
+		SocketPath: sockPath,
+	})
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err = svc.OnStartup(ctx)
+	require.NoError(t, err)
+
+	require.NotNil(t, svc.grpcServer)
+	assert.NotNil(t, svc.grpcServer.processes, "startup should wire a process runner")
+
+	err = svc.OnShutdown(context.Background())
+	assert.NoError(t, err)
+}
+
 func TestService_OnStartup_Good_DefaultSocketPath(t *testing.T) {
 	tmpDir := shortSocketDir(t)
 	t.Setenv("XDG_RUNTIME_DIR", tmpDir)
