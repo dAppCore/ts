@@ -94,3 +94,63 @@ Deno.test("injectCoreRuntime composes storage and electron preload surfaces", as
   assertEquals(ipcCalls[0].kind, "action", "ipcRenderer.send should map to actions");
   assertEquals(ipcCalls[0].channel, "app:ready", "ipcRenderer.send should preserve the channel");
 });
+
+Deno.test("injectCoreRuntime forwards an Electron fs bridge", async () => {
+  const fsCalls: Array<{ kind: string; path: string; content?: string }> = [];
+  const electronBridge: ElectronBridge = {
+    action: () => undefined,
+    query: () => undefined,
+    on: () => () => undefined,
+    once: () => () => undefined,
+    off: () => undefined,
+    offAll: () => undefined,
+  };
+
+  const target: Record<string, unknown> = { navigator: {}, document: {} };
+  injectCoreRuntime({
+    origin: "app-demo",
+    electron: electronBridge,
+    fs: {
+      readFile(path) {
+        fsCalls.push({ kind: "readFile", path });
+        return path === "/var/demo.txt" ? "file-data" : null;
+      },
+      writeFile(path, content) {
+        fsCalls.push({ kind: "writeFile", path, content });
+      },
+      deleteFile(path) {
+        fsCalls.push({ kind: "deleteFile", path });
+      },
+      readdir(path) {
+        fsCalls.push({ kind: "readdir", path });
+        return ["demo.txt"];
+      },
+      mkdir(path) {
+        fsCalls.push({ kind: "mkdir", path });
+      },
+    },
+    target,
+  });
+
+  const requireShim = target.require as (module: string) => unknown;
+  const fsProxy = requireShim("fs") as {
+    readFileSync(path: string): string | null;
+    readdirSync(path: string): string[];
+  };
+
+  assertEquals(
+    fsProxy.readFileSync("/var/demo.txt"),
+    "file-data",
+    "injectCoreRuntime should expose the configured fs bridge through require('fs')",
+  );
+  assertEquals(
+    fsProxy.readdirSync("/var"),
+    ["demo.txt"],
+    "injectCoreRuntime should expose the configured fs bridge through require('fs')",
+  );
+  assertEquals(
+    fsCalls[0].kind,
+    "readFile",
+    "fs bridge should be consulted through the composite injector",
+  );
+});

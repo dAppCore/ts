@@ -1,5 +1,6 @@
 import {
   injectElectronShim,
+  type ElectronFileBridge,
   type ElectronBridge,
   type ElectronShim,
   type ElectronShimOptions,
@@ -17,6 +18,7 @@ export interface CoreRuntimeInjectionOptions {
   storage?: CoreStorageBridge;
   electron?: ElectronBridge;
   wails?: WailsBridge;
+  fs?: ElectronFileBridge;
   sessionId?: string;
   target?: Record<string, unknown>;
 }
@@ -52,7 +54,11 @@ export function injectCoreRuntime(
   }
 
   if (options.electron || options.wails) {
-    const electronOptions: ElectronShimOptions = { target };
+    const electronOptions: ElectronShimOptions = {
+      target,
+      fs: options.fs,
+      origin: options.origin,
+    };
     const bridge = options.electron ?? options.wails;
     if (bridge) {
       result.electron = injectElectronShim(bridge, electronOptions);
