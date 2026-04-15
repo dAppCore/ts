@@ -75,6 +75,23 @@ let coreClient: CoreClient;
     Deno.exit(1);
   }
   console.error("CoreDeno: CoreService client connected");
+
+  // Verify store round-trip so the bootstrap checks both transport and I/O.
+  const healthGroup = "corets.health";
+  const healthKey = "startup";
+  const healthValue = `ok:${Date.now()}`;
+  try {
+    await coreClient.storeSet(healthGroup, healthKey, healthValue);
+    const roundTrip = await coreClient.storeGet(healthGroup, healthKey);
+    if (!roundTrip.found || roundTrip.value !== healthValue) {
+      throw new Error("health check round-trip failed");
+    }
+  } catch (err) {
+    console.error(`FATAL: failed CoreService health check: ${err}`);
+    denoServer.close();
+    coreClient.close();
+    Deno.exit(1);
+  }
 }
 
 // 4. Inject CoreClient into registry for I/O bridge

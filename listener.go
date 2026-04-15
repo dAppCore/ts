@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 
 	pb "dappco.re/go/core/ts/proto"
 	"google.golang.org/grpc"
@@ -16,6 +17,11 @@ func ListenGRPC(ctx context.Context, socketPath string, srv *Server) error {
 	// Clean up stale socket
 	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
 		return err
+	}
+
+	sockDir := filepath.Dir(socketPath)
+	if err := os.MkdirAll(sockDir, 0700); err != nil {
+		return fmt.Errorf("mkdir %s: %w", sockDir, err)
 	}
 
 	listener, err := net.Listen("unix", socketPath)

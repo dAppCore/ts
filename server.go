@@ -222,7 +222,10 @@ func (s *Server) ProcessStop(_ context.Context, req *pb.ProcessStopRequest) (*pb
 		s.mu.RLock()
 		owner, ok := s.processOwners[req.ProcessId]
 		s.mu.RUnlock()
-		if ok && owner != req.ModuleCode {
+		if !ok {
+			return nil, fmt.Errorf("permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
+		}
+		if owner != req.ModuleCode {
 			return nil, fmt.Errorf("permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
 		}
 	}

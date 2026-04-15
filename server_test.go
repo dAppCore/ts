@@ -207,6 +207,16 @@ func TestProcessStop_Bad_NotFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestProcessStop_Bad_NoOwnerMapping(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+	_, err := srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
+		ProcessId:  "missing",
+		ModuleCode: "runner-mod",
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "permission denied")
+}
+
 func TestProcessStop_Bad_OtherModule(t *testing.T) {
 	srv, _ := newTestServerWithProcess(t)
 	srv.RegisterModule(&manifest.Manifest{

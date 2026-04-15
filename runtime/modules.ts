@@ -3,6 +3,8 @@
 // I/O bridge relays Worker postMessage calls to CoreService gRPC.
 
 import type { CoreClient } from "./client.ts";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 export type ModuleStatus =
   | "UNKNOWN"
@@ -55,24 +57,16 @@ export class ModuleRegistry {
     this.modules.set(code, mod);
 
     // Resolve entry point URL for the module
-    const moduleUrl =
-      entryPoint.startsWith("file://") || entryPoint.startsWith("http")
-        ? entryPoint
-        : "file://" + entryPoint;
+    const moduleUrl = resolveModuleUrl(entryPoint);
 
     // Build read permissions: worker-entry.ts dir + module source + declared reads
     const readPerms: string[] = [
       new URL(".", import.meta.url).pathname,
     ];
     // Add the module's directory so it can be dynamically imported
-    if (!entryPoint.startsWith("http")) {
-      const modPath = entryPoint.startsWith("file://")
-        ? entryPoint.slice(7)
-        : entryPoint;
-      // Add the module file's directory
-      const lastSlash = modPath.lastIndexOf("/");
-      if (lastSlash > 0) readPerms.push(modPath.slice(0, lastSlash + 1));
-      else readPerms.push(modPath);
+    const modulePath = resolveModulePath(entryPoint);
+    if (modulePath) {
+      readPerms.push(dirname(modulePath));
     }
     if (permissions.read) readPerms.push(...permissions.read);
 
@@ -130,6 +124,12 @@ export class ModuleRegistry {
             error: err instanceof Error ? err.message : String(err),
           });
         }
+      } else if (msg.type === "rpc") {
+        worker.postMessage({
+          type: "rpc_response",
+          id: msg.id,
+          error: "CoreService client is not connected",
+        });
       }
     };
 
@@ -203,4 +203,26 @@ export class ModuleRegistry {
       status: m.status,
     }));
   }
+}
+
+function resolveModuleUrl(entryPoint: string): string {
+  if (
+    entryPoint.startsWith("file://") ||
+    entryPoint.startsWith("http://") ||
+    entryPoint.startsWith("https://")
+  ) {
+    return entryPoint;
+  }
+
+  return pathToFileURL(resolve(Deno.cwd(), entryPoint)).href;
+}
+
+function resolveModulePath(entryPoint: string): string | null {
+  if (entryPoint.startsWith("http://") || entryPoint.startsWith("https://")) {
+    return null;
+  }
+  if (entryPoint.startsWith("file://")) {
+    return fileURLToPath(entryPoint);
+  }
+  return resolve(Deno.cwd(), entryPoint);
 }

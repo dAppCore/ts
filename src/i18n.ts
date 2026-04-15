@@ -295,6 +295,54 @@ export function registerTranslations(locale: string, dictionary: I18nDictionary)
   defaultI18n.register(locale, dictionary);
 }
 
+export async function loadTranslations(
+  locale: string,
+  source: string | URL | Response | I18nDictionary,
+): Promise<void> {
+  if (isDictionary(source)) {
+    registerTranslations(locale, source);
+    return;
+  }
+
+  if (source instanceof Response) {
+    registerTranslations(locale, await parseTranslationSource(source));
+    return;
+  }
+
+  if (source instanceof URL) {
+    const response = await fetch(source);
+    registerTranslations(locale, await parseTranslationSource(response));
+    return;
+  }
+
+  try {
+    const url = new URL(source);
+    const response = await fetch(url);
+    registerTranslations(locale, await parseTranslationSource(response));
+    return;
+  } catch {
+    if (typeof Deno !== "undefined" && typeof Deno.readTextFile === "function") {
+      registerTranslations(locale, await parseTranslationSource(await Deno.readTextFile(source)));
+      return;
+    }
+    throw new Error(`unable to load translations from ${source}`);
+  }
+}
+
+export function loadTranslationsFromText(locale: string, json: string): void {
+  registerTranslations(locale, parseTranslationJSON(json));
+}
+
+export async function loadTranslationsFromFile(
+  locale: string,
+  path: string,
+): Promise<void> {
+  if (typeof Deno === "undefined" || typeof Deno.readTextFile !== "function") {
+    throw new Error("Deno file APIs are not available");
+  }
+  loadTranslationsFromText(locale, await Deno.readTextFile(path));
+}
+
 export function setLocale(locale: string): void {
   defaultI18n.setLocale(locale);
 }
@@ -425,6 +473,32 @@ export function formatNumber(
 }
 
 export const defaultI18n = new CoreI18n();
+
+function isDictionary(value: unknown): value is I18nDictionary {
+  return !!value && typeof value === "object" && !Array.isArray(value) && !(value instanceof Response);
+}
+
+async function parseTranslationSource(
+  source: Response | string,
+): Promise<I18nDictionary> {
+  if (typeof source === "string") {
+    return parseTranslationJSON(source);
+  }
+
+  if (!source.ok) {
+    throw new Error(`failed to load translations: ${source.status} ${source.statusText}`);
+  }
+
+  return parseTranslationJSON(await source.text());
+}
+
+function parseTranslationJSON(json: string): I18nDictionary {
+  const parsed = JSON.parse(json) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("translation file must contain a JSON object");
+  }
+  return parsed as I18nDictionary;
+}
 
 function lookupPath(root: unknown, path: string): unknown {
   if (!root || typeof root !== "object") {

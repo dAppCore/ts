@@ -124,3 +124,37 @@ func TestListenGRPC_Bad_StaleSocket(t *testing.T) {
 	cancel()
 	<-errCh
 }
+
+func TestListenGRPC_Good_CreatesSocketDir(t *testing.T) {
+	baseDir := shortSocketDir(t)
+	sockPath := filepath.Join(baseDir, "nested", "core.sock")
+
+	medium := io.NewMockMedium()
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	defer st.Close()
+
+	srv := NewServer(medium, st)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ListenGRPC(ctx, sockPath, srv)
+	}()
+
+	require.Eventually(t, func() bool {
+		select {
+		case err := <-errCh:
+			t.Fatalf("ListenGRPC returned early: %v", err)
+			return false
+		default:
+		}
+		_, err := os.Stat(sockPath)
+		return err == nil
+	}, 2*time.Second, 10*time.Millisecond, "socket should appear in a nested directory")
+
+	cancel()
+	<-errCh
+}
