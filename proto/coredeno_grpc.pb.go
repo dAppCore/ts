@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	CoreService_Ping_FullMethodName         = "/coredeno.CoreService/Ping"
+	CoreService_LocaleGet_FullMethodName    = "/coredeno.CoreService/LocaleGet"
 	CoreService_FileRead_FullMethodName     = "/coredeno.CoreService/FileRead"
 	CoreService_FileWrite_FullMethodName    = "/coredeno.CoreService/FileWrite"
 	CoreService_FileList_FullMethodName     = "/coredeno.CoreService/FileList"
@@ -38,6 +39,8 @@ const (
 type CoreServiceClient interface {
 	// Health
 	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
+	// Localisation
+	LocaleGet(ctx context.Context, in *LocaleGetRequest, opts ...grpc.CallOption) (*LocaleGetResponse, error)
 	// Filesystem (gated by manifest permissions)
 	FileRead(ctx context.Context, in *FileReadRequest, opts ...grpc.CallOption) (*FileReadResponse, error)
 	FileWrite(ctx context.Context, in *FileWriteRequest, opts ...grpc.CallOption) (*FileWriteResponse, error)
@@ -63,6 +66,16 @@ func (c *coreServiceClient) Ping(ctx context.Context, in *PingRequest, opts ...g
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PingResponse)
 	err := c.cc.Invoke(ctx, CoreService_Ping_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *coreServiceClient) LocaleGet(ctx context.Context, in *LocaleGetRequest, opts ...grpc.CallOption) (*LocaleGetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LocaleGetResponse)
+	err := c.cc.Invoke(ctx, CoreService_LocaleGet_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -157,6 +170,8 @@ func (c *coreServiceClient) ProcessStop(ctx context.Context, in *ProcessStopRequ
 type CoreServiceServer interface {
 	// Health
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
+	// Localisation
+	LocaleGet(context.Context, *LocaleGetRequest) (*LocaleGetResponse, error)
 	// Filesystem (gated by manifest permissions)
 	FileRead(context.Context, *FileReadRequest) (*FileReadResponse, error)
 	FileWrite(context.Context, *FileWriteRequest) (*FileWriteResponse, error)
@@ -180,6 +195,9 @@ type UnimplementedCoreServiceServer struct{}
 
 func (UnimplementedCoreServiceServer) Ping(context.Context, *PingRequest) (*PingResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Ping not implemented")
+}
+func (UnimplementedCoreServiceServer) LocaleGet(context.Context, *LocaleGetRequest) (*LocaleGetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LocaleGet not implemented")
 }
 func (UnimplementedCoreServiceServer) FileRead(context.Context, *FileReadRequest) (*FileReadResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FileRead not implemented")
@@ -240,6 +258,24 @@ func _CoreService_Ping_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CoreServiceServer).Ping(ctx, req.(*PingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CoreService_LocaleGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LocaleGetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoreServiceServer).LocaleGet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CoreService_LocaleGet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoreServiceServer).LocaleGet(ctx, req.(*LocaleGetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -398,6 +434,10 @@ var CoreService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Ping",
 			Handler:    _CoreService_Ping_Handler,
+		},
+		{
+			MethodName: "LocaleGet",
+			Handler:    _CoreService_LocaleGet_Handler,
 		},
 		{
 			MethodName: "FileRead",

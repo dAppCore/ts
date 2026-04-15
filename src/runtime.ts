@@ -3,6 +3,7 @@ import {
   type ElectronBridge,
   type ElectronShim,
   type ElectronShimOptions,
+  type WailsBridge,
 } from "./electron.ts";
 import {
   injectStoragePolyfills,
@@ -15,6 +16,7 @@ export interface CoreRuntimeInjectionOptions {
   origin: string;
   storage?: CoreStorageBridge;
   electron?: ElectronBridge;
+  wails?: WailsBridge;
   sessionId?: string;
   target?: Record<string, unknown>;
 }
@@ -22,6 +24,7 @@ export interface CoreRuntimeInjectionOptions {
 export interface CoreRuntimeInjection {
   storage?: CoreStoragePolyfills;
   electron?: ElectronShim;
+  wails?: WailsBridge;
 }
 
 /**
@@ -48,9 +51,20 @@ export function injectCoreRuntime(
     );
   }
 
-  if (options.electron) {
+  if (options.electron || options.wails) {
     const electronOptions: ElectronShimOptions = { target };
-    result.electron = injectElectronShim(options.electron, electronOptions);
+    const bridge = options.electron ?? options.wails;
+    if (bridge) {
+      result.electron = injectElectronShim(bridge, electronOptions);
+    }
+  }
+
+  if (options.wails) {
+    Object.defineProperty(target, "wails", {
+      get: () => options.wails,
+      configurable: false,
+    });
+    result.wails = options.wails;
   }
 
   return result;

@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export type I18nDictionary = Record<string, unknown>;
@@ -21,10 +22,26 @@ export interface I18nOptions {
   fallbackLocale?: string;
 }
 
+export interface LocaleGetResponse {
+  found: boolean;
+  content: string;
+}
+
+export interface CoreLocaleBridge {
+  localeGet(locale: string): Promise<LocaleGetResponse | null | undefined | string>;
+}
+
+export interface SharedLocaleOptions {
+  bridge?: CoreLocaleBridge;
+  localeRoot?: string;
+}
+
 type TranslationValue = string | Record<string, unknown>;
 type TemplateContext = Record<string, unknown>;
 
 const builtInLocales = new Map<string, I18nDictionary>();
+const sharedLocaleRoot = ".core/locales";
+let defaultLocaleBridge: CoreLocaleBridge | null = null;
 
 export class CoreI18nSubject implements I18nSubjectLike {
   private count = 1;
@@ -343,6 +360,45 @@ export async function loadTranslationsFromFile(
   loadTranslationsFromText(locale, await Deno.readTextFile(path));
 }
 
+export function setLocaleBridge(bridge: CoreLocaleBridge | null): void {
+  defaultLocaleBridge = bridge;
+}
+
+export async function loadSharedLocale(
+  locale: string,
+  options: SharedLocaleOptions = {},
+): Promise<boolean> {
+  const bridge = options.bridge ?? defaultLocaleBridge;
+  if (bridge) {
+    const response = await bridge.localeGet(locale);
+    if (typeof response === "string") {
+      loadTranslationsFromText(locale, response);
+      return true;
+    }
+    if (response?.found && typeof response.content === "string") {
+      loadTranslationsFromText(locale, response.content);
+      return true;
+    }
+  }
+
+  const root = options.localeRoot ?? sharedLocaleRoot;
+  if (typeof Deno !== "undefined" && typeof Deno.readTextFile === "function") {
+    for (const path of localeCandidates(locale, root)) {
+      let json: string;
+      try {
+        json = await Deno.readTextFile(path);
+      } catch {
+        // Fall through to the next candidate.
+        continue;
+      }
+      loadTranslationsFromText(locale, json);
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function setLocale(locale: string): void {
   defaultI18n.setLocale(locale);
 }
@@ -502,6 +558,31 @@ async function loadTranslationSource(url: URL): Promise<I18nDictionary> {
 
   const response = await fetch(url);
   return parseTranslationSource(response);
+}
+
+function localeCandidates(locale: string, rootDir: string): string[] {
+  const normalized = locale.trim().replaceAll("_", "-");
+  const lower = normalized.toLowerCase();
+  const base = normalized.includes("-")
+    ? normalized.slice(0, normalized.indexOf("-"))
+    : normalized;
+  const variants = new Set<string>([
+    locale.trim(),
+    normalized,
+    lower,
+    base,
+    base.toLowerCase(),
+  ]);
+
+  const paths: string[] = [];
+  for (const variant of variants) {
+    if (!variant) {
+      continue;
+    }
+    paths.push(join(rootDir, `${variant}.json`));
+    paths.push(join(rootDir, variant, "index.json"));
+  }
+  return paths;
 }
 
 function parseTranslationJSON(json: string): I18nDictionary {

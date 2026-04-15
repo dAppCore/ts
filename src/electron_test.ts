@@ -131,7 +131,18 @@ Deno.test("Electron require shim only exposes supported modules", () => {
     message = error instanceof Error ? error.message : String(error);
   }
 
-  assert(message.includes("require('crypto')"), "unsupported modules should be rejected");
+  assert(message.includes("require('crypto')"), "crypto should have a targeted rejection");
+  assert(message.includes("CoreCrypto"), "crypto rejection should point callers to CoreCrypto");
+
+  message = "";
+  try {
+    requireShim("net");
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+
+  assert(message.includes("require('net')"), "net should have a targeted rejection");
+  assert(message.includes("CoreNet"), "net rejection should point callers to CoreNet");
 });
 
 Deno.test("Electron injector defines globals", () => {

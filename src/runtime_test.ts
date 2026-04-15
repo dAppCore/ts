@@ -52,20 +52,24 @@ Deno.test("injectCoreRuntime composes storage and electron preload surfaces", as
     offAll() {},
   };
 
+  const wailsBridge = electronBridge;
+
   const target: Record<string, unknown> = { navigator: {}, document: {} };
   const runtime = injectCoreRuntime({
     origin: "app-demo",
     storage: bridge,
-    electron: electronBridge,
+    wails: wailsBridge,
     sessionId: "session-1",
     target,
   });
 
   assert(runtime.storage !== undefined, "storage polyfills should be injected");
   assert(runtime.electron !== undefined, "electron shim should be injected");
+  assert(runtime.wails !== undefined, "wails bridge should be injected");
   assert(target.localStorage !== undefined, "localStorage should be defined on the target");
   assert(target.sessionStorage !== undefined, "sessionStorage should be defined on the target");
   assert(target.electron !== undefined, "electron should be defined on the target");
+  assert(target.wails !== undefined, "wails should be defined on the target");
   assert(target.core !== undefined, "core should be defined on the target");
 
   (target.localStorage as { setItem(key: string, value: string): void }).setItem(

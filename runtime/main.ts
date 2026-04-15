@@ -9,6 +9,7 @@ import { createCoreClient, type CoreClient } from "./client.ts";
 import { CoreDevServer } from "./dev.ts";
 import { startDenoServer, type DenoServer } from "./server.ts";
 import { ModuleRegistry } from "./modules.ts";
+import { setLocaleBridge } from "../src/i18n.ts";
 
 // Read required environment variables
 const coreSocket = Deno.env.get("CORE_SOCKET");
@@ -92,6 +93,11 @@ let coreClient: CoreClient;
     Deno.exit(1);
   }
   console.error("CoreDeno: CoreService client connected");
+  setLocaleBridge({
+    localeGet(locale: string) {
+      return coreClient.localeGet(locale);
+    },
+  });
 
   // Verify store round-trip so the bootstrap checks both transport and I/O.
   const healthGroup = "corets.health";

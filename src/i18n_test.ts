@@ -1,5 +1,6 @@
 import {
   _,
+  type CoreLocaleBridge,
   CoreI18n,
   S,
   T,
@@ -7,10 +8,13 @@ import {
   gerund,
   pastTense,
   pluralize,
+  loadSharedLocale,
   registerTranslations,
+  setLocaleBridge,
   setLocale,
   loadTranslations,
 } from "./i18n.ts";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 function assert(condition: boolean, message: string): void {
@@ -99,5 +103,51 @@ Deno.test("loadTranslationsFromFile supports file URLs", async () => {
   } finally {
     setLocale("en");
     await Deno.remove(path);
+  }
+});
+
+Deno.test("loadSharedLocale loads from a bridge and locale directory discovery", async () => {
+  const bridge: CoreLocaleBridge = {
+    async localeGet(locale: string) {
+      if (locale !== "bridge-test") {
+        return { found: false, content: "" };
+      }
+      return {
+        found: true,
+        content: JSON.stringify({ bridged: "loaded" }),
+      };
+    },
+  };
+
+  setLocaleBridge(bridge);
+  try {
+    const bridged = await loadSharedLocale("bridge-test");
+    assert(bridged, "bridge-backed locale should load");
+    setLocale("bridge-test");
+    try {
+      assertEquals(_("bridged"), "loaded", "bridge locale should register translations");
+    } finally {
+      setLocale("en");
+    }
+  } finally {
+    setLocaleBridge(null);
+  }
+
+  const root = await Deno.makeTempDir();
+  const localeDir = join(root, ".core", "locales");
+  await Deno.mkdir(localeDir, { recursive: true });
+  await Deno.writeTextFile(
+    join(localeDir, "dir-test.json"),
+    JSON.stringify({ directory: "loaded" }),
+  );
+
+  const loaded = await loadSharedLocale("dir-test", { localeRoot: localeDir });
+  assert(loaded, "filesystem locale discovery should load shared locale files");
+  setLocale("dir-test");
+  try {
+    assertEquals(_("directory"), "loaded", "filesystem locale should register translations");
+  } finally {
+    setLocale("en");
+    await Deno.remove(root, { recursive: true });
   }
 });

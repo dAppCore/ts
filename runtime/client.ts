@@ -27,6 +27,7 @@ function getProto(): any {
 export interface CoreClient {
   raw: any;
   ping(): Promise<{ ok: boolean }>;
+  localeGet(locale: string): Promise<{ found: boolean; content: string }>;
   storeGet(
     group: string,
     key: string,
@@ -68,6 +69,10 @@ export function createCoreClient(socketPath: string): CoreClient {
 
     ping() {
       return promisify(client, "Ping", {});
+    },
+
+    localeGet(locale: string) {
+      return promisify(client, "LocaleGet", { locale });
     },
 
     storeGet(group: string, key: string, moduleCode = "") {

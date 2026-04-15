@@ -79,6 +79,20 @@ func TestPing_Good(t *testing.T) {
 	assert.True(t, resp.Ok)
 }
 
+func TestLocaleGet_Good(t *testing.T) {
+	medium := io.NewMockMedium()
+	medium.Files[".core/locales/en.json"] = `{"hello":"world"}`
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { st.Close() })
+	srv := NewServer(medium, st)
+
+	resp, err := srv.LocaleGet(context.Background(), &pb.LocaleGetRequest{Locale: "en"})
+	require.NoError(t, err)
+	assert.True(t, resp.Found)
+	assert.Equal(t, `{"hello":"world"}`, resp.Content)
+}
+
 func TestFileRead_Bad_PermissionDenied(t *testing.T) {
 	srv := newTestServer(t)
 	_, err := srv.FileRead(context.Background(), &pb.FileReadRequest{

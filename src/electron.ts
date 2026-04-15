@@ -11,6 +11,15 @@ export interface ElectronBridge {
   offAll(channel?: string): void;
 }
 
+export interface WailsBridge {
+  action(channel: string, ...args: unknown[]): Promise<unknown> | unknown;
+  query(channel: string, ...args: unknown[]): Promise<unknown> | unknown;
+  on(channel: string, handler: CoreEventHandler<unknown[]>): () => void;
+  once(channel: string, handler: CoreEventHandler<unknown[]>): () => void;
+  off(channel: string, handler: CoreEventHandler<unknown[]>): void;
+  offAll(channel?: string): void;
+}
+
 export interface ElectronFileBridge {
   readFile(path: string): Promise<string | null> | string | null;
   writeFile(path: string, content: string): Promise<void> | void;
@@ -241,6 +250,14 @@ export function buildRequireShim(shim: ElectronShim): (module: string) => unknow
         return shim.path.posix;
       case "path/win32":
         return shim.path.win32;
+      case "crypto":
+        throw new Error(
+          "require('crypto') is not available in CoreTS. Use CoreCrypto instead.",
+        );
+      case "net":
+        throw new Error(
+          "require('net') is not available in CoreTS. Use CoreNet instead.",
+        );
       default:
         throw new Error(
           `require('${module}') is not available. Use Core imports instead.`,

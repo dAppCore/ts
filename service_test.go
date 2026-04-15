@@ -141,6 +141,8 @@ permissions:
   read: ["./data/"]
   write: ["./data/"]
 `), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(coreDir, "locales"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(coreDir, "locales", "en.json"), []byte(`{"locale":"loaded"}`), 0644))
 
 	opts := Options{
 		DenoPath:    "sleep",
@@ -193,6 +195,11 @@ permissions:
 	require.NoError(t, err)
 	assert.True(t, resp.Found)
 	assert.Equal(t, "true", resp.Value)
+
+	localeResp, err := client.LocaleGet(ctx, &pb.LocaleGetRequest{Locale: "en"})
+	require.NoError(t, err)
+	assert.True(t, localeResp.Found)
+	assert.Equal(t, `{"locale":"loaded"}`, localeResp.Content)
 
 	// Verify sidecar is running
 	assert.True(t, svc.sidecar.IsRunning(), "sidecar should be running")

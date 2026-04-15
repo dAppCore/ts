@@ -73,7 +73,7 @@ func (x ModuleStatusResponse_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ModuleStatusResponse_Status.Descriptor instead.
 func (ModuleStatusResponse_Status) EnumDescriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{24, 0}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{27, 0}
 }
 
 type PingRequest struct {
@@ -156,6 +156,102 @@ func (x *PingResponse) GetOk() bool {
 	return false
 }
 
+type LocaleGetRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Locale        string                 `protobuf:"bytes,1,opt,name=locale,proto3" json:"locale,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LocaleGetRequest) Reset() {
+	*x = LocaleGetRequest{}
+	mi := &file_proto_coredeno_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LocaleGetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LocaleGetRequest) ProtoMessage() {}
+
+func (x *LocaleGetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_coredeno_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LocaleGetRequest.ProtoReflect.Descriptor instead.
+func (*LocaleGetRequest) Descriptor() ([]byte, []int) {
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *LocaleGetRequest) GetLocale() string {
+	if x != nil {
+		return x.Locale
+	}
+	return ""
+}
+
+type LocaleGetResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Found         bool                   `protobuf:"varint,1,opt,name=found,proto3" json:"found,omitempty"`
+	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LocaleGetResponse) Reset() {
+	*x = LocaleGetResponse{}
+	mi := &file_proto_coredeno_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LocaleGetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LocaleGetResponse) ProtoMessage() {}
+
+func (x *LocaleGetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_coredeno_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LocaleGetResponse.ProtoReflect.Descriptor instead.
+func (*LocaleGetResponse) Descriptor() ([]byte, []int) {
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *LocaleGetResponse) GetFound() bool {
+	if x != nil {
+		return x.Found
+	}
+	return false
+}
+
+func (x *LocaleGetResponse) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
 type FileReadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
@@ -166,7 +262,7 @@ type FileReadRequest struct {
 
 func (x *FileReadRequest) Reset() {
 	*x = FileReadRequest{}
-	mi := &file_proto_coredeno_proto_msgTypes[2]
+	mi := &file_proto_coredeno_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -178,7 +274,7 @@ func (x *FileReadRequest) String() string {
 func (*FileReadRequest) ProtoMessage() {}
 
 func (x *FileReadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[2]
+	mi := &file_proto_coredeno_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -191,7 +287,7 @@ func (x *FileReadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadRequest.ProtoReflect.Descriptor instead.
 func (*FileReadRequest) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{2}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *FileReadRequest) GetPath() string {
@@ -217,7 +313,7 @@ type FileReadResponse struct {
 
 func (x *FileReadResponse) Reset() {
 	*x = FileReadResponse{}
-	mi := &file_proto_coredeno_proto_msgTypes[3]
+	mi := &file_proto_coredeno_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -229,7 +325,7 @@ func (x *FileReadResponse) String() string {
 func (*FileReadResponse) ProtoMessage() {}
 
 func (x *FileReadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[3]
+	mi := &file_proto_coredeno_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -242,7 +338,7 @@ func (x *FileReadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileReadResponse.ProtoReflect.Descriptor instead.
 func (*FileReadResponse) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{3}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *FileReadResponse) GetContent() string {
@@ -263,7 +359,7 @@ type FileWriteRequest struct {
 
 func (x *FileWriteRequest) Reset() {
 	*x = FileWriteRequest{}
-	mi := &file_proto_coredeno_proto_msgTypes[4]
+	mi := &file_proto_coredeno_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -275,7 +371,7 @@ func (x *FileWriteRequest) String() string {
 func (*FileWriteRequest) ProtoMessage() {}
 
 func (x *FileWriteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[4]
+	mi := &file_proto_coredeno_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -288,7 +384,7 @@ func (x *FileWriteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileWriteRequest.ProtoReflect.Descriptor instead.
 func (*FileWriteRequest) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{4}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *FileWriteRequest) GetPath() string {
@@ -321,7 +417,7 @@ type FileWriteResponse struct {
 
 func (x *FileWriteResponse) Reset() {
 	*x = FileWriteResponse{}
-	mi := &file_proto_coredeno_proto_msgTypes[5]
+	mi := &file_proto_coredeno_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -333,7 +429,7 @@ func (x *FileWriteResponse) String() string {
 func (*FileWriteResponse) ProtoMessage() {}
 
 func (x *FileWriteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[5]
+	mi := &file_proto_coredeno_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -346,7 +442,7 @@ func (x *FileWriteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileWriteResponse.ProtoReflect.Descriptor instead.
 func (*FileWriteResponse) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{5}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *FileWriteResponse) GetOk() bool {
@@ -366,7 +462,7 @@ type FileListRequest struct {
 
 func (x *FileListRequest) Reset() {
 	*x = FileListRequest{}
-	mi := &file_proto_coredeno_proto_msgTypes[6]
+	mi := &file_proto_coredeno_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -378,7 +474,7 @@ func (x *FileListRequest) String() string {
 func (*FileListRequest) ProtoMessage() {}
 
 func (x *FileListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[6]
+	mi := &file_proto_coredeno_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -391,7 +487,7 @@ func (x *FileListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileListRequest.ProtoReflect.Descriptor instead.
 func (*FileListRequest) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{6}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *FileListRequest) GetPath() string {
@@ -417,7 +513,7 @@ type FileListResponse struct {
 
 func (x *FileListResponse) Reset() {
 	*x = FileListResponse{}
-	mi := &file_proto_coredeno_proto_msgTypes[7]
+	mi := &file_proto_coredeno_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -429,7 +525,7 @@ func (x *FileListResponse) String() string {
 func (*FileListResponse) ProtoMessage() {}
 
 func (x *FileListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[7]
+	mi := &file_proto_coredeno_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -442,7 +538,7 @@ func (x *FileListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileListResponse.ProtoReflect.Descriptor instead.
 func (*FileListResponse) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{7}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *FileListResponse) GetEntries() []*FileEntry {
@@ -463,7 +559,7 @@ type FileEntry struct {
 
 func (x *FileEntry) Reset() {
 	*x = FileEntry{}
-	mi := &file_proto_coredeno_proto_msgTypes[8]
+	mi := &file_proto_coredeno_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -475,7 +571,7 @@ func (x *FileEntry) String() string {
 func (*FileEntry) ProtoMessage() {}
 
 func (x *FileEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[8]
+	mi := &file_proto_coredeno_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -488,7 +584,7 @@ func (x *FileEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileEntry.ProtoReflect.Descriptor instead.
 func (*FileEntry) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{8}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *FileEntry) GetName() string {
@@ -522,7 +618,7 @@ type FileDeleteRequest struct {
 
 func (x *FileDeleteRequest) Reset() {
 	*x = FileDeleteRequest{}
-	mi := &file_proto_coredeno_proto_msgTypes[9]
+	mi := &file_proto_coredeno_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -534,7 +630,7 @@ func (x *FileDeleteRequest) String() string {
 func (*FileDeleteRequest) ProtoMessage() {}
 
 func (x *FileDeleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[9]
+	mi := &file_proto_coredeno_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -547,7 +643,7 @@ func (x *FileDeleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileDeleteRequest.ProtoReflect.Descriptor instead.
 func (*FileDeleteRequest) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{9}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *FileDeleteRequest) GetPath() string {
@@ -573,7 +669,7 @@ type FileDeleteResponse struct {
 
 func (x *FileDeleteResponse) Reset() {
 	*x = FileDeleteResponse{}
-	mi := &file_proto_coredeno_proto_msgTypes[10]
+	mi := &file_proto_coredeno_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -585,7 +681,7 @@ func (x *FileDeleteResponse) String() string {
 func (*FileDeleteResponse) ProtoMessage() {}
 
 func (x *FileDeleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[10]
+	mi := &file_proto_coredeno_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -598,7 +694,7 @@ func (x *FileDeleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FileDeleteResponse.ProtoReflect.Descriptor instead.
 func (*FileDeleteResponse) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{10}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *FileDeleteResponse) GetOk() bool {
@@ -619,7 +715,7 @@ type StoreGetRequest struct {
 
 func (x *StoreGetRequest) Reset() {
 	*x = StoreGetRequest{}
-	mi := &file_proto_coredeno_proto_msgTypes[11]
+	mi := &file_proto_coredeno_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -631,7 +727,7 @@ func (x *StoreGetRequest) String() string {
 func (*StoreGetRequest) ProtoMessage() {}
 
 func (x *StoreGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[11]
+	mi := &file_proto_coredeno_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -644,7 +740,7 @@ func (x *StoreGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreGetRequest.ProtoReflect.Descriptor instead.
 func (*StoreGetRequest) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{11}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *StoreGetRequest) GetGroup() string {
@@ -678,7 +774,7 @@ type StoreGetResponse struct {
 
 func (x *StoreGetResponse) Reset() {
 	*x = StoreGetResponse{}
-	mi := &file_proto_coredeno_proto_msgTypes[12]
+	mi := &file_proto_coredeno_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -690,7 +786,7 @@ func (x *StoreGetResponse) String() string {
 func (*StoreGetResponse) ProtoMessage() {}
 
 func (x *StoreGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[12]
+	mi := &file_proto_coredeno_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -703,7 +799,7 @@ func (x *StoreGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreGetResponse.ProtoReflect.Descriptor instead.
 func (*StoreGetResponse) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{12}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *StoreGetResponse) GetValue() string {
@@ -732,7 +828,7 @@ type StoreSetRequest struct {
 
 func (x *StoreSetRequest) Reset() {
 	*x = StoreSetRequest{}
-	mi := &file_proto_coredeno_proto_msgTypes[13]
+	mi := &file_proto_coredeno_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -744,7 +840,7 @@ func (x *StoreSetRequest) String() string {
 func (*StoreSetRequest) ProtoMessage() {}
 
 func (x *StoreSetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[13]
+	mi := &file_proto_coredeno_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -757,7 +853,7 @@ func (x *StoreSetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreSetRequest.ProtoReflect.Descriptor instead.
 func (*StoreSetRequest) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{13}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *StoreSetRequest) GetGroup() string {
@@ -797,7 +893,7 @@ type StoreSetResponse struct {
 
 func (x *StoreSetResponse) Reset() {
 	*x = StoreSetResponse{}
-	mi := &file_proto_coredeno_proto_msgTypes[14]
+	mi := &file_proto_coredeno_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -809,7 +905,7 @@ func (x *StoreSetResponse) String() string {
 func (*StoreSetResponse) ProtoMessage() {}
 
 func (x *StoreSetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[14]
+	mi := &file_proto_coredeno_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -822,7 +918,7 @@ func (x *StoreSetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreSetResponse.ProtoReflect.Descriptor instead.
 func (*StoreSetResponse) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{14}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *StoreSetResponse) GetOk() bool {
@@ -843,7 +939,7 @@ type ProcessStartRequest struct {
 
 func (x *ProcessStartRequest) Reset() {
 	*x = ProcessStartRequest{}
-	mi := &file_proto_coredeno_proto_msgTypes[15]
+	mi := &file_proto_coredeno_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -855,7 +951,7 @@ func (x *ProcessStartRequest) String() string {
 func (*ProcessStartRequest) ProtoMessage() {}
 
 func (x *ProcessStartRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[15]
+	mi := &file_proto_coredeno_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -868,7 +964,7 @@ func (x *ProcessStartRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessStartRequest.ProtoReflect.Descriptor instead.
 func (*ProcessStartRequest) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{15}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ProcessStartRequest) GetCommand() string {
@@ -901,7 +997,7 @@ type ProcessStartResponse struct {
 
 func (x *ProcessStartResponse) Reset() {
 	*x = ProcessStartResponse{}
-	mi := &file_proto_coredeno_proto_msgTypes[16]
+	mi := &file_proto_coredeno_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -913,7 +1009,7 @@ func (x *ProcessStartResponse) String() string {
 func (*ProcessStartResponse) ProtoMessage() {}
 
 func (x *ProcessStartResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[16]
+	mi := &file_proto_coredeno_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -926,7 +1022,7 @@ func (x *ProcessStartResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessStartResponse.ProtoReflect.Descriptor instead.
 func (*ProcessStartResponse) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{16}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ProcessStartResponse) GetProcessId() string {
@@ -946,7 +1042,7 @@ type ProcessStopRequest struct {
 
 func (x *ProcessStopRequest) Reset() {
 	*x = ProcessStopRequest{}
-	mi := &file_proto_coredeno_proto_msgTypes[17]
+	mi := &file_proto_coredeno_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -958,7 +1054,7 @@ func (x *ProcessStopRequest) String() string {
 func (*ProcessStopRequest) ProtoMessage() {}
 
 func (x *ProcessStopRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[17]
+	mi := &file_proto_coredeno_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -971,7 +1067,7 @@ func (x *ProcessStopRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessStopRequest.ProtoReflect.Descriptor instead.
 func (*ProcessStopRequest) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{17}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ProcessStopRequest) GetProcessId() string {
@@ -997,7 +1093,7 @@ type ProcessStopResponse struct {
 
 func (x *ProcessStopResponse) Reset() {
 	*x = ProcessStopResponse{}
-	mi := &file_proto_coredeno_proto_msgTypes[18]
+	mi := &file_proto_coredeno_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1009,7 +1105,7 @@ func (x *ProcessStopResponse) String() string {
 func (*ProcessStopResponse) ProtoMessage() {}
 
 func (x *ProcessStopResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[18]
+	mi := &file_proto_coredeno_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1022,7 +1118,7 @@ func (x *ProcessStopResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessStopResponse.ProtoReflect.Descriptor instead.
 func (*ProcessStopResponse) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{18}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ProcessStopResponse) GetOk() bool {
@@ -1032,18 +1128,86 @@ func (x *ProcessStopResponse) GetOk() bool {
 	return false
 }
 
+type ModulePermissions struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Read          []string               `protobuf:"bytes,1,rep,name=read,proto3" json:"read,omitempty"`
+	Write         []string               `protobuf:"bytes,2,rep,name=write,proto3" json:"write,omitempty"`
+	Net           []string               `protobuf:"bytes,3,rep,name=net,proto3" json:"net,omitempty"`
+	Run           []string               `protobuf:"bytes,4,rep,name=run,proto3" json:"run,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ModulePermissions) Reset() {
+	*x = ModulePermissions{}
+	mi := &file_proto_coredeno_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModulePermissions) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModulePermissions) ProtoMessage() {}
+
+func (x *ModulePermissions) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_coredeno_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ModulePermissions.ProtoReflect.Descriptor instead.
+func (*ModulePermissions) Descriptor() ([]byte, []int) {
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ModulePermissions) GetRead() []string {
+	if x != nil {
+		return x.Read
+	}
+	return nil
+}
+
+func (x *ModulePermissions) GetWrite() []string {
+	if x != nil {
+		return x.Write
+	}
+	return nil
+}
+
+func (x *ModulePermissions) GetNet() []string {
+	if x != nil {
+		return x.Net
+	}
+	return nil
+}
+
+func (x *ModulePermissions) GetRun() []string {
+	if x != nil {
+		return x.Run
+	}
+	return nil
+}
+
 type LoadModuleRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
 	EntryPoint    string                 `protobuf:"bytes,2,opt,name=entry_point,json=entryPoint,proto3" json:"entry_point,omitempty"`
-	Permissions   []string               `protobuf:"bytes,3,rep,name=permissions,proto3" json:"permissions,omitempty"`
+	Permissions   *ModulePermissions     `protobuf:"bytes,3,opt,name=permissions,proto3" json:"permissions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *LoadModuleRequest) Reset() {
 	*x = LoadModuleRequest{}
-	mi := &file_proto_coredeno_proto_msgTypes[19]
+	mi := &file_proto_coredeno_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1055,7 +1219,7 @@ func (x *LoadModuleRequest) String() string {
 func (*LoadModuleRequest) ProtoMessage() {}
 
 func (x *LoadModuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[19]
+	mi := &file_proto_coredeno_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1068,7 +1232,7 @@ func (x *LoadModuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoadModuleRequest.ProtoReflect.Descriptor instead.
 func (*LoadModuleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{19}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *LoadModuleRequest) GetCode() string {
@@ -1085,7 +1249,7 @@ func (x *LoadModuleRequest) GetEntryPoint() string {
 	return ""
 }
 
-func (x *LoadModuleRequest) GetPermissions() []string {
+func (x *LoadModuleRequest) GetPermissions() *ModulePermissions {
 	if x != nil {
 		return x.Permissions
 	}
@@ -1102,7 +1266,7 @@ type LoadModuleResponse struct {
 
 func (x *LoadModuleResponse) Reset() {
 	*x = LoadModuleResponse{}
-	mi := &file_proto_coredeno_proto_msgTypes[20]
+	mi := &file_proto_coredeno_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1114,7 +1278,7 @@ func (x *LoadModuleResponse) String() string {
 func (*LoadModuleResponse) ProtoMessage() {}
 
 func (x *LoadModuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[20]
+	mi := &file_proto_coredeno_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1127,7 +1291,7 @@ func (x *LoadModuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LoadModuleResponse.ProtoReflect.Descriptor instead.
 func (*LoadModuleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{20}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *LoadModuleResponse) GetOk() bool {
@@ -1153,7 +1317,7 @@ type UnloadModuleRequest struct {
 
 func (x *UnloadModuleRequest) Reset() {
 	*x = UnloadModuleRequest{}
-	mi := &file_proto_coredeno_proto_msgTypes[21]
+	mi := &file_proto_coredeno_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1165,7 +1329,7 @@ func (x *UnloadModuleRequest) String() string {
 func (*UnloadModuleRequest) ProtoMessage() {}
 
 func (x *UnloadModuleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[21]
+	mi := &file_proto_coredeno_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1178,7 +1342,7 @@ func (x *UnloadModuleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnloadModuleRequest.ProtoReflect.Descriptor instead.
 func (*UnloadModuleRequest) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{21}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *UnloadModuleRequest) GetCode() string {
@@ -1197,7 +1361,7 @@ type UnloadModuleResponse struct {
 
 func (x *UnloadModuleResponse) Reset() {
 	*x = UnloadModuleResponse{}
-	mi := &file_proto_coredeno_proto_msgTypes[22]
+	mi := &file_proto_coredeno_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1209,7 +1373,7 @@ func (x *UnloadModuleResponse) String() string {
 func (*UnloadModuleResponse) ProtoMessage() {}
 
 func (x *UnloadModuleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[22]
+	mi := &file_proto_coredeno_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1222,7 +1386,7 @@ func (x *UnloadModuleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnloadModuleResponse.ProtoReflect.Descriptor instead.
 func (*UnloadModuleResponse) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{22}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *UnloadModuleResponse) GetOk() bool {
@@ -1241,7 +1405,7 @@ type ModuleStatusRequest struct {
 
 func (x *ModuleStatusRequest) Reset() {
 	*x = ModuleStatusRequest{}
-	mi := &file_proto_coredeno_proto_msgTypes[23]
+	mi := &file_proto_coredeno_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1253,7 +1417,7 @@ func (x *ModuleStatusRequest) String() string {
 func (*ModuleStatusRequest) ProtoMessage() {}
 
 func (x *ModuleStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[23]
+	mi := &file_proto_coredeno_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1266,7 +1430,7 @@ func (x *ModuleStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModuleStatusRequest.ProtoReflect.Descriptor instead.
 func (*ModuleStatusRequest) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{23}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ModuleStatusRequest) GetCode() string {
@@ -1286,7 +1450,7 @@ type ModuleStatusResponse struct {
 
 func (x *ModuleStatusResponse) Reset() {
 	*x = ModuleStatusResponse{}
-	mi := &file_proto_coredeno_proto_msgTypes[24]
+	mi := &file_proto_coredeno_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1298,7 +1462,7 @@ func (x *ModuleStatusResponse) String() string {
 func (*ModuleStatusResponse) ProtoMessage() {}
 
 func (x *ModuleStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_coredeno_proto_msgTypes[24]
+	mi := &file_proto_coredeno_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1311,7 +1475,7 @@ func (x *ModuleStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModuleStatusResponse.ProtoReflect.Descriptor instead.
 func (*ModuleStatusResponse) Descriptor() ([]byte, []int) {
-	return file_proto_coredeno_proto_rawDescGZIP(), []int{24}
+	return file_proto_coredeno_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *ModuleStatusResponse) GetCode() string {
@@ -1335,7 +1499,12 @@ const file_proto_coredeno_proto_rawDesc = "" +
 	"\x14proto/coredeno.proto\x12\bcoredeno\"\r\n" +
 	"\vPingRequest\"\x1e\n" +
 	"\fPingResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"F\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"*\n" +
+	"\x10LocaleGetRequest\x12\x16\n" +
+	"\x06locale\x18\x01 \x01(\tR\x06locale\"C\n" +
+	"\x11LocaleGetResponse\x12\x14\n" +
+	"\x05found\x18\x01 \x01(\bR\x05found\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\"F\n" +
 	"\x0fFileReadRequest\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1f\n" +
 	"\vmodule_code\x18\x02 \x01(\tR\n" +
@@ -1395,12 +1564,17 @@ const file_proto_coredeno_proto_rawDesc = "" +
 	"\vmodule_code\x18\x02 \x01(\tR\n" +
 	"moduleCode\"%\n" +
 	"\x13ProcessStopResponse\x12\x0e\n" +
-	"\x02ok\x18\x01 \x01(\bR\x02ok\"j\n" +
+	"\x02ok\x18\x01 \x01(\bR\x02ok\"a\n" +
+	"\x11ModulePermissions\x12\x12\n" +
+	"\x04read\x18\x01 \x03(\tR\x04read\x12\x14\n" +
+	"\x05write\x18\x02 \x03(\tR\x05write\x12\x10\n" +
+	"\x03net\x18\x03 \x03(\tR\x03net\x12\x10\n" +
+	"\x03run\x18\x04 \x03(\tR\x03run\"\x87\x01\n" +
 	"\x11LoadModuleRequest\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x1f\n" +
 	"\ventry_point\x18\x02 \x01(\tR\n" +
-	"entryPoint\x12 \n" +
-	"\vpermissions\x18\x03 \x03(\tR\vpermissions\":\n" +
+	"entryPoint\x12=\n" +
+	"\vpermissions\x18\x03 \x01(\v2\x1b.coredeno.ModulePermissionsR\vpermissions\":\n" +
 	"\x12LoadModuleResponse\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\")\n" +
@@ -1418,9 +1592,10 @@ const file_proto_coredeno_proto_rawDesc = "" +
 	"\aLOADING\x10\x01\x12\v\n" +
 	"\aRUNNING\x10\x02\x12\v\n" +
 	"\aSTOPPED\x10\x03\x12\v\n" +
-	"\aERRORED\x10\x042\xfa\x04\n" +
+	"\aERRORED\x10\x042\xc0\x05\n" +
 	"\vCoreService\x125\n" +
-	"\x04Ping\x12\x15.coredeno.PingRequest\x1a\x16.coredeno.PingResponse\x12A\n" +
+	"\x04Ping\x12\x15.coredeno.PingRequest\x1a\x16.coredeno.PingResponse\x12D\n" +
+	"\tLocaleGet\x12\x1a.coredeno.LocaleGetRequest\x1a\x1b.coredeno.LocaleGetResponse\x12A\n" +
 	"\bFileRead\x12\x19.coredeno.FileReadRequest\x1a\x1a.coredeno.FileReadResponse\x12D\n" +
 	"\tFileWrite\x12\x1a.coredeno.FileWriteRequest\x1a\x1b.coredeno.FileWriteResponse\x12A\n" +
 	"\bFileList\x12\x19.coredeno.FileListRequest\x1a\x1a.coredeno.FileListResponse\x12G\n" +
@@ -1449,67 +1624,73 @@ func file_proto_coredeno_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_coredeno_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_coredeno_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_proto_coredeno_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_proto_coredeno_proto_goTypes = []any{
 	(ModuleStatusResponse_Status)(0), // 0: coredeno.ModuleStatusResponse.Status
 	(*PingRequest)(nil),              // 1: coredeno.PingRequest
 	(*PingResponse)(nil),             // 2: coredeno.PingResponse
-	(*FileReadRequest)(nil),          // 3: coredeno.FileReadRequest
-	(*FileReadResponse)(nil),         // 4: coredeno.FileReadResponse
-	(*FileWriteRequest)(nil),         // 5: coredeno.FileWriteRequest
-	(*FileWriteResponse)(nil),        // 6: coredeno.FileWriteResponse
-	(*FileListRequest)(nil),          // 7: coredeno.FileListRequest
-	(*FileListResponse)(nil),         // 8: coredeno.FileListResponse
-	(*FileEntry)(nil),                // 9: coredeno.FileEntry
-	(*FileDeleteRequest)(nil),        // 10: coredeno.FileDeleteRequest
-	(*FileDeleteResponse)(nil),       // 11: coredeno.FileDeleteResponse
-	(*StoreGetRequest)(nil),          // 12: coredeno.StoreGetRequest
-	(*StoreGetResponse)(nil),         // 13: coredeno.StoreGetResponse
-	(*StoreSetRequest)(nil),          // 14: coredeno.StoreSetRequest
-	(*StoreSetResponse)(nil),         // 15: coredeno.StoreSetResponse
-	(*ProcessStartRequest)(nil),      // 16: coredeno.ProcessStartRequest
-	(*ProcessStartResponse)(nil),     // 17: coredeno.ProcessStartResponse
-	(*ProcessStopRequest)(nil),       // 18: coredeno.ProcessStopRequest
-	(*ProcessStopResponse)(nil),      // 19: coredeno.ProcessStopResponse
-	(*LoadModuleRequest)(nil),        // 20: coredeno.LoadModuleRequest
-	(*LoadModuleResponse)(nil),       // 21: coredeno.LoadModuleResponse
-	(*UnloadModuleRequest)(nil),      // 22: coredeno.UnloadModuleRequest
-	(*UnloadModuleResponse)(nil),     // 23: coredeno.UnloadModuleResponse
-	(*ModuleStatusRequest)(nil),      // 24: coredeno.ModuleStatusRequest
-	(*ModuleStatusResponse)(nil),     // 25: coredeno.ModuleStatusResponse
+	(*LocaleGetRequest)(nil),         // 3: coredeno.LocaleGetRequest
+	(*LocaleGetResponse)(nil),        // 4: coredeno.LocaleGetResponse
+	(*FileReadRequest)(nil),          // 5: coredeno.FileReadRequest
+	(*FileReadResponse)(nil),         // 6: coredeno.FileReadResponse
+	(*FileWriteRequest)(nil),         // 7: coredeno.FileWriteRequest
+	(*FileWriteResponse)(nil),        // 8: coredeno.FileWriteResponse
+	(*FileListRequest)(nil),          // 9: coredeno.FileListRequest
+	(*FileListResponse)(nil),         // 10: coredeno.FileListResponse
+	(*FileEntry)(nil),                // 11: coredeno.FileEntry
+	(*FileDeleteRequest)(nil),        // 12: coredeno.FileDeleteRequest
+	(*FileDeleteResponse)(nil),       // 13: coredeno.FileDeleteResponse
+	(*StoreGetRequest)(nil),          // 14: coredeno.StoreGetRequest
+	(*StoreGetResponse)(nil),         // 15: coredeno.StoreGetResponse
+	(*StoreSetRequest)(nil),          // 16: coredeno.StoreSetRequest
+	(*StoreSetResponse)(nil),         // 17: coredeno.StoreSetResponse
+	(*ProcessStartRequest)(nil),      // 18: coredeno.ProcessStartRequest
+	(*ProcessStartResponse)(nil),     // 19: coredeno.ProcessStartResponse
+	(*ProcessStopRequest)(nil),       // 20: coredeno.ProcessStopRequest
+	(*ProcessStopResponse)(nil),      // 21: coredeno.ProcessStopResponse
+	(*ModulePermissions)(nil),        // 22: coredeno.ModulePermissions
+	(*LoadModuleRequest)(nil),        // 23: coredeno.LoadModuleRequest
+	(*LoadModuleResponse)(nil),       // 24: coredeno.LoadModuleResponse
+	(*UnloadModuleRequest)(nil),      // 25: coredeno.UnloadModuleRequest
+	(*UnloadModuleResponse)(nil),     // 26: coredeno.UnloadModuleResponse
+	(*ModuleStatusRequest)(nil),      // 27: coredeno.ModuleStatusRequest
+	(*ModuleStatusResponse)(nil),     // 28: coredeno.ModuleStatusResponse
 }
 var file_proto_coredeno_proto_depIdxs = []int32{
-	9,  // 0: coredeno.FileListResponse.entries:type_name -> coredeno.FileEntry
-	0,  // 1: coredeno.ModuleStatusResponse.status:type_name -> coredeno.ModuleStatusResponse.Status
-	1,  // 2: coredeno.CoreService.Ping:input_type -> coredeno.PingRequest
-	3,  // 3: coredeno.CoreService.FileRead:input_type -> coredeno.FileReadRequest
-	5,  // 4: coredeno.CoreService.FileWrite:input_type -> coredeno.FileWriteRequest
-	7,  // 5: coredeno.CoreService.FileList:input_type -> coredeno.FileListRequest
-	10, // 6: coredeno.CoreService.FileDelete:input_type -> coredeno.FileDeleteRequest
-	12, // 7: coredeno.CoreService.StoreGet:input_type -> coredeno.StoreGetRequest
-	14, // 8: coredeno.CoreService.StoreSet:input_type -> coredeno.StoreSetRequest
-	16, // 9: coredeno.CoreService.ProcessStart:input_type -> coredeno.ProcessStartRequest
-	18, // 10: coredeno.CoreService.ProcessStop:input_type -> coredeno.ProcessStopRequest
-	20, // 11: coredeno.DenoService.LoadModule:input_type -> coredeno.LoadModuleRequest
-	22, // 12: coredeno.DenoService.UnloadModule:input_type -> coredeno.UnloadModuleRequest
-	24, // 13: coredeno.DenoService.ModuleStatus:input_type -> coredeno.ModuleStatusRequest
-	2,  // 14: coredeno.CoreService.Ping:output_type -> coredeno.PingResponse
-	4,  // 15: coredeno.CoreService.FileRead:output_type -> coredeno.FileReadResponse
-	6,  // 16: coredeno.CoreService.FileWrite:output_type -> coredeno.FileWriteResponse
-	8,  // 17: coredeno.CoreService.FileList:output_type -> coredeno.FileListResponse
-	11, // 18: coredeno.CoreService.FileDelete:output_type -> coredeno.FileDeleteResponse
-	13, // 19: coredeno.CoreService.StoreGet:output_type -> coredeno.StoreGetResponse
-	15, // 20: coredeno.CoreService.StoreSet:output_type -> coredeno.StoreSetResponse
-	17, // 21: coredeno.CoreService.ProcessStart:output_type -> coredeno.ProcessStartResponse
-	19, // 22: coredeno.CoreService.ProcessStop:output_type -> coredeno.ProcessStopResponse
-	21, // 23: coredeno.DenoService.LoadModule:output_type -> coredeno.LoadModuleResponse
-	23, // 24: coredeno.DenoService.UnloadModule:output_type -> coredeno.UnloadModuleResponse
-	25, // 25: coredeno.DenoService.ModuleStatus:output_type -> coredeno.ModuleStatusResponse
-	14, // [14:26] is the sub-list for method output_type
-	2,  // [2:14] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	11, // 0: coredeno.FileListResponse.entries:type_name -> coredeno.FileEntry
+	22, // 1: coredeno.LoadModuleRequest.permissions:type_name -> coredeno.ModulePermissions
+	0,  // 2: coredeno.ModuleStatusResponse.status:type_name -> coredeno.ModuleStatusResponse.Status
+	1,  // 3: coredeno.CoreService.Ping:input_type -> coredeno.PingRequest
+	3,  // 4: coredeno.CoreService.LocaleGet:input_type -> coredeno.LocaleGetRequest
+	5,  // 5: coredeno.CoreService.FileRead:input_type -> coredeno.FileReadRequest
+	7,  // 6: coredeno.CoreService.FileWrite:input_type -> coredeno.FileWriteRequest
+	9,  // 7: coredeno.CoreService.FileList:input_type -> coredeno.FileListRequest
+	12, // 8: coredeno.CoreService.FileDelete:input_type -> coredeno.FileDeleteRequest
+	14, // 9: coredeno.CoreService.StoreGet:input_type -> coredeno.StoreGetRequest
+	16, // 10: coredeno.CoreService.StoreSet:input_type -> coredeno.StoreSetRequest
+	18, // 11: coredeno.CoreService.ProcessStart:input_type -> coredeno.ProcessStartRequest
+	20, // 12: coredeno.CoreService.ProcessStop:input_type -> coredeno.ProcessStopRequest
+	23, // 13: coredeno.DenoService.LoadModule:input_type -> coredeno.LoadModuleRequest
+	25, // 14: coredeno.DenoService.UnloadModule:input_type -> coredeno.UnloadModuleRequest
+	27, // 15: coredeno.DenoService.ModuleStatus:input_type -> coredeno.ModuleStatusRequest
+	2,  // 16: coredeno.CoreService.Ping:output_type -> coredeno.PingResponse
+	4,  // 17: coredeno.CoreService.LocaleGet:output_type -> coredeno.LocaleGetResponse
+	6,  // 18: coredeno.CoreService.FileRead:output_type -> coredeno.FileReadResponse
+	8,  // 19: coredeno.CoreService.FileWrite:output_type -> coredeno.FileWriteResponse
+	10, // 20: coredeno.CoreService.FileList:output_type -> coredeno.FileListResponse
+	13, // 21: coredeno.CoreService.FileDelete:output_type -> coredeno.FileDeleteResponse
+	15, // 22: coredeno.CoreService.StoreGet:output_type -> coredeno.StoreGetResponse
+	17, // 23: coredeno.CoreService.StoreSet:output_type -> coredeno.StoreSetResponse
+	19, // 24: coredeno.CoreService.ProcessStart:output_type -> coredeno.ProcessStartResponse
+	21, // 25: coredeno.CoreService.ProcessStop:output_type -> coredeno.ProcessStopResponse
+	24, // 26: coredeno.DenoService.LoadModule:output_type -> coredeno.LoadModuleResponse
+	26, // 27: coredeno.DenoService.UnloadModule:output_type -> coredeno.UnloadModuleResponse
+	28, // 28: coredeno.DenoService.ModuleStatus:output_type -> coredeno.ModuleStatusResponse
+	16, // [16:29] is the sub-list for method output_type
+	3,  // [3:16] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_proto_coredeno_proto_init() }
@@ -1523,7 +1704,7 @@ func file_proto_coredeno_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_coredeno_proto_rawDesc), len(file_proto_coredeno_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   25,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

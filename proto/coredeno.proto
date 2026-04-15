@@ -7,6 +7,9 @@ service CoreService {
   // Health
   rpc Ping(PingRequest) returns (PingResponse);
 
+  // Localisation
+  rpc LocaleGet(LocaleGetRequest) returns (LocaleGetResponse);
+
   // Filesystem (gated by manifest permissions)
   rpc FileRead(FileReadRequest) returns (FileReadResponse);
   rpc FileWrite(FileWriteRequest) returns (FileWriteResponse);
@@ -33,6 +36,9 @@ service DenoService {
 
 message PingRequest {}
 message PingResponse { bool ok = 1; }
+
+message LocaleGetRequest { string locale = 1; }
+message LocaleGetResponse { bool found = 1; string content = 2; }
 
 message FileReadRequest { string path = 1; string module_code = 2; }
 message FileReadResponse { string content = 1; }
@@ -76,7 +82,18 @@ message ProcessStopResponse { bool ok = 1; }
 
 // --- Deno-side messages ---
 
-message LoadModuleRequest { string code = 1; string entry_point = 2; repeated string permissions = 3; }
+message ModulePermissions {
+  repeated string read = 1;
+  repeated string write = 2;
+  repeated string net = 3;
+  repeated string run = 4;
+}
+
+message LoadModuleRequest {
+  string code = 1;
+  string entry_point = 2;
+  ModulePermissions permissions = 3;
+}
 message LoadModuleResponse { bool ok = 1; string error = 2; }
 
 message UnloadModuleRequest { string code = 1; }
