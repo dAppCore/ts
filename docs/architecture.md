@@ -101,7 +101,7 @@ type Server struct {
 | `StoreGet` | Reserved namespace (`_` prefix blocked) | Get a key-value pair |
 | `StoreSet` | Reserved namespace (`_` prefix blocked) | Set a key-value pair |
 | `ProcessStart` | `CheckRun(cmd, manifest.Run)` | Start a subprocess |
-| `ProcessStop` | None (by process ID) | Stop a subprocess |
+| `ProcessStop` | `module_code` required and ownership checked | Stop a subprocess |
 
 Store groups prefixed with `_` (e.g. `_coredeno`, `_modules`) are reserved for internal use and blocked from module access.
 

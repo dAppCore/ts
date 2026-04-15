@@ -235,17 +235,18 @@ func (s *Server) ProcessStop(_ context.Context, req *pb.ProcessStopRequest) (*pb
 	if s.processes == nil {
 		return nil, status.Error(codes.Unimplemented, "process service not available")
 	}
+	if req.ModuleCode == "" {
+		return nil, status.Error(codes.PermissionDenied, "permission denied: module code required to stop processes")
+	}
 
-	if req.ModuleCode != "" {
-		s.mu.RLock()
-		owner, ok := s.processOwners[req.ProcessId]
-		s.mu.RUnlock()
-		if !ok {
-			return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
-		}
-		if owner != req.ModuleCode {
-			return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
-		}
+	s.mu.RLock()
+	owner, ok := s.processOwners[req.ProcessId]
+	s.mu.RUnlock()
+	if !ok {
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
+	}
+	if owner != req.ModuleCode {
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
 	}
 
 	if err := s.processes.Kill(req.ProcessId); err != nil {

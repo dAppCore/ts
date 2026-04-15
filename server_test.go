@@ -252,9 +252,19 @@ func TestProcessStop_Good(t *testing.T) {
 func TestProcessStop_Bad_NotFound(t *testing.T) {
 	srv, _ := newTestServerWithProcess(t)
 	_, err := srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
-		ProcessId: "nonexistent",
+		ProcessId:  "nonexistent",
+		ModuleCode: "runner-mod",
 	})
 	assert.Error(t, err)
+}
+
+func TestProcessStop_Bad_MissingModuleCode(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+	_, err := srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
+		ProcessId: "nonexistent",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "module code required")
 }
 
 func TestProcessStop_Bad_NoOwnerMapping(t *testing.T) {

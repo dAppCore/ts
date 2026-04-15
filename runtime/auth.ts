@@ -5,7 +5,6 @@ export interface LocalAuthMaterial {
   fingerprint: string;
   algorithm: string;
   publicKey: string;
-  rootPassword: string;
 }
 
 export interface LocalAuthEnvelope {
@@ -13,12 +12,12 @@ export interface LocalAuthEnvelope {
   root: string;
   fingerprint: string;
   algorithm: string;
-  rootPassword?: string;
   cipherText: string;
 }
 
 interface LocalAuthState {
   material: LocalAuthMaterial;
+  rootPassword: string;
   publicKey: Promise<any>;
   privateKey: Promise<any>;
 }
@@ -51,7 +50,7 @@ export async function sealLocalMessage(
   const message = await openpgp.createMessage({ text: payload });
   const cipherText = await openpgp.encrypt({
     message,
-    passwords: [state.material.rootPassword],
+    passwords: [state.rootPassword],
     format: "armored",
   });
 
@@ -60,7 +59,6 @@ export async function sealLocalMessage(
     root: state.material.root,
     fingerprint: state.material.fingerprint,
     algorithm: state.material.algorithm,
-    rootPassword: state.material.rootPassword,
     cipherText,
   };
   return `core-auth:${
@@ -89,19 +87,13 @@ export async function openLocalMessage(
   if (envelope.algorithm !== state.material.algorithm) {
     throw new Error("local auth algorithm mismatch");
   }
-  if (
-    envelope.rootPassword !== undefined &&
-    envelope.rootPassword !== state.material.rootPassword
-  ) {
-    throw new Error("local auth password mismatch");
-  }
 
   const message = await openpgp.readMessage({
     armoredMessage: envelope.cipherText,
   });
   const decrypted = await openpgp.decrypt({
     message,
-    passwords: [state.material.rootPassword],
+    passwords: [state.rootPassword],
   });
 
   return typeof decrypted.data === "string"
@@ -133,7 +125,14 @@ function defaultAuthRoot(): string {
   if (typeof Deno !== "undefined" && typeof Deno.cwd === "function") {
     return Deno.cwd();
   }
-  return "/";
+  if (
+    typeof location !== "undefined" &&
+    typeof location.origin === "string" &&
+    location.origin !== "null"
+  ) {
+    return location.origin;
+  }
+  throw new Error("local auth root must be supplied in this environment");
 }
 
 function normaliseAuthRoot(root: string): string {
@@ -172,8 +171,8 @@ async function buildLocalAuthState(root: string): Promise<LocalAuthState> {
       fingerprint,
       algorithm: "PGP-RSA2048",
       publicKey: keyPair.publicKey,
-      rootPassword,
     },
+    rootPassword,
     publicKey: openpgp.readKey({ armoredKey: keyPair.publicKey }),
     privateKey: (async () => {
       const privateKey = await openpgp.readPrivateKey({
@@ -217,8 +216,6 @@ function parseLocalEnvelope(token: string): LocalAuthEnvelope {
     typeof value.root !== "string" ||
     typeof value.fingerprint !== "string" ||
     typeof value.algorithm !== "string" ||
-    (value.rootPassword !== undefined &&
-      typeof value.rootPassword !== "string") ||
     typeof value.cipherText !== "string"
   ) {
     throw new Error("invalid local auth envelope");
