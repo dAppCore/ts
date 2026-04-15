@@ -124,10 +124,20 @@ interface RPCRequest {
   process_id?: string;
 }
 
+interface RPCError {
+  code: number;
+  message: string;
+}
+
+interface RPCDispatchResponse {
+  error?: RPCError;
+  [key: string]: unknown;
+}
+
 async function dispatch(
   req: RPCRequest,
   registry: ModuleRegistry,
-): Promise<Record<string, unknown>> {
+): Promise<RPCDispatchResponse> {
   const params = req.params ?? {};
 
   switch (req.method) {
@@ -145,10 +155,10 @@ async function dispatch(
         };
       };
       if (!isNonEmpty(loadParams.code ?? req.code)) {
-        return { error: "module code required" };
+        return invalidParams("module code required");
       }
       if (!isNonEmpty(loadParams.entry_point ?? req.entry_point)) {
-        return { error: "module entry point required" };
+        return invalidParams("module entry point required");
       }
       const result = await registry.load(
         loadParams.code ?? req.code ?? "",
@@ -160,7 +170,7 @@ async function dispatch(
     case "UnloadModule": {
       const unloadParams = params as { code?: string };
       if (!isNonEmpty(unloadParams.code ?? req.code)) {
-        return { error: "module code required" };
+        return invalidParams("module code required");
       }
       const ok = registry.unload(unloadParams.code ?? req.code ?? "");
       return { ok };
@@ -169,7 +179,7 @@ async function dispatch(
       const statusParams = params as { code?: string };
       const code = statusParams.code ?? req.code ?? "";
       if (!isNonEmpty(code)) {
-        return { error: "module code required" };
+        return invalidParams("module code required");
       }
       return { code, status: registry.status(code) };
     }
@@ -181,7 +191,7 @@ async function dispatch(
       };
     }
     default:
-      return { error: `unknown method: ${req.method}` };
+      return methodNotFound(`unknown method: ${req.method}`);
   }
 }
 
@@ -191,19 +201,22 @@ function isJsonRpcRequest(req: RPCRequest): boolean {
 
 function formatResponse(
   req: RPCRequest,
-  response: Record<string, unknown>,
+  response: RPCDispatchResponse,
 ): Record<string, unknown> {
   if (!isJsonRpcRequest(req)) {
+    if (response.error) {
+      return { error: response.error.message };
+    }
     return response;
   }
 
-  if (typeof response.error === "string") {
+  if (response.error) {
     return {
       jsonrpc: "2.0",
       id: req.id ?? null,
       error: {
-        code: -32601,
-        message: response.error,
+        code: response.error.code,
+        message: response.error.message,
       },
     };
   }
@@ -212,6 +225,24 @@ function formatResponse(
     jsonrpc: "2.0",
     id: req.id ?? null,
     result: response,
+  };
+}
+
+function invalidParams(message: string): RPCDispatchResponse {
+  return {
+    error: {
+      code: -32602,
+      message,
+    },
+  };
+}
+
+function methodNotFound(message: string): RPCDispatchResponse {
+  return {
+    error: {
+      code: -32601,
+      message,
+    },
   };
 }
 
