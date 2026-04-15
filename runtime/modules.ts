@@ -313,7 +313,9 @@ export class ModuleRegistry {
 
   async reloadAll(): Promise<LoadResult[]> {
     const snapshot = Array.from(this.modules.values())
-      .filter((moduleState) => moduleState.status !== "STOPPED")
+      // Only reload modules that are still active. Failed loads stay errored
+      // until the host explicitly loads them again.
+      .filter((moduleState) => isReloadableStatus(moduleState.status))
       .map((moduleState) => ({
         code: moduleState.code,
         entryPoint: moduleState.entryPoint,
@@ -465,4 +467,8 @@ function isWithinRoot(rootDir: string, candidatePath: string): boolean {
 
 function isNonEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function isReloadableStatus(status: ModuleStatus): boolean {
+  return status === "LOADING" || status === "RUNNING";
 }
