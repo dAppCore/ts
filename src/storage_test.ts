@@ -192,6 +192,26 @@ Deno.test("CoreSessionStorage forwards session TTL metadata", async () => {
   );
 });
 
+Deno.test("CoreSessionStorage isolates values per session", async () => {
+  const bridge = createBridge();
+  const first = new CoreSessionStorage("app://demo", bridge, "session-1");
+  const second = new CoreSessionStorage("app://demo", bridge, "session-2");
+
+  await first.setItem("wizard_step", "3");
+  await second.setItem("wizard_step", "4");
+
+  assertEquals(
+    await first.getItem("wizard_step"),
+    "3",
+    "first session should keep its own value",
+  );
+  assertEquals(
+    await second.getItem("wizard_step"),
+    "4",
+    "second session should keep its own value",
+  );
+});
+
 Deno.test("CoreCookieJar parses and serialises visible cookies", async () => {
   const bridge = createBridge();
   const jar = new CoreCookieJar("https://example.com", bridge);

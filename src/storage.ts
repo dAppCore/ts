@@ -383,7 +383,7 @@ export class CoreSessionStorage extends CoreLocalStorage {
     bridge: CoreStorageBridge,
     private readonly sessionId: string,
   ) {
-    super(origin, bridge, storageNamespace(origin, "session"));
+    super(origin, bridge, storageNamespace(origin, "session", sessionId));
   }
 
   override async setItem(key: string, value: string): Promise<void> {
@@ -1031,12 +1031,22 @@ function splitPath(value: string): string[] {
     });
 }
 
-function storageNamespace(origin: string, surface: string): string {
-  return `${namespacePrefix}:${normaliseOrigin(origin)}:${surface}`;
+function storageNamespace(origin: string, ...parts: string[]): string {
+  const suffix = parts
+    .map((part) => normaliseNamespacePart(part))
+    .filter((part) => part.length > 0)
+    .join(":");
+  return suffix === ""
+    ? `${namespacePrefix}:${normaliseOrigin(origin)}`
+    : `${namespacePrefix}:${normaliseOrigin(origin)}:${suffix}`;
 }
 
 function normaliseOrigin(origin: string): string {
   return origin.replace(/[^a-zA-Z0-9._-]+/g, "_");
+}
+
+function normaliseNamespacePart(part: string): string {
+  return part.replace(/[^a-zA-Z0-9._-]+/g, "_");
 }
 
 function defineProperty(
