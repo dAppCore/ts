@@ -24,34 +24,39 @@ const channel = {
 const rpcClient = new RuntimeRPCClient(channel);
 const core = rpcClient.createCoreBridge();
 
-// Handle messages from parent: RPC responses and load commands
-workerScope.addEventListener(
-  "message",
-  async (e: MessageEvent<RuntimeIPCMessage>) => {
-    const msg = e.data as RuntimeIPCMessage;
+if (
+  typeof workerScope.postMessage === "function" &&
+  typeof workerScope.addEventListener === "function"
+) {
+  // Handle messages from parent: RPC responses and load commands.
+  workerScope.addEventListener(
+    "message",
+    async (e: MessageEvent<RuntimeIPCMessage>) => {
+      const msg = e.data as RuntimeIPCMessage;
 
-    if (rpcClient.handle(msg)) {
-      return;
-    }
-
-    if (msg.type === "load") {
-      try {
-        const mod = await import(msg.url);
-        if (typeof mod.init === "function") {
-          await mod.init(core);
-        }
-        workerScope.postMessage({ type: "loaded", ok: true });
-      } catch (err) {
-        workerScope.postMessage({
-          type: "loaded",
-          ok: false,
-          error: err instanceof Error ? err.message : String(err),
-        });
+      if (rpcClient.handle(msg)) {
+        return;
       }
-      return;
-    }
-  },
-);
 
-// Signal ready — parent will respond with {type: "load", url: "..."}
-workerScope.postMessage({ type: "ready" });
+      if (msg.type === "load") {
+        try {
+          const mod = await import(msg.url);
+          if (typeof mod.init === "function") {
+            await mod.init(core);
+          }
+          workerScope.postMessage({ type: "loaded", ok: true });
+        } catch (err) {
+          workerScope.postMessage({
+            type: "loaded",
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+        return;
+      }
+    },
+  );
+
+  // Signal ready — parent will respond with {type: "load", url: "..."}.
+  workerScope.postMessage({ type: "ready" });
+}
