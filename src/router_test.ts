@@ -168,3 +168,67 @@ Deno.test("CoreRouter intercepts core:// anchor clicks", async () => {
     "core link queries should be preserved",
   );
 });
+
+Deno.test("CoreRouter mount wires hash and link interception together", async () => {
+  const seen: string[] = [];
+  let hashListener: (() => void) | undefined;
+  let clickListener: ((event: {
+    button?: number;
+    defaultPrevented?: boolean;
+    preventDefault(): void;
+    target?: unknown;
+  }) => void) | undefined;
+
+  const router = new CoreRouter({
+    bridge: {
+      dispatch(path) {
+        seen.push(path);
+        return path;
+      },
+    },
+  });
+
+  const detach = router.mount({
+    hashTarget: {
+      location: { hash: "#/first" },
+      addEventListener(_type: "hashchange", listener: () => void) {
+        hashListener = listener;
+      },
+      removeEventListener(_type: "hashchange", _listener: () => void) {
+        hashListener = undefined;
+      },
+    },
+    linkTarget: {
+      addEventListener(_type: "click", listener: (event) => void) {
+        clickListener = listener;
+      },
+      removeEventListener(_type: "click", _listener: (event) => void) {
+        clickListener = undefined;
+      },
+    },
+  });
+
+  await Promise.resolve();
+  assertEquals(seen[0], "/first", "mount should navigate immediately");
+
+  hashListener?.();
+  await Promise.resolve();
+  assertEquals(seen[1], "/first", "hash changes should be wired by mount");
+
+  clickListener?.({
+    button: 0,
+    defaultPrevented: false,
+    preventDefault() {},
+    target: {
+      getAttribute(name: string) {
+        return name === "href" ? "core://settings" : null;
+      },
+    },
+  });
+  await Promise.resolve();
+  assertEquals(seen[2], "settings", "core link interception should be wired by mount");
+
+  detach();
+  assert(hashListener === undefined, "detach should remove hash listeners");
+  assert(clickListener === undefined, "detach should remove link listeners");
+});

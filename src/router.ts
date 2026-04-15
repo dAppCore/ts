@@ -56,6 +56,12 @@ export interface CoreRouterLinkTarget {
   ): void;
 }
 
+export interface CoreRouterMountOptions {
+  hashTarget?: HashRouterTarget;
+  linkTarget?: CoreRouterLinkTarget;
+  navigateImmediately?: boolean;
+}
+
 const defaultBaseURL = "http://localhost/";
 
 export class CoreRouter<T = unknown> {
@@ -150,6 +156,19 @@ export class CoreRouter<T = unknown> {
     resolvedTarget.addEventListener("click", onClick, true);
     return () => {
       resolvedTarget.removeEventListener("click", onClick, true);
+    };
+  }
+
+  mount(options: CoreRouterMountOptions = {}): () => void {
+    const detachHash = this.attach(
+      options.hashTarget,
+      options.navigateImmediately ?? true,
+    );
+    const detachLinks = this.interceptLinks(options.linkTarget);
+
+    return () => {
+      detachLinks();
+      detachHash();
     };
   }
 
