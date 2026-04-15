@@ -90,6 +90,7 @@ export interface CoreShim {
   };
   fs: ElectronFileProxy;
   path: ElectronPathProxy;
+  events: CoreEventBus<Record<string, unknown[]>>;
 }
 
 export interface ElectronFileProxy {
@@ -134,7 +135,12 @@ export class CoreElectronRuntime {
     private readonly bridge: ElectronBridge,
     private readonly options: ElectronShimOptions = {},
   ) {
-    this.shim = buildElectronShim(bridge, options.fs, options.origin);
+    this.shim = buildElectronShim(
+      bridge,
+      options.fs,
+      options.origin,
+      this.bus,
+    );
   }
 
   inject(
@@ -160,8 +166,10 @@ export function buildElectronShim(
   bridge: ElectronBridge,
   fsBridge?: ElectronFileBridge,
   origin = "file://",
+  events = new CoreEventBus<Record<string, unknown[]>>(),
 ): ElectronShim {
-  const core = buildCoreShim(bridge, fsBridge, origin);
+  const mirroredBridge = createMirroredElectronBridge(bridge, events);
+  const core = buildCoreShim(mirroredBridge, fsBridge, origin, events);
   return {
     core,
     ipcRenderer: {
@@ -202,6 +210,7 @@ export function buildCoreShim(
   bridge: ElectronBridge,
   fsBridge?: ElectronFileBridge,
   origin = "file://",
+  events = new CoreEventBus<Record<string, unknown[]>>(),
 ): CoreShim {
   const fs = buildFileProxy(fsBridge, origin);
   const path = buildPathProxy();
@@ -232,6 +241,7 @@ export function buildCoreShim(
     },
     fs,
     path,
+    events,
   };
 }
 
@@ -412,6 +422,28 @@ function defineGetter(
     enumerable: true,
     get,
   });
+}
+
+function createMirroredElectronBridge(
+  bridge: ElectronBridge,
+  events: CoreEventBus<Record<string, unknown[]>>,
+): ElectronBridge {
+  return {
+    action: (channel: string, ...args: unknown[]) => bridge.action(channel, ...args),
+    query: (channel: string, ...args: unknown[]) => bridge.query(channel, ...args),
+    on: (channel: string, handler: CoreEventHandler<unknown[]>) =>
+      bridge.on(channel, async (payload) => {
+        await events.emit(channel, payload);
+        await handler(payload);
+      }),
+    once: (channel: string, handler: CoreEventHandler<unknown[]>) =>
+      bridge.once(channel, async (payload) => {
+        await events.emit(channel, payload);
+        await handler(payload);
+      }),
+    off: (channel: string, handler: CoreEventHandler<unknown[]>) => bridge.off(channel, handler),
+    offAll: (channel?: string) => bridge.offAll(channel),
+  };
 }
 
 function isWindowsPlatform(): boolean {

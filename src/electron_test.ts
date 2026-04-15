@@ -1,4 +1,5 @@
 import {
+  CoreElectronRuntime,
   buildCoreShim,
   buildElectronShim,
   buildRequireShim,
@@ -19,6 +20,7 @@ function assertEquals<T>(actual: T, expected: T, message: string): void {
 
 Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
   const calls: Array<{ channel: string; args: unknown[] }> = [];
+  let ipcHandler: ((payload: unknown[]) => void | Promise<void>) | undefined;
   const shim = buildElectronShim({
     action(channel, ...args) {
       calls.push({ channel, args });
@@ -28,7 +30,12 @@ Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
       calls.push({ channel, args });
       return { channel, args };
     },
-    on: () => () => undefined,
+    on(channel, handler) {
+      if (channel === "app:ready") {
+        ipcHandler = handler;
+      }
+      return () => undefined;
+    },
     once: () => () => undefined,
     off: () => undefined,
     offAll: () => undefined,
@@ -49,18 +56,24 @@ Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
       return undefined;
     },
   });
+  const seen: unknown[][] = [];
+  shim.core.events.on("app:ready", (payload) => {
+    seen.push(payload);
+  });
 
   await shim.ipcRenderer.send("app:ready", { version: "1.0" });
   await shim.shell.openExternal("https://example.com");
   await shim.notification({ title: "Alert" });
   await new shim.Notification({ title: "Alert" }).show();
   await shim.core.ipc.action("app:ready", { version: "1.0" });
+  await ipcHandler?.([{ version: "1.0" }]);
 
   assert(calls[0].channel === "app:ready", "ipc send should use the bridge");
   assert(calls[1].channel === "gui.browser.open", "shell should map to browser open");
   assert(calls[2].channel === "gui.notification.send", "notification should use the bridge");
   assert(calls[3].channel === "gui.notification.send", "Notification class should use the bridge");
   assert(calls[4].channel === "app:ready", "core.ipc should route through the same bridge");
+  assertEquals(seen.length, 1, "core.events should receive mirrored IPC events");
   assert(shim.fs.promises.readFile !== undefined, "fs.promises should be exposed");
   const expectedPath = Deno.build.os === "windows" ? "\\var" : "/var";
   assert(
@@ -76,6 +89,38 @@ Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
     shim.fs.readdirSync("/var"),
     ["demo.txt"],
     "fs.readdirSync should use the synchronous bridge surface when available",
+  );
+});
+
+Deno.test("CoreElectronRuntime mirrors bridge events into the browser event bus", async () => {
+  let onHandler: ((payload: unknown[]) => void | Promise<void>) | undefined;
+  const runtime = new CoreElectronRuntime({
+    action: () => undefined,
+    query: () => undefined,
+    on(channel, handler) {
+      if (channel === "app:ready") {
+        onHandler = handler;
+      }
+      return () => undefined;
+    },
+    once: () => () => undefined,
+    off: () => undefined,
+    offAll: () => undefined,
+  });
+
+  const seen: unknown[][] = [];
+  runtime.events().on("app:ready", (payload) => {
+    seen.push(payload);
+  });
+
+  await runtime.shimObject().ipcRenderer.on("app:ready", () => undefined);
+  await onHandler?.([{ version: "1.0" }]);
+
+  assertEquals(seen.length, 1, "bridge events should reach the event bus");
+  assertEquals(
+    seen[0],
+    [{ version: "1.0" }],
+    "event bus should receive the same payload as the bridge handler",
   );
 });
 
