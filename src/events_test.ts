@@ -35,3 +35,17 @@ Deno.test("CoreEventBus once listeners fire only once", async () => {
 
   assert(count === 1, "once listener should only fire once");
 });
+
+Deno.test("CoreEventBus removeAllListeners aliases offAll", async () => {
+  const bus = new CoreEventBus<{ ready: string }>();
+  let count = 0;
+
+  bus.on("ready", () => {
+    count += 1;
+  });
+  bus.removeAllListeners("ready");
+
+  await bus.emit("ready", "loaded");
+
+  assert(count === 0, "removeAllListeners should clear the selected bucket");
+});

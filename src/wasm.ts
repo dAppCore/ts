@@ -45,6 +45,22 @@ export async function loadWasm<TExports extends WebAssembly.Exports = WebAssembl
   return instantiateSource(source, imports, options.useStreaming ?? true) as Promise<CoreWasmInstance<TExports>>;
 }
 
+/**
+ * Example:
+ *   const wasm = await loadGoHtmlWasm("/gohtml.wasm");
+ *   const exports = wasm.exports as { render(): void };
+ *
+ * Loads the go-html WASM module using the same instantiation path as the
+ * generic loader, but with a name that reflects the actual Core TS surface.
+ */
+export async function loadGoHtmlWasm<TExports extends WebAssembly.Exports = WebAssembly.Exports>(
+  source: CoreWasmSource,
+  imports: WebAssembly.Imports = {},
+  options: CoreWasmLoadOptions = {},
+): Promise<CoreWasmInstance<TExports>> {
+  return loadWasm<TExports>(source, imports, options);
+}
+
 async function instantiateSource(
   source: CoreWasmSource,
   imports: WebAssembly.Imports,

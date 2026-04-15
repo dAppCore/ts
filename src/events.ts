@@ -14,6 +14,7 @@ export interface CoreEventBridge<TEvents extends Record<string, unknown> = Recor
     handler: CoreEventHandler<TEvents[K]>,
   ): void;
   offAll(event?: string): void;
+  removeAllListeners(event?: string): void;
   emit<K extends keyof TEvents & string>(
     event: K,
     payload: TEvents[K],
@@ -65,6 +66,10 @@ export class CoreEventBus<
       return;
     }
     this.listeners.clear();
+  }
+
+  removeAllListeners(event?: string): void {
+    this.offAll(event);
   }
 
   async emit<K extends keyof TEvents & string>(

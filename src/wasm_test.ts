@@ -1,4 +1,4 @@
-import { CoreWasmLoader, loadWasm } from "./wasm.ts";
+import { CoreWasmLoader, loadGoHtmlWasm, loadWasm } from "./wasm.ts";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
@@ -21,4 +21,14 @@ Deno.test("loadWasm returns the instantiated module", async () => {
   const result = await loadWasm(bytes);
 
   assert(result.exports !== undefined, "exports should be present");
+});
+
+Deno.test("loadGoHtmlWasm reuses the generic WASM loader path", async () => {
+  const bytes = new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
+  const result = await loadGoHtmlWasm(bytes);
+
+  assert(
+    result.module instanceof WebAssembly.Module,
+    "go-html loader should instantiate modules",
+  );
 });

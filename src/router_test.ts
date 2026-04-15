@@ -78,6 +78,18 @@ Deno.test("CoreRouter handles scheme and path registration", async () => {
   );
 });
 
+Deno.test("CoreRouter registerRoute aliases handle", async () => {
+  const router = new CoreRouter({
+    bridge: { dispatch: () => undefined },
+  });
+
+  router.registerRoute("core", "settings", (route) => route.path);
+  const result = await router.navigate("core://settings");
+
+  assert(result.handled, "registerRoute should register the same route shape");
+  assertEquals(result.value, "settings", "registerRoute should reuse handle semantics");
+});
+
 Deno.test("CoreRouter falls back to httpNavigate for standard routes", async () => {
   const router = new CoreRouter({
     bridge: { dispatch: () => undefined },

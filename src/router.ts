@@ -85,6 +85,14 @@ export class CoreRouter<T = unknown> {
     return this;
   }
 
+  registerRoute(
+    target: string,
+    pathOrHandler: string | RouteHandler<T>,
+    maybeHandler?: RouteHandler<T>,
+  ): this {
+    return this.handle(target, pathOrHandler, maybeHandler);
+  }
+
   async navigate(target: string): Promise<RouteResult<T>> {
     const route = this.parse(target);
     const handler = this.routes.get(this.routeKey(route.scheme, route.path));
