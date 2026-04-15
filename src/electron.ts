@@ -113,6 +113,8 @@ export interface ElectronPathProxy {
   normalize(path: string): string;
   sep: string;
   delimiter: string;
+  posix: ElectronPathProxy;
+  win32: ElectronPathProxy;
 }
 
 export class CoreElectronRuntime {
@@ -234,9 +236,11 @@ export function buildRequireShim(shim: ElectronShim): (module: string) => unknow
       case "fs/promises":
         return shim.fs.promises;
       case "path":
-      case "path/posix":
-      case "path/win32":
         return shim.path;
+      case "path/posix":
+        return shim.path.posix;
+      case "path/win32":
+        return shim.path.win32;
       default:
         throw new Error(
           `require('${module}') is not available. Use Core imports instead.`,
@@ -342,8 +346,30 @@ function buildFileProxy(fsBridge: ElectronFileBridge | undefined, origin: string
   };
 }
 
-function buildPathProxy(): ElectronPathProxy {
-  const platformPath = isWindowsPlatform() ? path.win32 : path.posix;
+function buildPathProxy(platform: "host" | "posix" | "win32" = "host"): ElectronPathProxy {
+  const resolvedPlatform = platform === "host"
+    ? (isWindowsPlatform() ? "win32" : "posix")
+    : platform;
+  const proxy = createBasePathProxy(resolvedPlatform);
+  const posixProxy = createBasePathProxy("posix");
+  const win32Proxy = createBasePathProxy("win32");
+
+  proxy.posix = posixProxy as ElectronPathProxy;
+  proxy.win32 = win32Proxy as ElectronPathProxy;
+  posixProxy.posix = posixProxy as ElectronPathProxy;
+  posixProxy.win32 = win32Proxy as ElectronPathProxy;
+  win32Proxy.posix = posixProxy as ElectronPathProxy;
+  win32Proxy.win32 = win32Proxy as ElectronPathProxy;
+
+  return proxy as ElectronPathProxy;
+}
+
+function createBasePathProxy(platform: "posix" | "win32"): Omit<
+  ElectronPathProxy,
+  "posix" | "win32"
+> & { posix?: ElectronPathProxy; win32?: ElectronPathProxy } {
+  const platformPath = platform === "win32" ? path.win32 : path.posix;
+
   return {
     join: (...parts: string[]) => platformPath.join(...parts),
     resolve: (...parts: string[]) => platformPath.resolve(...parts),
@@ -354,6 +380,8 @@ function buildPathProxy(): ElectronPathProxy {
     normalize: (filePath: string) => platformPath.normalize(filePath),
     sep: platformPath.sep,
     delimiter: platformPath.delimiter,
+    posix: undefined,
+    win32: undefined,
   };
 }
 

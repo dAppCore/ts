@@ -102,16 +102,26 @@ Deno.test("Electron require shim only exposes supported modules", () => {
   );
   assert(requireShim("path") === shim.path, "require('path') should return the path proxy");
   assert(
-    requireShim("path/posix") === shim.path,
-    "require('path/posix') should return the path proxy",
+    requireShim("path/posix") === shim.path.posix,
+    "require('path/posix') should return the POSIX path proxy",
   );
   assert(
-    requireShim("node:path/win32") === shim.path,
-    "require('node:path/win32') should return the path proxy",
+    requireShim("node:path/win32") === shim.path.win32,
+    "require('node:path/win32') should return the Windows path proxy",
   );
   assert(
     requireShim("node:path") === shim.path,
-    "require('node:path') should return the path proxy",
+    "require('node:path') should return the host path proxy",
+  );
+  assertEquals(
+    shim.path.posix.sep,
+    "/",
+    "path.posix should always use the POSIX separator",
+  );
+  assertEquals(
+    shim.path.win32.sep,
+    "\\",
+    "path.win32 should always use the Windows separator",
   );
 
   let message = "";
