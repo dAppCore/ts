@@ -579,7 +579,7 @@ export const defaultI18n = new CoreI18n();
 
 function isDictionary(value: unknown): value is I18nDictionary {
   return !!value && typeof value === "object" && !Array.isArray(value) &&
-    !(value instanceof Response);
+    !(value instanceof Response) && !(value instanceof URL);
 }
 
 async function parseTranslationSource(

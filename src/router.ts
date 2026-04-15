@@ -134,7 +134,12 @@ export class CoreRouter<T = unknown> {
       };
     }
 
-    return { ...route, handled: false };
+    return {
+      ...route,
+      handled: true,
+      value: (await this.options.bridge.dispatch(route.path, route.query)) as T,
+    };
+
   }
 
   navigateHash(hash: string): Promise<RouteResult<T>> {
