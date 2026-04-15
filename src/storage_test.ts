@@ -1,16 +1,16 @@
 import {
-  CoreCookieJar,
+  type CoreCacheBridge,
   CoreCacheStorage,
-  CoreLocalStorage,
-  CoreSessionStorage,
+  CoreCookieJar,
+  type CoreCookieRecord,
   CoreIndexedDBRequest,
-  CoreStorageBucketManager,
+  CoreLocalStorage,
   CoreOPFS,
+  CoreSessionStorage,
+  type CoreStorageBridge,
+  CoreStorageBucketManager,
   injectStoragePolyfills,
   parseCookie,
-  type CoreCacheBridge,
-  type CoreStorageBridge,
-  type CoreCookieRecord,
 } from "./storage.ts";
 
 function assert(condition: boolean, message: string): void {
@@ -96,7 +96,12 @@ function createBridge(): CoreStorageBridge & {
       async get(namespace, key) {
         return store(namespace).get(key) ?? null;
       },
-      async set(namespace, key, value, options?: { ttl?: "session"; sessionId?: string }) {
+      async set(
+        namespace,
+        key,
+        value,
+        options?: { ttl?: "session"; sessionId?: string },
+      ) {
         storeSetCalls.push({ namespace, key, value, options });
         store(namespace).set(key, value);
       },
@@ -124,7 +129,11 @@ function createBridge(): CoreStorageBridge & {
         next.push(cookie);
         cookies.set(origin, next);
       },
-      async delete(origin, name, options?: Pick<CoreCookieRecord, "path" | "domain">) {
+      async delete(
+        origin,
+        name,
+        options?: Pick<CoreCookieRecord, "path" | "domain">,
+      ) {
         const values = cookies.get(origin) ?? [];
         cookies.set(
           origin,
@@ -215,15 +224,23 @@ Deno.test("Injected sessionStorage forwards session TTL metadata", async () => {
     sessionId: "session-1",
     target,
   });
-  assert(polyfills.sessionStorage !== undefined, "sessionStorage polyfill should exist");
-
-  (target.sessionStorage as { setItem(key: string, value: string): void }).setItem(
-    "wizard_step",
-    "3",
+  assert(
+    polyfills.sessionStorage !== undefined,
+    "sessionStorage polyfill should exist",
   );
+
+  (target.sessionStorage as { setItem(key: string, value: string): void })
+    .setItem(
+      "wizard_step",
+      "3",
+    );
   await Promise.resolve();
 
-  assertEquals(bridge.storeSetCalls.length, 1, "sessionStorage should write once");
+  assertEquals(
+    bridge.storeSetCalls.length,
+    1,
+    "sessionStorage should write once",
+  );
   assertEquals(
     bridge.storeSetCalls[0].options?.ttl,
     "session",
@@ -332,7 +349,11 @@ Deno.test("parseCookie normalises lowercase SameSite values", () => {
     "https://example.com",
   );
 
-  assertEquals(cookie.sameSite, "None", "cookie should normalise lowercase SameSite values");
+  assertEquals(
+    cookie.sameSite,
+    "None",
+    "cookie should normalise lowercase SameSite values",
+  );
 });
 
 Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", async () => {
@@ -362,7 +383,11 @@ Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", a
   const remoteCacheNames = await polyfills.caches.keys();
 
   assertEquals(response?.body, "ok", "cache storage should round-trip entries");
-  assertEquals(storageMatch?.body, "ok", "cache storage should search opened caches");
+  assertEquals(
+    storageMatch?.body,
+    "ok",
+    "cache storage should search opened caches",
+  );
   assertEquals(
     JSON.stringify(cacheNames),
     JSON.stringify(["v1", "shared"]),
@@ -376,10 +401,26 @@ Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", a
   );
   assertEquals(bucket.name, "photos", "bucket manager should open buckets");
   assert(bucket === bucketAgain, "bucket manager should cache opened buckets");
-  assertEquals(estimate.quota, 1000, "navigator.storage.estimate should reflect bucket quota");
-  assertEquals(persistedBefore, false, "navigator.storage.persisted should default to false");
-  assertEquals(persistResult, true, "navigator.storage.persist should opt into persistence");
-  assertEquals(persistedAfter, true, "navigator.storage.persisted should reflect persisted state");
+  assertEquals(
+    estimate.quota,
+    1000,
+    "navigator.storage.estimate should reflect bucket quota",
+  );
+  assertEquals(
+    persistedBefore,
+    false,
+    "navigator.storage.persisted should default to false",
+  );
+  assertEquals(
+    persistResult,
+    true,
+    "navigator.storage.persist should opt into persistence",
+  );
+  assertEquals(
+    persistedAfter,
+    true,
+    "navigator.storage.persisted should reflect persisted state",
+  );
   assertEquals(bucketNames.length, 0, "bucket manager should delete buckets");
 });
 
@@ -430,7 +471,76 @@ Deno.test("CoreIndexedDB.open behaves like an awaitable request", async () => {
   assert(successFired, "request should fire onsuccess");
   assertEquals(database.name, "myapp", "database name should round-trip");
   assertEquals(database.version, 2, "database version should round-trip");
-  assertEquals(request.result?.name, "myapp", "request.result should be populated");
+  assertEquals(
+    request.result?.name,
+    "myapp",
+    "request.result should be populated",
+  );
+});
+
+Deno.test("CoreIndexedDB persists object stores and records across reopen", async () => {
+  const bridge = createBridge();
+  const indexedDB = injectStoragePolyfills("https://example.com", bridge, {
+    target: { navigator: {}, document: {} },
+  }).indexedDB;
+
+  const database = await indexedDB.open("myapp", 1);
+  const store = database.raw.createObjectStore("todos", { keyPath: "id" });
+  await store.put({ id: "1", title: "Ship" });
+
+  const reopened = await indexedDB.open("myapp");
+  const transaction = reopened.raw.transaction("todos", "readonly");
+  const record = await transaction.objectStore("todos").get("1") as {
+    id: string;
+    title: string;
+  } | null;
+
+  assertEquals(record?.id ?? "", "1", "indexedDB should persist primary keys");
+  assertEquals(
+    record?.title ?? "",
+    "Ship",
+    "indexedDB should persist stored records",
+  );
+});
+
+Deno.test("CoreIndexedDB transactions isolate writes until commit", async () => {
+  const bridge = createBridge();
+  const indexedDB = injectStoragePolyfills("https://example.com", bridge, {
+    target: { navigator: {}, document: {} },
+  }).indexedDB;
+
+  const database = await indexedDB.open("tx-db", 1);
+  database.raw.createObjectStore("items", { keyPath: "id" });
+
+  const abortedTx = database.raw.transaction("items", "readwrite");
+  await abortedTx.objectStore("items").put({ id: "draft", title: "Draft" });
+  const beforeAbort = await database.raw.transaction("items", "readonly")
+    .objectStore("items")
+    .get("draft");
+  assertEquals(beforeAbort, null, "uncommitted records should stay invisible");
+  abortedTx.abort();
+
+  const afterAbort = await database.raw.transaction("items", "readonly")
+    .objectStore("items")
+    .get("draft");
+  assertEquals(
+    afterAbort,
+    null,
+    "aborted transactions should discard staged writes",
+  );
+
+  const committedTx = database.raw.transaction("items", "readwrite");
+  await committedTx.objectStore("items").put({ id: "saved", title: "Saved" });
+  committedTx.commit();
+
+  const afterCommit = await database.raw.transaction("items", "readonly")
+    .objectStore("items")
+    .get("saved") as { id: string; title: string } | null;
+  assertEquals(
+    afterCommit?.title ?? "",
+    "Saved",
+    "committed transactions should publish staged writes",
+  );
 });
 
 Deno.test("CoreOPFS rejects parent traversal", async () => {
@@ -500,21 +610,40 @@ Deno.test("injectStoragePolyfills exposes browser-style getters", () => {
     target,
   });
 
-  const localDescriptor = Object.getOwnPropertyDescriptor(target, "localStorage");
-  const storageDescriptor = Object.getOwnPropertyDescriptor(target.navigator, "storage");
+  const localDescriptor = Object.getOwnPropertyDescriptor(
+    target,
+    "localStorage",
+  );
+  const storageDescriptor = Object.getOwnPropertyDescriptor(
+    target.navigator,
+    "storage",
+  );
 
-  assert(localDescriptor?.get !== undefined, "localStorage should be exposed via a getter");
-  assert(storageDescriptor?.get !== undefined, "navigator.storage should be exposed via a getter");
-  assert(polyfills.localStorage instanceof CoreLocalStorage, "polyfill should return the storage helper");
+  assert(
+    localDescriptor?.get !== undefined,
+    "localStorage should be exposed via a getter",
+  );
+  assert(
+    storageDescriptor?.get !== undefined,
+    "navigator.storage should be exposed via a getter",
+  );
+  assert(
+    polyfills.localStorage instanceof CoreLocalStorage,
+    "polyfill should return the storage helper",
+  );
 });
 
 Deno.test("injectStoragePolyfills ready hydrates stored values before use", async () => {
   const bridge = createBridge();
-  await new CoreLocalStorage("https://example.com", bridge).setItem("theme", "dark");
-  await new CoreSessionStorage("https://example.com", bridge, "session-1").setItem(
-    "wizard_step",
-    "3",
+  await new CoreLocalStorage("https://example.com", bridge).setItem(
+    "theme",
+    "dark",
   );
+  await new CoreSessionStorage("https://example.com", bridge, "session-1")
+    .setItem(
+      "wizard_step",
+      "3",
+    );
   await bridge.cookies?.set("https://example.com", {
     name: "session_id",
     value: "abc123",
@@ -556,16 +685,23 @@ Deno.test("injectStoragePolyfills ready hydrates stored values before use", asyn
 
 Deno.test("injectStoragePolyfills creates a navigator getter when missing", () => {
   const bridge = createBridge();
-  const target = { navigator: undefined, document: {} } as Record<string, unknown> & {
-    navigator?: unknown;
-  };
+  const target = { navigator: undefined, document: {} } as
+    & Record<string, unknown>
+    & {
+      navigator?: unknown;
+    };
 
   const polyfills = injectStoragePolyfills("https://example.com", bridge, {
     target,
   });
 
-  const navigatorDescriptor = Object.getOwnPropertyDescriptor(target, "navigator");
-  const navigatorValue = target.navigator as Record<string, unknown> | undefined;
+  const navigatorDescriptor = Object.getOwnPropertyDescriptor(
+    target,
+    "navigator",
+  );
+  const navigatorValue = target.navigator as
+    | Record<string, unknown>
+    | undefined;
 
   assert(
     navigatorDescriptor?.get !== undefined,
@@ -575,7 +711,10 @@ Deno.test("injectStoragePolyfills creates a navigator getter when missing", () =
     navigatorValue?.storageBuckets !== undefined,
     "navigator.storageBuckets should be attached to the injected navigator object",
   );
-  assert(polyfills.storage !== undefined, "storage navigator polyfill should exist");
+  assert(
+    polyfills.storage !== undefined,
+    "storage navigator polyfill should exist",
+  );
 });
 
 Deno.test("injectStoragePolyfills exposes synchronous storage facades", () => {
@@ -612,8 +751,16 @@ Deno.test("injectStoragePolyfills exposes synchronous storage facades", () => {
     "3",
     "sessionStorage should expose a synchronous browser-style facade",
   );
-  assertEquals(target.localStorage?.length, 1, "localStorage facade should count keys");
-  assertEquals(target.sessionStorage?.length, 1, "sessionStorage facade should count keys");
+  assertEquals(
+    target.localStorage?.length,
+    1,
+    "localStorage facade should count keys",
+  );
+  assertEquals(
+    target.sessionStorage?.length,
+    1,
+    "sessionStorage facade should count keys",
+  );
 });
 
 Deno.test("storage facade keeps optimistic writes when hydration resolves late", async () => {

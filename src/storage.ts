@@ -221,6 +221,32 @@ interface IndexedDBIndexState {
   multiEntry: boolean;
 }
 
+interface PersistedIndexedDBState {
+  version: number;
+  stores: PersistedIndexedDBObjectStoreState[];
+}
+
+interface PersistedIndexedDBObjectStoreState {
+  name: string;
+  keyPath?: string | string[];
+  autoIncrement?: boolean;
+  nextKey: number;
+  records: Array<[string, unknown]>;
+  indexes: PersistedIndexedDBIndexState[];
+}
+
+interface PersistedIndexedDBIndexState {
+  name: string;
+  keyPath: string | string[];
+  unique: boolean;
+  multiEntry: boolean;
+}
+
+interface IndexedDBMutationContext {
+  readonly mode: CoreIndexedDBTransactionMode;
+  markDirty(): void;
+}
+
 export interface CoreIndexedDBRequestEvent<T> {
   readonly type: "success" | "error";
   readonly target: CoreIndexedDBRequest<T>;
@@ -504,7 +530,7 @@ export class CoreIndexedDB {
     const request = new CoreIndexedDBRequest<CoreIndexedDBDatabase>();
     void (async () => {
       try {
-        const database = this.getOrCreateDatabase(name, version);
+        const database = await this.getOrCreateDatabase(name, version);
         if (this.bridge.indexedDB?.open) {
           await this.bridge.indexedDB.open(this.origin, name, database.version);
         }
@@ -512,7 +538,12 @@ export class CoreIndexedDB {
           origin: this.origin,
           name,
           version: database.version,
-          raw: new CoreIndexedDBConnection(this.origin, name, database),
+          raw: new CoreIndexedDBConnection(
+            this.origin,
+            name,
+            database,
+            () => this.persistDatabase(name, database),
+          ),
         });
       } catch (error) {
         request.reject(error);
@@ -523,6 +554,7 @@ export class CoreIndexedDB {
 
   async deleteDatabase(name: string): Promise<void> {
     this.databaseStates.delete(name);
+    await this.bridge.store.delete(indexedDBNamespace(this.origin), name);
     if (this.bridge.indexedDB?.deleteDatabase) {
       await this.bridge.indexedDB.deleteDatabase(this.origin, name);
     }
@@ -530,6 +562,13 @@ export class CoreIndexedDB {
 
   async databases(): Promise<string[]> {
     const names = new Set(this.databaseStates.keys());
+    for (
+      const name of await this.bridge.store.list(
+        indexedDBNamespace(this.origin),
+      )
+    ) {
+      names.add(name);
+    }
     if (this.bridge.indexedDB?.databases) {
       for (const name of await this.bridge.indexedDB.databases(this.origin)) {
         names.add(name);
@@ -538,14 +577,25 @@ export class CoreIndexedDB {
     return Array.from(names);
   }
 
-  private getOrCreateDatabase(name: string, version?: number): IndexedDBState {
+  private async getOrCreateDatabase(
+    name: string,
+    version?: number,
+  ): Promise<IndexedDBState> {
     const existing = this.databaseStates.get(name);
     if (!existing) {
-      const database = {
+      const database = await this.loadDatabase(name) ?? {
         version: version ?? 1,
         stores: new Map<string, IndexedDBObjectStoreState>(),
       };
+      let changed = false;
+      if (version !== undefined && version > database.version) {
+        database.version = version;
+        changed = true;
+      }
       this.databaseStates.set(name, database);
+      if (changed || database.stores.size === 0) {
+        await this.persistDatabase(name, database);
+      }
       return database;
     }
 
@@ -557,9 +607,32 @@ export class CoreIndexedDB {
 
     if (version !== undefined && version > existing.version) {
       existing.version = version;
+      await this.persistDatabase(name, existing);
     }
 
     return existing;
+  }
+
+  private async loadDatabase(name: string): Promise<IndexedDBState | null> {
+    const payload = await this.bridge.store.get(
+      indexedDBNamespace(this.origin),
+      name,
+    );
+    if (payload === null) {
+      return null;
+    }
+    return parsePersistedIndexedDBState(payload);
+  }
+
+  private async persistDatabase(
+    name: string,
+    database: IndexedDBState,
+  ): Promise<void> {
+    await this.bridge.store.set(
+      indexedDBNamespace(this.origin),
+      name,
+      JSON.stringify(serialiseIndexedDBState(database)),
+    );
   }
 }
 
@@ -568,6 +641,7 @@ export class CoreIndexedDBConnection {
     readonly origin: string,
     readonly name: string,
     private readonly database: IndexedDBState,
+    private readonly persist: () => Promise<void>,
   ) {}
 
   get version(): number {
@@ -597,11 +671,18 @@ export class CoreIndexedDBConnection {
       indexes: new Map<string, IndexedDBIndexState>(),
     };
     this.database.stores.set(name, store);
-    return new CoreIndexedDBObjectStore(this.database, store, name);
+    void this.persist().catch(() => undefined);
+    return new CoreIndexedDBObjectStore(this.database, store, name, {
+      mode: "versionchange",
+      markDirty: () => {
+        void this.persist().catch(() => undefined);
+      },
+    });
   }
 
   deleteObjectStore(name: string): void {
     this.database.stores.delete(name);
+    void this.persist().catch(() => undefined);
   }
 
   transaction(
@@ -614,37 +695,79 @@ export class CoreIndexedDBConnection {
         throw new Error(`unknown object store: ${name}`);
       }
     }
-    return new CoreIndexedDBTransaction(this.database, names, mode);
+    return new CoreIndexedDBTransaction(
+      this.database,
+      names,
+      mode,
+      this.persist,
+    );
   }
 }
 
 export class CoreIndexedDBTransaction {
   private aborted = false;
+  private committed = false;
+  private dirty = false;
+  private readonly stagedStores = new Map<string, IndexedDBObjectStoreState>();
   readonly done: Promise<void>;
 
   constructor(
     private readonly database: IndexedDBState,
     readonly storeNames: string[],
     readonly mode: CoreIndexedDBTransactionMode,
+    private readonly persist: () => Promise<void>,
   ) {
     this.done = Promise.resolve();
+    if (mode !== "readonly") {
+      for (const name of storeNames) {
+        const store = this.database.stores.get(name);
+        if (store) {
+          this.stagedStores.set(name, cloneObjectStoreState(store));
+        }
+      }
+    }
   }
 
   objectStore(name: string): CoreIndexedDBObjectStore {
+    if (!this.storeNames.includes(name)) {
+      throw new Error(`transaction does not include object store: ${name}`);
+    }
     const store = this.database.stores.get(name);
     if (!store) {
       throw new Error(`unknown object store: ${name}`);
     }
-    return new CoreIndexedDBObjectStore(this.database, store, name);
+    return new CoreIndexedDBObjectStore(
+      this.database,
+      this.mode === "readonly" ? store : this.stagedStores.get(name) ?? store,
+      name,
+      {
+        mode: this.mode,
+        markDirty: () => {
+          this.dirty = true;
+        },
+      },
+    );
   }
 
   abort(): void {
     this.aborted = true;
+    this.dirty = false;
   }
 
   commit(): void {
     if (this.aborted) {
       throw new Error("transaction was aborted");
+    }
+    if (this.committed || this.mode === "readonly") {
+      this.committed = true;
+      return;
+    }
+    for (const [name, store] of this.stagedStores) {
+      this.database.stores.set(name, cloneObjectStoreState(store));
+    }
+    this.committed = true;
+    if (this.dirty) {
+      void this.persist().catch(() => undefined);
     }
   }
 }
@@ -654,6 +777,10 @@ export class CoreIndexedDBObjectStore {
     private readonly database: IndexedDBState,
     private readonly store: IndexedDBObjectStoreState,
     readonly name: string,
+    private readonly mutationContext: IndexedDBMutationContext = {
+      mode: "versionchange",
+      markDirty: () => undefined,
+    },
   ) {}
 
   get keyPath(): string | string[] | undefined {
@@ -673,6 +800,7 @@ export class CoreIndexedDBObjectStore {
     keyPath: string | string[],
     options: CoreIndexedDBIndexOptions = {},
   ): CoreIndexedDBIndex {
+    this.assertWritable();
     if (this.store.indexes.has(name)) {
       throw new Error(`index already exists: ${name}`);
     }
@@ -681,11 +809,14 @@ export class CoreIndexedDBObjectStore {
       unique: options.unique ?? false,
       multiEntry: options.multiEntry ?? false,
     });
+    this.mutationContext.markDirty();
     return new CoreIndexedDBIndex(this.database, this.store, name);
   }
 
   deleteIndex(name: string): void {
+    this.assertWritable();
     this.store.indexes.delete(name);
+    this.mutationContext.markDirty();
   }
 
   index(name: string): CoreIndexedDBIndex {
@@ -738,13 +869,17 @@ export class CoreIndexedDBObjectStore {
 
   delete(key: unknown): CoreIndexedDBRequest<void> {
     return this.createRequest<void>(() => {
+      this.assertWritable();
       this.store.records.delete(this.encodeKey(key));
+      this.mutationContext.markDirty();
     });
   }
 
   clear(): CoreIndexedDBRequest<void> {
     return this.createRequest<void>(() => {
+      this.assertWritable();
       this.store.records.clear();
+      this.mutationContext.markDirty();
     });
   }
 
@@ -774,13 +909,21 @@ export class CoreIndexedDBObjectStore {
     key: unknown,
     requireNew: boolean,
   ): unknown {
+    this.assertWritable();
     const primaryKey = this.resolvePrimaryKey(value, key);
     const encodedKey = this.encodeKey(primaryKey);
     if (requireNew && this.store.records.has(encodedKey)) {
       throw new Error(`key already exists: ${String(primaryKey)}`);
     }
     this.store.records.set(encodedKey, this.cloneValue(value));
+    this.mutationContext.markDirty();
     return primaryKey;
+  }
+
+  private assertWritable(): void {
+    if (this.mutationContext.mode === "readonly") {
+      throw new Error(`object store is readonly: ${this.name}`);
+    }
   }
 
   private resolvePrimaryKey(value: unknown, key?: unknown): unknown {
@@ -2016,6 +2159,102 @@ function normaliseWritableChunk(
     return new TextDecoder().decode(data);
   }
   return new TextDecoder().decode(new Uint8Array(data));
+}
+
+function indexedDBNamespace(origin: string): string {
+  return storageNamespace(origin, "indexeddb");
+}
+
+function cloneObjectStoreState(
+  store: IndexedDBObjectStoreState,
+): IndexedDBObjectStoreState {
+  return {
+    keyPath: cloneJSONValue(store.keyPath),
+    autoIncrement: store.autoIncrement,
+    nextKey: store.nextKey,
+    records: new Map(
+      Array.from(
+        store.records.entries(),
+        ([key, value]) => [key, cloneJSONValue(value)],
+      ),
+    ),
+    indexes: new Map(
+      Array.from(store.indexes.entries(), ([name, index]) => [
+        name,
+        {
+          keyPath: cloneJSONValue(index.keyPath),
+          unique: index.unique,
+          multiEntry: index.multiEntry,
+        },
+      ]),
+    ),
+  };
+}
+
+function serialiseIndexedDBState(
+  database: IndexedDBState,
+): PersistedIndexedDBState {
+  return {
+    version: database.version,
+    stores: Array.from(database.stores.entries(), ([name, store]) => ({
+      name,
+      keyPath: cloneJSONValue(store.keyPath),
+      autoIncrement: store.autoIncrement,
+      nextKey: store.nextKey,
+      records: Array.from(
+        store.records.entries(),
+        ([key, value]) => [key, cloneJSONValue(value)] as [string, unknown],
+      ),
+      indexes: Array.from(store.indexes.entries(), ([indexName, index]) => ({
+        name: indexName,
+        keyPath: cloneJSONValue(index.keyPath),
+        unique: index.unique,
+        multiEntry: index.multiEntry,
+      })),
+    })),
+  };
+}
+
+function parsePersistedIndexedDBState(payload: string): IndexedDBState {
+  const parsed = JSON.parse(payload) as PersistedIndexedDBState;
+  return {
+    version: parsed.version ?? 1,
+    stores: new Map(
+      (parsed.stores ?? []).map((store) => [
+        store.name,
+        {
+          keyPath: cloneJSONValue(store.keyPath),
+          autoIncrement: store.autoIncrement,
+          nextKey: store.nextKey ?? 1,
+          records: new Map(
+            (store.records ?? []).map((
+              [key, value],
+            ) => [key, cloneJSONValue(value)]),
+          ),
+          indexes: new Map(
+            (store.indexes ?? []).map((index) => [
+              index.name,
+              {
+                keyPath: cloneJSONValue(index.keyPath),
+                unique: Boolean(index.unique),
+                multiEntry: Boolean(index.multiEntry),
+              },
+            ]),
+          ),
+        } satisfies IndexedDBObjectStoreState,
+      ]),
+    ),
+  };
+}
+
+function cloneJSONValue<T>(value: T): T {
+  if (value === undefined) {
+    return value;
+  }
+  if (typeof structuredClone === "function") {
+    return structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value)) as T;
 }
 
 function storageNamespace(origin: string, ...parts: string[]): string {
