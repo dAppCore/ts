@@ -459,6 +459,30 @@ Deno.test("injectStoragePolyfills exposes browser-style getters", () => {
   assert(polyfills.localStorage instanceof CoreLocalStorage, "polyfill should return the storage helper");
 });
 
+Deno.test("injectStoragePolyfills creates a navigator getter when missing", () => {
+  const bridge = createBridge();
+  const target = { navigator: undefined, document: {} } as Record<string, unknown> & {
+    navigator?: unknown;
+  };
+
+  const polyfills = injectStoragePolyfills("https://example.com", bridge, {
+    target,
+  });
+
+  const navigatorDescriptor = Object.getOwnPropertyDescriptor(target, "navigator");
+  const navigatorValue = target.navigator as Record<string, unknown> | undefined;
+
+  assert(
+    navigatorDescriptor?.get !== undefined,
+    "navigator should be exposed via a getter when the target has no usable navigator",
+  );
+  assert(
+    navigatorValue?.storageBuckets !== undefined,
+    "navigator.storageBuckets should be attached to the injected navigator object",
+  );
+  assert(polyfills.storage !== undefined, "storage navigator polyfill should exist");
+});
+
 Deno.test("injectStoragePolyfills exposes synchronous storage facades", () => {
   const bridge = createBridge();
   const target = { navigator: {}, document: {} } as Record<string, unknown> & {

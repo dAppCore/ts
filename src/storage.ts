@@ -491,6 +491,9 @@ export class CoreCookieJar {
 
   async set(serialized: string): Promise<void> {
     const record = parseCookie(serialized, this.origin);
+    // Preserve browser behaviour: document.cookie cannot create HttpOnly
+    // cookies, even though the parser keeps the flag for bridge-side callers.
+    delete record.httpOnly;
     this.cachedCookies = upsertCookie(this.cachedCookies, record);
     this.snapshotValue = serialiseCookies(
       this.cachedCookies,
@@ -916,8 +919,10 @@ export function injectStoragePolyfills(
   defineGetter(target, "indexedDB", () => indexedDB);
   defineGetter(target, "caches", () => caches);
 
-  const navigatorTarget = target.navigator ?? {};
-  target.navigator = navigatorTarget;
+  const navigatorTarget = isRecord(target.navigator) ? target.navigator : {};
+  if (!isRecord(target.navigator)) {
+    defineGetter(target, "navigator", () => navigatorTarget);
+  }
   defineGetter(navigatorTarget, "storageBuckets", () => storageBuckets);
   defineGetter(navigatorTarget, "storage", () => storage);
 
@@ -1196,4 +1201,8 @@ function applyStorageMutation(
       cache.clear();
       return;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
