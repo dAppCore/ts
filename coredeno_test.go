@@ -3,6 +3,7 @@ package ts
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,6 +23,10 @@ func TestNewSidecar_Good(t *testing.T) {
 
 func TestDefaultSocketPath_Good(t *testing.T) {
 	path := DefaultSocketPath()
+	if runtime.GOOS == "darwin" {
+		assert.Equal(t, filepath.Join("/tmp", "core", "core.sock"), path)
+		return
+	}
 	assert.Contains(t, path, "core/core.sock")
 }
 
@@ -79,6 +84,10 @@ func TestDefaultSocketPath_XDG(t *testing.T) {
 
 	os.Setenv("XDG_RUNTIME_DIR", "/run/user/1000")
 	path := DefaultSocketPath()
+	if runtime.GOOS == "darwin" {
+		assert.Equal(t, filepath.Join("/tmp", "core", "core.sock"), path)
+		return
+	}
 	assert.Equal(t, "/run/user/1000/core/core.sock", path)
 }
 
@@ -107,6 +116,11 @@ func TestOptions_DefaultSocketPaths_Good(t *testing.T) {
 	os.Setenv("XDG_RUNTIME_DIR", tmpDir)
 
 	sc := NewSidecar(Options{})
+	if runtime.GOOS == "darwin" {
+		assert.Equal(t, filepath.Join("/tmp", "core", "core.sock"), sc.opts.SocketPath)
+		assert.Equal(t, filepath.Join("/tmp", "core", "deno.sock"), sc.opts.DenoSocketPath)
+		return
+	}
 	assert.Equal(t, filepath.Join(tmpDir, "core", "core.sock"), sc.opts.SocketPath)
 	assert.Equal(t, filepath.Join(tmpDir, "core", "deno.sock"), sc.opts.DenoSocketPath)
 }

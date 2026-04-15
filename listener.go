@@ -28,15 +28,15 @@ func ListenGRPC(ctx context.Context, socketPath string, srv *Server) error {
 	if err != nil {
 		return err
 	}
-	// Restrict socket to owner only — prevents other users from sending gRPC commands.
-	if err := os.Chmod(socketPath, 0600); err != nil {
-		listener.Close()
-		return fmt.Errorf("chmod socket: %w", err)
-	}
 	defer func() {
 		_ = listener.Close()
 		_ = os.Remove(socketPath)
 	}()
+
+	// Restrict socket to owner only — prevents other users from sending gRPC commands.
+	if err := os.Chmod(socketPath, 0600); err != nil {
+		return fmt.Errorf("chmod socket: %w", err)
+	}
 
 	gs := grpc.NewServer()
 	pb.RegisterCoreServiceServer(gs, srv)

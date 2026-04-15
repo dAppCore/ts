@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 )
@@ -60,6 +61,10 @@ func (p Permissions) Flags() []string {
 
 // DefaultSocketPath returns the default Unix socket path for CoreService.
 func DefaultSocketPath() string {
+	if runtime.GOOS == "darwin" {
+		return filepath.Join("/tmp", "core", "core.sock")
+	}
+
 	xdg := os.Getenv("XDG_RUNTIME_DIR")
 	if xdg == "" {
 		xdg = "/tmp"

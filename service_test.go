@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -257,6 +258,9 @@ func TestService_OnStartup_Good_DefaultSocketPath(t *testing.T) {
 	require.NoError(t, err)
 
 	sockPath := filepath.Join(tmpDir, "core", "core.sock")
+	if runtime.GOOS == "darwin" {
+		sockPath = filepath.Join("/tmp", "core", "core.sock")
+	}
 	require.Eventually(t, func() bool {
 		_, err := os.Stat(sockPath)
 		return err == nil
