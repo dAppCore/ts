@@ -195,6 +195,12 @@ type ModuleStatusResponse struct {
 	Status string
 }
 
+// ReloadModulesResponse holds the result of a ReloadModules call.
+type ReloadModulesResponse struct {
+	Ok      bool
+	Results []LoadModuleResponse
+}
+
 // ModuleStatus queries the status of a module in the Deno runtime.
 func (c *DenoClient) ModuleStatus(code string) (*ModuleStatusResponse, error) {
 	resp, err := c.call(map[string]any{
@@ -209,5 +215,35 @@ func (c *DenoClient) ModuleStatus(code string) (*ModuleStatusResponse, error) {
 	return &ModuleStatusResponse{
 		Code:   respCode,
 		Status: sts,
+	}, nil
+}
+
+// ReloadModules asks Deno to reload every active module.
+func (c *DenoClient) ReloadModules() (*ReloadModulesResponse, error) {
+	resp, err := c.call(map[string]any{
+		"method": "ReloadModules",
+	}, denoModuleLoadTimeout)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]LoadModuleResponse, 0)
+	if rawResults, ok := resp["results"].([]any); ok {
+		for _, rawResult := range rawResults {
+			entry, ok := rawResult.(map[string]any)
+			if !ok {
+				continue
+			}
+			errStr, _ := entry["error"].(string)
+			results = append(results, LoadModuleResponse{
+				Ok:    entry["ok"] == true,
+				Error: errStr,
+			})
+		}
+	}
+
+	return &ReloadModulesResponse{
+		Ok:      resp["ok"] == true,
+		Results: results,
 	}, nil
 }

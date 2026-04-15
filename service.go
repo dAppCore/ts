@@ -351,6 +351,23 @@ func (s *Service) ModuleStatus(code string) (*ModuleStatusResponse, error) {
 	return client.ModuleStatus(code)
 }
 
+// ReloadModules asks the Deno sidecar to reload all active modules.
+func (s *Service) ReloadModules() (*ReloadModulesResponse, error) {
+	client := s.DenoClient()
+	if client == nil {
+		return nil, fmt.Errorf("coredeno: Deno client not connected")
+	}
+
+	resp, err := client.ReloadModules()
+	if err != nil {
+		return nil, err
+	}
+	return &ReloadModulesResponse{
+		Ok:      resp.Ok,
+		Results: resp.Results,
+	}, nil
+}
+
 func (s *Service) setDenoClient(client *DenoClient) {
 	s.mu.Lock()
 	old := s.denoClient

@@ -173,6 +173,13 @@ async function dispatch(
       }
       return { code, status: registry.status(code) };
     }
+    case "ReloadModules": {
+      const results = await registry.reloadAll();
+      return {
+        ok: results.every((result) => result.ok),
+        results,
+      };
+    }
     default:
       return { error: `unknown method: ${req.method}` };
   }
