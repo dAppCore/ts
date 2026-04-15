@@ -102,6 +102,14 @@ Deno.test("Electron require shim only exposes supported modules", () => {
   );
   assert(requireShim("path") === shim.path, "require('path') should return the path proxy");
   assert(
+    requireShim("path/posix") === shim.path,
+    "require('path/posix') should return the path proxy",
+  );
+  assert(
+    requireShim("node:path/win32") === shim.path,
+    "require('node:path/win32') should return the path proxy",
+  );
+  assert(
     requireShim("node:path") === shim.path,
     "require('node:path') should return the path proxy",
   );

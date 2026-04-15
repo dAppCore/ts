@@ -234,6 +234,8 @@ export function buildRequireShim(shim: ElectronShim): (module: string) => unknow
       case "fs/promises":
         return shim.fs.promises;
       case "path":
+      case "path/posix":
+      case "path/win32":
         return shim.path;
       default:
         throw new Error(
