@@ -220,6 +220,8 @@ func (s *Service) OnShutdown(_ context.Context) error {
 		}
 	}
 
+	s.clearDesiredModules()
+
 	// Close Deno client connection
 	s.closeDenoClient()
 
@@ -348,6 +350,7 @@ func (s *Service) closeDenoClient() {
 
 func (s *Service) cleanupStartupState() {
 	s.closeDenoClient()
+	s.clearDesiredModules()
 
 	if s.supervisorCancel != nil {
 		s.supervisorCancel()
@@ -381,6 +384,9 @@ func (s *Service) cleanupStartupState() {
 func (s *Service) rememberModule(code, entryPoint string, perms ModulePermissions) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.desiredModules == nil {
+		s.desiredModules = make(map[string]moduleSpec)
+	}
 	s.desiredModules[code] = moduleSpec{
 		EntryPoint:  entryPoint,
 		Permissions: perms,
@@ -389,8 +395,21 @@ func (s *Service) rememberModule(code, entryPoint string, perms ModulePermission
 
 func (s *Service) forgetModule(code string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.desiredModules, code)
+	if s.desiredModules != nil {
+		delete(s.desiredModules, code)
+	}
+	grpcServer := s.grpcServer
+	s.mu.Unlock()
+
+	if grpcServer != nil {
+		grpcServer.UnregisterModule(code)
+	}
+}
+
+func (s *Service) clearDesiredModules() {
+	for code := range s.desiredModuleSnapshot() {
+		s.forgetModule(code)
+	}
 }
 
 func (s *Service) desiredModuleSnapshot() map[string]moduleSpec {
