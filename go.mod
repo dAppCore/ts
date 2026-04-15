@@ -7,7 +7,7 @@ require (
 	dappco.re/go/core/io v0.2.0
 	dappco.re/go/core/scm v0.4.0
 	github.com/stretchr/testify v1.11.1
-	google.golang.org/grpc v1.79.2
+	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 )
 

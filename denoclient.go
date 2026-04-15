@@ -3,6 +3,7 @@ package ts
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -23,6 +24,7 @@ const (
 	denoModuleLoadTimeout   = 10 * time.Second
 	denoModuleStopTimeout   = 5 * time.Second
 	denoModuleStatusTimeout = 2 * time.Second
+	maxJSONLineBytes        = 1 << 20
 )
 
 // DialDeno connects to the Deno JSON-RPC server on the given Unix socket path.
@@ -88,9 +90,9 @@ func (c *DenoClient) call(req map[string]any, timeout time.Duration) (map[string
 		return nil, fmt.Errorf("write: %w", err)
 	}
 
-	line, err := c.reader.ReadBytes('\n')
+	line, err := readJSONLine(c.reader, maxJSONLineBytes)
 	if err != nil {
-		return nil, fmt.Errorf("read: %w", err)
+		return nil, err
 	}
 
 	var resp map[string]any
@@ -105,6 +107,29 @@ func (c *DenoClient) call(req map[string]any, timeout time.Duration) (map[string
 		return result, nil
 	}
 	return resp, nil
+}
+
+func readJSONLine(reader *bufio.Reader, maxBytes int) ([]byte, error) {
+	if maxBytes <= 0 {
+		maxBytes = maxJSONLineBytes
+	}
+
+	var line []byte
+	for {
+		chunk, err := reader.ReadSlice('\n')
+		line = append(line, chunk...)
+		if len(line) > maxBytes {
+			return nil, fmt.Errorf("deno: response too large")
+		}
+
+		if err == nil {
+			return line, nil
+		}
+		if errors.Is(err, bufio.ErrBufferFull) {
+			continue
+		}
+		return nil, fmt.Errorf("read: %w", err)
+	}
 }
 
 func rpcErrorMessage(value any) string {

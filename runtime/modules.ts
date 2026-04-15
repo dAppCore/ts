@@ -429,10 +429,18 @@ async function walkModuleGraph(
 function extractModuleSpecifiers(source: string): string[] {
   const pattern =
     /(?:import|export)\s+(?:[^"'`]*?\s+from\s+)?["']([^"'`]+)["']|import\(\s*["']([^"'`]+)["']\s*\)/g;
+  const urlPattern =
+    /new\s+URL\(\s*["']([^"'`]+)["']\s*,\s*import\.meta\.url\s*\)/g;
   const matches: string[] = [];
   let match: RegExpExecArray | null;
   while ((match = pattern.exec(source)) !== null) {
     const specifier = match[1] ?? match[2];
+    if (specifier) {
+      matches.push(specifier);
+    }
+  }
+  while ((match = urlPattern.exec(source)) !== null) {
+    const specifier = match[1];
     if (specifier) {
       matches.push(specifier);
     }

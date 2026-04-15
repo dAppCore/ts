@@ -81,6 +81,35 @@ func TestDenoClient_Call_Bad_DeadlineExceeded(t *testing.T) {
 	assert.ErrorContains(t, err, "i/o timeout")
 }
 
+func TestDenoClient_Call_Bad_ResponseTooLarge(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	client := &DenoClient{
+		conn:   left,
+		reader: bufio.NewReader(left),
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = right.SetDeadline(time.Now().Add(2 * time.Second))
+		reader := bufio.NewReader(right)
+		_, _ = reader.ReadBytes('\n')
+		payload := make([]byte, maxJSONLineBytes+1)
+		for i := range payload {
+			payload[i] = 'a'
+		}
+		_, _ = right.Write(append(payload, '\n'))
+	}()
+
+	_, err := client.call(map[string]any{"method": "Ping"}, time.Second)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "response too large")
+
+	<-done
+}
+
 func TestDenoClient_Call_Good_JSONRPCEnvelope(t *testing.T) {
 	left, right := net.Pipe()
 	defer right.Close()

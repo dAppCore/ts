@@ -140,6 +140,65 @@ Deno.test("ModuleRegistry_ModuleIsolation_Bad", async () => {
   }
 });
 
+Deno.test(
+  "ModuleRegistry_ModuleIsolation_Bad_DynamicImportUrlOutsideRoot",
+  async () => {
+    let workerFactoryCalls = 0;
+    const registry = new ModuleRegistry({
+      workerFactory: (scriptUrl, options) => {
+        workerFactoryCalls++;
+        return new Worker(scriptUrl, options);
+      },
+    });
+    const store = new Map<string, string>();
+    registry.setCoreClient(createMemoryCoreClient(store));
+
+    const tempRoot = await Deno.makeTempDir();
+    const moduleADir = join(tempRoot, "module-a");
+    const moduleBDir = join(tempRoot, "module-b");
+    await Deno.mkdir(moduleADir, { recursive: true });
+    await Deno.mkdir(moduleBDir, { recursive: true });
+    await Deno.writeTextFile(
+      join(moduleADir, "main.ts"),
+      `
+        export async function init() {
+          await import(new URL("../module-b/secret.ts", import.meta.url).href);
+        }
+      `,
+    );
+    await Deno.writeTextFile(
+      join(moduleBDir, "secret.ts"),
+      `export const SECRET = "cross-module-import";`,
+    );
+
+    try {
+      const result = await registry.load(
+        "module-a-dynamic",
+        join(moduleADir, "main.ts"),
+        {
+          read: [tempRoot],
+        },
+      );
+
+      assert(
+        !result.ok,
+        "module load should fail when it imports outside its root via import.meta.url",
+      );
+      assert(
+        (result.error ?? "").includes("module isolation violation"),
+        "dynamic URL imports should be rejected before the worker starts",
+      );
+      assertEquals(
+        workerFactoryCalls,
+        0,
+        "worker factory should not be invoked when isolation fails",
+      );
+    } finally {
+      await Deno.remove(tempRoot, { recursive: true });
+    }
+  },
+);
+
 Deno.test("ModuleRegistry_ModuleIsolation_Good", async () => {
   const registry = new ModuleRegistry();
   const store = new Map<string, string>();

@@ -8,6 +8,8 @@ export interface DenoServer {
   close(): void;
 }
 
+const maxJSONLineBytes = 1 << 20;
+
 export async function startDenoServer(
   socketPath: string,
   registry: ModuleRegistry,
@@ -43,25 +45,36 @@ export async function startDenoServer(
     const reader = conn.readable.getReader();
     const writer = conn.writable.getWriter();
     const decoder = new TextDecoder();
-    let buffer = "";
+    let buffer = new Uint8Array(0);
 
     try {
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
+        const nextBuffer = new Uint8Array(buffer.length + value.length);
+        nextBuffer.set(buffer, 0);
+        nextBuffer.set(value, buffer.length);
+        buffer = nextBuffer;
+        if (buffer.length > maxJSONLineBytes) {
+          await writer.write(
+            new TextEncoder().encode(
+              JSON.stringify({ error: "request too large" }) + "\n",
+            ),
+          );
+          break;
+        }
 
         // Process complete lines (newline-delimited JSON)
         let newlineIdx: number;
-        while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+        while ((newlineIdx = buffer.indexOf(0x0a)) !== -1) {
           const line = buffer.slice(0, newlineIdx);
           buffer = buffer.slice(newlineIdx + 1);
 
-          if (!line.trim()) continue;
+          if (!line.length || line.every((byte) => byte <= 0x20)) continue;
 
           try {
-            const req = JSON.parse(line);
+            const req = JSON.parse(decoder.decode(line));
             const resp = formatResponse(req, await dispatch(req, registry));
             await writer.write(
               new TextEncoder().encode(JSON.stringify(resp) + "\n"),
@@ -196,7 +209,8 @@ async function dispatch(
 }
 
 function isJsonRpcRequest(req: RPCRequest): boolean {
-  return req.jsonrpc === "2.0" || req.id !== undefined;
+  return req !== null && typeof req === "object" &&
+    (req.jsonrpc === "2.0" || req.id !== undefined);
 }
 
 function formatResponse(
