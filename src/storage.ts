@@ -592,8 +592,15 @@ export function parseCookie(
         record.httpOnly = true;
         break;
       case "samesite":
-        if (value === "Strict" || value === "Lax" || value === "None") {
-          record.sameSite = value;
+        {
+          const sameSite = value.toLowerCase();
+          if (sameSite === "strict") {
+            record.sameSite = "Strict";
+          } else if (sameSite === "lax") {
+            record.sameSite = "Lax";
+          } else if (sameSite === "none") {
+            record.sameSite = "None";
+          }
         }
         break;
     }
@@ -630,7 +637,10 @@ function pathMatches(currentPath: string, cookiePath: string): boolean {
 }
 
 function domainMatches(host: string, cookieDomain: string): boolean {
-  return host === cookieDomain || host.endsWith(`.${cookieDomain}`);
+  const normalisedDomain = cookieDomain.startsWith(".")
+    ? cookieDomain.slice(1)
+    : cookieDomain;
+  return host === normalisedDomain || host.endsWith(`.${normalisedDomain}`);
 }
 
 function normaliseRequest(

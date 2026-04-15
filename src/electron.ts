@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { CoreEventBus, type CoreEventHandler } from "./events.ts";
 
 export interface ElectronBridge {
@@ -57,14 +59,25 @@ export interface ElectronFileProxy {
   unlink(path: string): Promise<void>;
   readdir(path: string): Promise<string[]>;
   mkdir(path: string): Promise<void>;
+  promises: {
+    readFile(path: string): Promise<string | null>;
+    writeFile(path: string, content: string): Promise<void>;
+    unlink(path: string): Promise<void>;
+    readdir(path: string): Promise<string[]>;
+    mkdir(path: string): Promise<void>;
+  };
 }
 
 export interface ElectronPathProxy {
   join(...parts: string[]): string;
+  resolve(...parts: string[]): string;
+  relative(from: string, to: string): string;
   dirname(path: string): string;
   basename(path: string, ext?: string): string;
   extname(path: string): string;
   normalize(path: string): string;
+  sep: string;
+  delimiter: string;
 }
 
 export class CoreElectronRuntime {
@@ -164,62 +177,72 @@ export function injectElectronShim(
 }
 
 function buildFileProxy(fsBridge: ElectronFileBridge | undefined, origin: string): ElectronFileProxy {
+  const unsupported = async (_path: string): Promise<never> => {
+    throw new Error(`fs bridge is not configured for ${origin}`);
+  };
+
   if (!fsBridge) {
     return {
-      async readFile(_path: string): Promise<string | null> {
+      readFile: unsupported,
+      writeFile: async (_path: string, _content: string): Promise<void> => {
         throw new Error(`fs bridge is not configured for ${origin}`);
       },
-      async writeFile(_path: string, _content: string): Promise<void> {
+      unlink: unsupported,
+      readdir: async (_path: string): Promise<string[]> => {
         throw new Error(`fs bridge is not configured for ${origin}`);
       },
-      async unlink(_path: string): Promise<void> {
+      mkdir: async (_path: string): Promise<void> => {
         throw new Error(`fs bridge is not configured for ${origin}`);
       },
-      async readdir(_path: string): Promise<string[]> {
-        throw new Error(`fs bridge is not configured for ${origin}`);
-      },
-      async mkdir(_path: string): Promise<void> {
-        throw new Error(`fs bridge is not configured for ${origin}`);
+      promises: {
+        readFile: unsupported,
+        writeFile: async (_path: string, _content: string): Promise<void> => {
+          throw new Error(`fs bridge is not configured for ${origin}`);
+        },
+        unlink: unsupported,
+        readdir: async (_path: string): Promise<string[]> => {
+          throw new Error(`fs bridge is not configured for ${origin}`);
+        },
+        mkdir: async (_path: string): Promise<void> => {
+          throw new Error(`fs bridge is not configured for ${origin}`);
+        },
       },
     };
   }
 
+  const readFile = (filePath: string) => Promise.resolve(fsBridge.readFile(filePath));
+  const writeFile = (filePath: string, content: string) => Promise.resolve(fsBridge.writeFile(filePath, content));
+  const unlink = (filePath: string) => Promise.resolve(fsBridge.deleteFile(filePath));
+  const readdir = (dirPath: string) => Promise.resolve(fsBridge.readdir(dirPath));
+  const mkdir = (dirPath: string) => Promise.resolve(fsBridge.mkdir(dirPath));
+
   return {
-    readFile: (path: string) => Promise.resolve(fsBridge.readFile(path)),
-    writeFile: (path: string, content: string) => Promise.resolve(fsBridge.writeFile(path, content)),
-    unlink: (path: string) => Promise.resolve(fsBridge.deleteFile(path)),
-    readdir: (path: string) => Promise.resolve(fsBridge.readdir(path)),
-    mkdir: (path: string) => Promise.resolve(fsBridge.mkdir(path)),
+    readFile,
+    writeFile,
+    unlink,
+    readdir,
+    mkdir,
+    promises: {
+      readFile,
+      writeFile,
+      unlink,
+      readdir,
+      mkdir,
+    },
   };
 }
 
 function buildPathProxy(): ElectronPathProxy {
-  const separator = "/";
   return {
-    join: (...parts: string[]) => parts.filter(Boolean).join(separator).replace(/\/+/g, "/"),
-    dirname: (path: string) => {
-      const normalised = path.replace(/\/+$/, "");
-      const index = normalised.lastIndexOf(separator);
-      if (index <= 0) {
-        return ".";
-      }
-      return normalised.slice(0, index);
-    },
-    basename: (path: string, ext = "") => {
-      const normalised = path.replace(/\/+$/, "");
-      const index = normalised.lastIndexOf(separator);
-      const base = index >= 0 ? normalised.slice(index + 1) : normalised;
-      if (ext && base.endsWith(ext)) {
-        return base.slice(0, -ext.length);
-      }
-      return base;
-    },
-    extname: (path: string) => {
-      const base = path.split(separator).pop() ?? "";
-      const dot = base.lastIndexOf(".");
-      return dot > 0 ? base.slice(dot) : "";
-    },
-    normalize: (path: string) => path.replace(/\/+/g, "/"),
+    join: (...parts: string[]) => path.posix.join(...parts),
+    resolve: (...parts: string[]) => path.posix.resolve(...parts),
+    relative: (from: string, to: string) => path.posix.relative(from, to),
+    dirname: (filePath: string) => path.posix.dirname(filePath),
+    basename: (filePath: string, ext = "") => path.posix.basename(filePath, ext),
+    extname: (filePath: string) => path.posix.extname(filePath),
+    normalize: (filePath: string) => path.posix.normalize(filePath),
+    sep: path.posix.sep,
+    delimiter: path.posix.delimiter,
   };
 }
 

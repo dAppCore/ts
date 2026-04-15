@@ -32,6 +32,11 @@ Deno.test("Electron shim routes Electron APIs through the bridge", async () => {
   assert(calls[1].channel === "gui.browser.open", "shell should map to browser open");
   assert(calls[2].channel === "gui.notification.send", "notification should use the bridge");
   assert(calls[3].channel === "gui.notification.send", "Notification class should use the bridge");
+  assert(shim.fs.promises.readFile !== undefined, "fs.promises should be exposed");
+  assert(
+    shim.path.resolve("/tmp", "..", "var") === "/var",
+    "path.resolve should behave like posix path resolution",
+  );
 });
 
 Deno.test("Electron require shim only exposes supported modules", () => {

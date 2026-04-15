@@ -203,6 +203,15 @@ Deno.test("parseCookie extracts key attributes", () => {
   assertEquals(cookie.sameSite, "Lax", "cookie should keep the sameSite flag");
 });
 
+Deno.test("parseCookie normalises lowercase SameSite values", () => {
+  const cookie = parseCookie(
+    "session_id=abc123; Path=/; SameSite=none",
+    "https://example.com",
+  );
+
+  assertEquals(cookie.sameSite, "None", "cookie should normalise lowercase SameSite values");
+});
+
 Deno.test("CoreCacheStorage and CoreStorageBucketManager proxy to the bridge", async () => {
   const bridge = createBridge();
   const polyfills = injectStoragePolyfills("https://example.com", bridge, {
