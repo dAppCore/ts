@@ -481,13 +481,20 @@ export class CoreCookieJar {
   constructor(
     private readonly origin: string,
     private readonly bridge: CoreStorageBridge,
-  ) {}
+  ) {
+    const context = cookieContextFromOrigin(origin);
+    this.currentPath = context.path;
+    this.secureContext = context.secure;
+  }
 
   snapshot(): string {
     return this.snapshotValue;
   }
 
-  async refresh(currentPath = "/", secure = false): Promise<string> {
+  async refresh(
+    currentPath = this.currentPath,
+    secure = this.secureContext,
+  ): Promise<string> {
     this.currentPath = currentPath;
     this.secureContext = secure;
     this.cachedCookies = await this.requireBridge().list(this.origin);
@@ -947,7 +954,10 @@ export function injectStoragePolyfills(
   bridge: CoreStorageBridge,
   options: InjectStoragePolyfillsOptions = {},
 ): CoreStoragePolyfills {
-  const target = (options.target ?? (globalThis as unknown as CoreStoragePolyfillTarget)) as Record<string, unknown> & CoreStoragePolyfillTarget;
+  const target = (
+    options.target ?? (globalThis as unknown as CoreStoragePolyfillTarget)
+  ) as Record<string, unknown> & CoreStoragePolyfillTarget;
+  const cookieContext = cookieContextFromOrigin(origin);
   const localStorage = new CoreLocalStorage(origin, bridge);
   const sessionStorage = new CoreSessionStorage(
     origin,
@@ -977,7 +987,9 @@ export function injectStoragePolyfills(
   let cookieReady = Promise.resolve();
   if (target.document) {
     if (bridge.cookies) {
-      cookieReady = cookies.refresh().then(() => undefined);
+      cookieReady = cookies
+        .refresh(cookieContext.path, cookieContext.secure)
+        .then(() => undefined);
       void cookieReady.catch(() => undefined);
     }
     Object.defineProperty(target.document, "cookie", {
@@ -1087,6 +1099,27 @@ function serialiseCookies(
     .filter((cookie) => domainMatches(host, cookie.domain ?? host))
     .map((cookie) => `${cookie.name}=${cookie.value}`)
     .join("; ");
+}
+
+function cookieContextFromOrigin(origin: string): {
+  path: string;
+  secure: boolean;
+} {
+  try {
+    const url = new URL(origin, "http://localhost/");
+    return {
+      path: url.pathname && url.pathname !== "" ? url.pathname : "/",
+      secure:
+        url.protocol !== "http:" &&
+        url.protocol !== "ws:" &&
+        url.protocol !== "file:",
+    };
+  } catch {
+    return {
+      path: "/",
+      secure: false,
+    };
+  }
 }
 
 function pathMatches(currentPath: string, cookiePath: string): boolean {
