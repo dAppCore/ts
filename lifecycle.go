@@ -7,6 +7,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"syscall"
+	"time"
 )
 
 // Start launches the Deno sidecar process with the given entrypoint args.
@@ -39,7 +42,7 @@ func (s *Sidecar) Start(ctx context.Context, args ...string) error {
 	}
 
 	s.ctx, s.cancel = context.WithCancel(ctx)
-	s.cmd = exec.CommandContext(s.ctx, s.opts.DenoPath, args...)
+	s.cmd = exec.Command(s.opts.DenoPath, args...)
 	if s.opts.AppRoot != "" {
 		s.cmd.Dir = s.opts.AppRoot
 	}
@@ -77,6 +80,10 @@ func (s *Sidecar) Start(ctx context.Context, args ...string) error {
 		s.mu.Unlock()
 		close(done)
 	}()
+	go func() {
+		<-s.ctx.Done()
+		s.terminate(cmd, done)
+	}()
 	return nil
 }
 
@@ -87,10 +94,12 @@ func (s *Sidecar) Stop() error {
 		s.mu.RUnlock()
 		return nil
 	}
+	cmd := s.cmd
 	done := s.done
 	s.mu.RUnlock()
 
 	s.cancel()
+	s.terminate(cmd, done)
 	<-done
 	return nil
 }
@@ -107,4 +116,24 @@ func (s *Sidecar) ExitError() error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.exitErr
+}
+
+func (s *Sidecar) terminate(cmd *exec.Cmd, done <-chan struct{}) {
+	if cmd == nil || cmd.Process == nil {
+		return
+	}
+
+	if runtime.GOOS == "windows" {
+		_ = cmd.Process.Kill()
+		return
+	}
+
+	_ = cmd.Process.Signal(syscall.SIGTERM)
+
+	select {
+	case <-done:
+		return
+	case <-time.After(5 * time.Second):
+		_ = cmd.Process.Kill()
+	}
 }
