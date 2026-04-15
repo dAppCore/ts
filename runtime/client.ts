@@ -26,6 +26,7 @@ function getProto(): any {
 
 export interface CoreClient {
   raw: any;
+  ping(): Promise<{ ok: boolean }>;
   storeGet(group: string, key: string): Promise<{ value: string; found: boolean }>;
   storeSet(group: string, key: string, value: string): Promise<{ ok: boolean }>;
   fileRead(path: string, moduleCode: string): Promise<{ content: string }>;
@@ -33,7 +34,7 @@ export interface CoreClient {
   fileList(path: string, moduleCode: string): Promise<{ entries: Array<{ name: string; is_dir: boolean; size: number }> }>;
   fileDelete(path: string, moduleCode: string): Promise<{ ok: boolean }>;
   processStart(command: string, args: string[], moduleCode: string): Promise<{ process_id: string }>;
-  processStop(processId: string): Promise<{ ok: boolean }>;
+  processStop(processId: string, moduleCode: string): Promise<{ ok: boolean }>;
   close(): void;
 }
 
@@ -55,6 +56,10 @@ export function createCoreClient(socketPath: string): CoreClient {
 
   return {
     raw: client,
+
+    ping() {
+      return promisify(client, "Ping", {});
+    },
 
     storeGet(group: string, key: string) {
       return promisify(client, "StoreGet", { group, key });
@@ -84,8 +89,11 @@ export function createCoreClient(socketPath: string): CoreClient {
       return promisify(client, "ProcessStart", { command, args, module_code: moduleCode });
     },
 
-    processStop(processId: string) {
-      return promisify(client, "ProcessStop", { process_id: processId });
+    processStop(processId: string, moduleCode: string) {
+      return promisify(client, "ProcessStop", {
+        process_id: processId,
+        module_code: moduleCode,
+      });
     },
 
     close() {

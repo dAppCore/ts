@@ -6,7 +6,7 @@ import (
 	"net"
 	"os"
 
-	pb "forge.lthn.ai/core/ts/proto"
+	pb "dappco.re/go/core/ts/proto"
 	"google.golang.org/grpc"
 )
 

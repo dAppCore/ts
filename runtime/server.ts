@@ -103,6 +103,8 @@ function dispatch(
   registry: ModuleRegistry,
 ): Record<string, unknown> {
   switch (req.method) {
+    case "Ping":
+      return { ok: true };
     case "LoadModule": {
       registry.load(
         req.code ?? "",

@@ -36,6 +36,7 @@ func (s *Sidecar) Start(ctx context.Context, args ...string) error {
 		"DENO_SOCKET="+s.opts.DenoSocketPath,
 	)
 	s.done = make(chan struct{})
+	s.exitErr = nil
 	if err := s.cmd.Start(); err != nil {
 		s.cmd = nil
 		s.cancel()
@@ -43,12 +44,17 @@ func (s *Sidecar) Start(ctx context.Context, args ...string) error {
 	}
 
 	// Monitor in background — waits for exit, then signals done
+	cmd := s.cmd
+	done := s.done
 	go func() {
-		s.cmd.Wait()
+		err := cmd.Wait()
 		s.mu.Lock()
-		s.cmd = nil
+		if s.cmd == cmd {
+			s.cmd = nil
+			s.exitErr = err
+		}
 		s.mu.Unlock()
-		close(s.done)
+		close(done)
 	}()
 	return nil
 }
@@ -73,4 +79,11 @@ func (s *Sidecar) IsRunning() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.cmd != nil
+}
+
+// ExitError returns the most recent process exit error, if any.
+func (s *Sidecar) ExitError() error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.exitErr
 }

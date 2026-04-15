@@ -35,6 +35,12 @@ const core = {
   fileWrite(path: string, content: string) {
     return rpc("FileWrite", { path, content });
   },
+  fileList(path: string) {
+    return rpc("FileList", { path });
+  },
+  fileDelete(path: string) {
+    return rpc("FileDelete", { path });
+  },
   processStart(command: string, args: string[]) {
     return rpc("ProcessStart", { command, args });
   },

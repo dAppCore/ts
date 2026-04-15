@@ -1,9 +1,12 @@
 syntax = "proto3";
 package coredeno;
-option go_package = "forge.lthn.ai/core/ts/proto";
+option go_package = "dappco.re/go/core/ts/proto";
 
 // CoreService is implemented by CoreGO — Deno calls this for I/O.
 service CoreService {
+  // Health
+  rpc Ping(PingRequest) returns (PingResponse);
+
   // Filesystem (gated by manifest permissions)
   rpc FileRead(FileReadRequest) returns (FileReadResponse);
   rpc FileWrite(FileWriteRequest) returns (FileWriteResponse);
@@ -27,6 +30,9 @@ service DenoService {
 }
 
 // --- Core (Go-side) messages ---
+
+message PingRequest {}
+message PingResponse { bool ok = 1; }
 
 message FileReadRequest { string path = 1; string module_code = 2; }
 message FileReadResponse { string content = 1; }
@@ -56,7 +62,7 @@ message StoreSetResponse { bool ok = 1; }
 message ProcessStartRequest { string command = 1; repeated string args = 2; string module_code = 3; }
 message ProcessStartResponse { string process_id = 1; }
 
-message ProcessStopRequest { string process_id = 1; }
+message ProcessStopRequest { string process_id = 1; string module_code = 2; }
 message ProcessStopResponse { bool ok = 1; }
 
 // --- Deno-side messages ---

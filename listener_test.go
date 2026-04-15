@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	io "forge.lthn.ai/core/go-io"
-	"forge.lthn.ai/core/go-io/store"
-	pb "forge.lthn.ai/core/ts/proto"
+	io "dappco.re/go/core/io"
+	"dappco.re/go/core/io/store"
+	pb "dappco.re/go/core/ts/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -17,7 +17,7 @@ import (
 )
 
 func TestListenGRPC_Good(t *testing.T) {
-	sockDir := t.TempDir()
+	sockDir := shortSocketDir(t)
 	sockPath := filepath.Join(sockDir, "test.sock")
 
 	medium := io.NewMockMedium()
@@ -37,6 +37,12 @@ func TestListenGRPC_Good(t *testing.T) {
 
 	// Wait for socket to appear
 	require.Eventually(t, func() bool {
+		select {
+		case err := <-errCh:
+			t.Fatalf("ListenGRPC returned early: %v", err)
+			return false
+		default:
+		}
 		_, err := os.Stat(sockPath)
 		return err == nil
 	}, 2*time.Second, 10*time.Millisecond, "socket should appear")
@@ -78,9 +84,7 @@ func TestListenGRPC_Good(t *testing.T) {
 func TestListenGRPC_Bad_StaleSocket(t *testing.T) {
 	// Use a short temp dir — macOS limits Unix socket paths to 104 bytes (sun_path)
 	// and t.TempDir() + this test's long name can exceed that.
-	sockDir, err := os.MkdirTemp("", "grpc")
-	require.NoError(t, err)
-	t.Cleanup(func() { os.RemoveAll(sockDir) })
+	sockDir := shortSocketDir(t)
 	sockPath := filepath.Join(sockDir, "s.sock")
 
 	// Create a stale regular file where the socket should go

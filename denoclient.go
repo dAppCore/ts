@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 )
 
 // DenoClient communicates with the Deno sidecar's JSON-RPC server over a Unix socket.
@@ -15,6 +16,8 @@ type DenoClient struct {
 	conn   net.Conn
 	reader *bufio.Reader
 }
+
+const denoClientTimeout = 2 * time.Second
 
 // DialDeno connects to the Deno JSON-RPC server on the given Unix socket path.
 func DialDeno(socketPath string) (*DenoClient, error) {
@@ -36,6 +39,13 @@ func (c *DenoClient) Close() error {
 func (c *DenoClient) call(req map[string]any) (map[string]any, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if err := c.conn.SetDeadline(time.Now().Add(denoClientTimeout)); err != nil {
+		return nil, fmt.Errorf("deadline: %w", err)
+	}
+	defer func() {
+		_ = c.conn.SetDeadline(time.Time{})
+	}()
 
 	data, err := json.Marshal(req)
 	if err != nil {
@@ -61,6 +71,20 @@ func (c *DenoClient) call(req map[string]any) (map[string]any, error) {
 		return nil, fmt.Errorf("deno: %s", errMsg)
 	}
 	return resp, nil
+}
+
+// Ping checks whether the Deno sidecar JSON-RPC server is responsive.
+func (c *DenoClient) Ping() error {
+	resp, err := c.call(map[string]any{
+		"method": "Ping",
+	})
+	if err != nil {
+		return err
+	}
+	if resp["ok"] != true {
+		return fmt.Errorf("deno: ping failed")
+	}
+	return nil
 }
 
 // ModulePermissions declares per-module permission scopes for Deno Worker sandboxing.

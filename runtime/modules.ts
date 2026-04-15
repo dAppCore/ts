@@ -164,6 +164,10 @@ export class ModuleRegistry {
           params.content as string,
           moduleCode,
         );
+      case "FileList":
+        return c.fileList(params.path as string, moduleCode);
+      case "FileDelete":
+        return c.fileDelete(params.path as string, moduleCode);
       case "ProcessStart":
         return c.processStart(
           params.command as string,
@@ -171,7 +175,7 @@ export class ModuleRegistry {
           moduleCode,
         );
       case "ProcessStop":
-        return c.processStop(params.process_id as string);
+        return c.processStop(params.process_id as string, moduleCode);
       default:
         throw new Error(`unknown RPC method: ${method}`);
     }

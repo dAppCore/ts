@@ -59,12 +59,13 @@ func DefaultSocketPath() string {
 
 // Sidecar manages a Deno child process.
 type Sidecar struct {
-	opts   Options
-	mu     sync.RWMutex
-	cmd    *exec.Cmd
-	ctx    context.Context
-	cancel context.CancelFunc
-	done   chan struct{}
+	opts    Options
+	mu      sync.RWMutex
+	cmd     *exec.Cmd
+	ctx     context.Context
+	cancel  context.CancelFunc
+	done    chan struct{}
+	exitErr error
 }
 
 // NewSidecar creates a Sidecar with the given options.

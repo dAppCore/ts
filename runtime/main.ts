@@ -54,13 +54,8 @@ let coreClient: CoreClient;
             setTimeout(() => reject(new Error("call timeout")), 2000),
           ),
         ]);
-      await timeoutCall(
-        coreClient.storeSet("_coredeno", "status", "connected"),
-      );
-      const resp = await timeoutCall(
-        coreClient.storeGet("_coredeno", "status"),
-      );
-      if (resp.found && resp.value === "connected") {
+      const resp = await timeoutCall(coreClient.ping());
+      if (resp.ok) {
         connected = true;
         break;
       }

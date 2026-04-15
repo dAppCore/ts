@@ -4,11 +4,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
-	core "forge.lthn.ai/core/go/pkg/core"
-	pb "forge.lthn.ai/core/ts/proto"
+	core "dappco.re/go/core"
+	pb "dappco.re/go/core/ts/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -20,8 +21,7 @@ func TestNewServiceFactory_Good(t *testing.T) {
 		DenoPath:   "echo",
 		SocketPath: "/tmp/test-service.sock",
 	}
-	c, err := core.New()
-	require.NoError(t, err)
+	c := core.New()
 
 	factory := NewServiceFactory(opts)
 	result, err := factory(c)
@@ -32,22 +32,21 @@ func TestNewServiceFactory_Good(t *testing.T) {
 	assert.NotNil(t, svc.sidecar)
 	assert.Equal(t, "echo", svc.sidecar.opts.DenoPath)
 	assert.NotNil(t, svc.Core(), "ServiceRuntime should provide Core access")
-	assert.Equal(t, opts, svc.Opts(), "ServiceRuntime should provide Options access")
+	assert.Equal(t, opts, svc.Options(), "ServiceRuntime should provide Options access")
 }
 
 func TestService_WithService_Good(t *testing.T) {
-	opts := Options{DenoPath: "echo"}
-	c, err := core.New(core.WithService(NewServiceFactory(opts)))
-	require.NoError(t, err)
-	assert.NotNil(t, c)
+	c := core.New()
+	result := c.Service("ts", core.Service{})
+	assert.True(t, result.OK)
+	assert.Contains(t, c.Services(), "ts")
 }
 
 func TestService_Lifecycle_Good(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := shortSocketDir(t)
 	sockPath := filepath.Join(tmpDir, "lifecycle.sock")
 
-	c, err := core.New()
-	require.NoError(t, err)
+	c := core.New()
 
 	factory := NewServiceFactory(Options{
 		DenoPath:   "echo",
@@ -60,7 +59,7 @@ func TestService_Lifecycle_Good(t *testing.T) {
 	defer cancel()
 
 	// Verify Startable
-	err = svc.OnStartup(ctx)
+	err := svc.OnStartup(ctx)
 	assert.NoError(t, err)
 
 	// Verify Stoppable
@@ -69,8 +68,7 @@ func TestService_Lifecycle_Good(t *testing.T) {
 }
 
 func TestService_Sidecar_Good(t *testing.T) {
-	c, err := core.New()
-	require.NoError(t, err)
+	c := core.New()
 
 	factory := NewServiceFactory(Options{DenoPath: "echo"})
 	result, _ := factory(c)
@@ -80,7 +78,7 @@ func TestService_Sidecar_Good(t *testing.T) {
 }
 
 func TestService_OnStartup_Good(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := shortSocketDir(t)
 	sockPath := filepath.Join(tmpDir, "core.sock")
 
 	// Write a minimal manifest
@@ -103,8 +101,7 @@ permissions:
 		SidecarArgs: []string{"60"},
 	}
 
-	c, err := core.New()
-	require.NoError(t, err)
+	c := core.New()
 
 	factory := NewServiceFactory(opts)
 	result, err := factory(c)
@@ -132,6 +129,10 @@ permissions:
 	defer conn.Close()
 
 	client := pb.NewCoreServiceClient(conn)
+	pingResp, err := client.Ping(ctx, &pb.PingRequest{})
+	require.NoError(t, err)
+	assert.True(t, pingResp.Ok)
+
 	_, err = client.StoreSet(ctx, &pb.StoreSetRequest{
 		Group: "boot", Key: "ok", Value: "true",
 	})
@@ -154,7 +155,7 @@ permissions:
 }
 
 func TestService_OnStartup_Good_NoManifest(t *testing.T) {
-	tmpDir := t.TempDir()
+	tmpDir := shortSocketDir(t)
 	sockPath := filepath.Join(tmpDir, "core.sock")
 
 	opts := Options{
@@ -164,8 +165,7 @@ func TestService_OnStartup_Good_NoManifest(t *testing.T) {
 		StoreDBPath: ":memory:",
 	}
 
-	c, err := core.New()
-	require.NoError(t, err)
+	c := core.New()
 
 	factory := NewServiceFactory(opts)
 	result, _ := factory(c)
@@ -175,9 +175,49 @@ func TestService_OnStartup_Good_NoManifest(t *testing.T) {
 	defer cancel()
 
 	// Should succeed even without .core/view.yml
-	err = svc.OnStartup(ctx)
+	err := svc.OnStartup(ctx)
 	require.NoError(t, err)
 
 	err = svc.OnShutdown(context.Background())
 	assert.NoError(t, err)
+}
+
+func TestService_OnStartup_Good_RestartsExitedSidecar(t *testing.T) {
+	tmpDir := shortSocketDir(t)
+	sockPath := filepath.Join(tmpDir, "core.sock")
+	restartLog := filepath.Join(tmpDir, "restart.log")
+
+	opts := Options{
+		DenoPath:    "sh",
+		SocketPath:  sockPath,
+		StoreDBPath: ":memory:",
+		SidecarArgs: []string{
+			"-c",
+			"echo restart >> " + restartLog + "; sleep 0.1; exit 1",
+		},
+	}
+
+	c := core.New()
+
+	factory := NewServiceFactory(opts)
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = svc.OnStartup(ctx)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		data, err := os.ReadFile(restartLog)
+		if err != nil {
+			return false
+		}
+		return strings.Count(string(data), "restart") >= 2
+	}, 3*time.Second, 100*time.Millisecond, "sidecar should restart after unexpected exit")
+
+	err = svc.OnShutdown(context.Background())
+	require.NoError(t, err)
 }

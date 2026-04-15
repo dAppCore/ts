@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
-	io "forge.lthn.ai/core/go-io"
-	"forge.lthn.ai/core/go-io/store"
-	"forge.lthn.ai/core/go-scm/manifest"
-	pb "forge.lthn.ai/core/ts/proto"
+	io "dappco.re/go/core/io"
+	"dappco.re/go/core/io/store"
+	"dappco.re/go/core/scm/manifest"
+	pb "dappco.re/go/core/ts/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -35,33 +36,45 @@ type ProcessInfo struct {
 // Every I/O request is checked against the calling module's declared permissions.
 type Server struct {
 	pb.UnimplementedCoreServiceServer
-	medium    io.Medium
-	store     *store.Store
-	manifests map[string]*manifest.Manifest
-	processes ProcessRunner
+	mu            sync.RWMutex
+	medium        io.Medium
+	store         *store.Store
+	manifests     map[string]*manifest.Manifest
+	processOwners map[string]string
+	processes     ProcessRunner
 }
 
 // NewServer creates a CoreService server backed by the given Medium and Store.
 func NewServer(medium io.Medium, st *store.Store) *Server {
 	return &Server{
-		medium:    medium,
-		store:     st,
-		manifests: make(map[string]*manifest.Manifest),
+		medium:        medium,
+		store:         st,
+		manifests:     make(map[string]*manifest.Manifest),
+		processOwners: make(map[string]string),
 	}
 }
 
 // RegisterModule adds a module's manifest to the permission registry.
 func (s *Server) RegisterModule(m *manifest.Manifest) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.manifests[m.Code] = m
 }
 
 // getManifest looks up a module and returns an error if unknown.
 func (s *Server) getManifest(code string) (*manifest.Manifest, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	m, ok := s.manifests[code]
 	if !ok {
 		return nil, fmt.Errorf("unknown module: %s", code)
 	}
 	return m, nil
+}
+
+// Ping implements CoreService.Ping for sidecar health checks.
+func (s *Server) Ping(_ context.Context, _ *pb.PingRequest) (*pb.PingResponse, error) {
+	return &pb.PingResponse{Ok: true}, nil
 }
 
 // FileRead implements CoreService.FileRead with permission gating.
@@ -192,7 +205,11 @@ func (s *Server) ProcessStart(ctx context.Context, req *pb.ProcessStartRequest) 
 	if err != nil {
 		return nil, fmt.Errorf("process start: %w", err)
 	}
-	return &pb.ProcessStartResponse{ProcessId: proc.Info().ID}, nil
+	processID := proc.Info().ID
+	s.mu.Lock()
+	s.processOwners[processID] = req.ModuleCode
+	s.mu.Unlock()
+	return &pb.ProcessStartResponse{ProcessId: processID}, nil
 }
 
 // ProcessStop implements CoreService.ProcessStop.
@@ -200,8 +217,21 @@ func (s *Server) ProcessStop(_ context.Context, req *pb.ProcessStopRequest) (*pb
 	if s.processes == nil {
 		return nil, status.Error(codes.Unimplemented, "process service not available")
 	}
+
+	if req.ModuleCode != "" {
+		s.mu.RLock()
+		owner, ok := s.processOwners[req.ProcessId]
+		s.mu.RUnlock()
+		if ok && owner != req.ModuleCode {
+			return nil, fmt.Errorf("permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
+		}
+	}
+
 	if err := s.processes.Kill(req.ProcessId); err != nil {
 		return nil, fmt.Errorf("process stop: %w", err)
 	}
+	s.mu.Lock()
+	delete(s.processOwners, req.ProcessId)
+	s.mu.Unlock()
 	return &pb.ProcessStopResponse{Ok: true}, nil
 }

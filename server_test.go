@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	io "forge.lthn.ai/core/go-io"
-	"forge.lthn.ai/core/go-io/store"
-	"forge.lthn.ai/core/go-scm/manifest"
-	pb "forge.lthn.ai/core/ts/proto"
+	io "dappco.re/go/core/io"
+	"dappco.re/go/core/io/store"
+	"dappco.re/go/core/scm/manifest"
+	pb "dappco.re/go/core/ts/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -70,6 +70,13 @@ func TestFileRead_Good(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "hello", resp.Content)
+}
+
+func TestPing_Good(t *testing.T) {
+	srv := newTestServer(t)
+	resp, err := srv.Ping(context.Background(), &pb.PingRequest{})
+	require.NoError(t, err)
+	assert.True(t, resp.Ok)
 }
 
 func TestFileRead_Bad_PermissionDenied(t *testing.T) {
@@ -185,7 +192,8 @@ func TestProcessStop_Good(t *testing.T) {
 
 	// Stop it
 	resp, err := srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
-		ProcessId: startResp.ProcessId,
+		ProcessId:  startResp.ProcessId,
+		ModuleCode: "runner-mod",
 	})
 	require.NoError(t, err)
 	assert.True(t, resp.Ok)
@@ -197,4 +205,24 @@ func TestProcessStop_Bad_NotFound(t *testing.T) {
 		ProcessId: "nonexistent",
 	})
 	assert.Error(t, err)
+}
+
+func TestProcessStop_Bad_OtherModule(t *testing.T) {
+	srv, _ := newTestServerWithProcess(t)
+	srv.RegisterModule(&manifest.Manifest{
+		Code:        "other-mod",
+		Permissions: manifest.Permissions{Run: []string{"echo"}},
+	})
+
+	startResp, err := srv.ProcessStart(context.Background(), &pb.ProcessStartRequest{
+		Command: "echo", ModuleCode: "runner-mod",
+	})
+	require.NoError(t, err)
+
+	_, err = srv.ProcessStop(context.Background(), &pb.ProcessStopRequest{
+		ProcessId:  startResp.ProcessId,
+		ModuleCode: "other-mod",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "permission denied")
 }

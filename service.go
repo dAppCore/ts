@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
-	io "forge.lthn.ai/core/go-io"
-	"forge.lthn.ai/core/go-io/store"
-	"forge.lthn.ai/core/go-scm/manifest"
-	"forge.lthn.ai/core/go-scm/marketplace"
-	core "forge.lthn.ai/core/go/pkg/core"
+	core "dappco.re/go/core"
+	io "dappco.re/go/core/io"
+	"dappco.re/go/core/io/store"
+	"dappco.re/go/core/scm/manifest"
+	"dappco.re/go/core/scm/marketplace"
 )
 
 // Service wraps the CoreDeno sidecar as a framework service.
@@ -19,16 +20,25 @@ import (
 //
 // Registration:
 //
-//	core.New(core.WithService(coredeno.NewServiceFactory(opts)))
+//	core.New()
 type Service struct {
 	*core.ServiceRuntime[Options]
-	sidecar    *Sidecar
-	grpcServer *Server
-	store      *store.Store
-	grpcCancel context.CancelFunc
-	grpcDone   chan error
-	denoClient *DenoClient
-	installer  *marketplace.Installer
+	mu               sync.RWMutex
+	sidecar          *Sidecar
+	grpcServer       *Server
+	store            *store.Store
+	grpcCancel       context.CancelFunc
+	grpcDone         chan error
+	denoClient       *DenoClient
+	installer        *marketplace.Installer
+	supervisorCancel context.CancelFunc
+	supervisorDone   chan struct{}
+	desiredModules   map[string]moduleSpec
+}
+
+type moduleSpec struct {
+	EntryPoint  string
+	Permissions ModulePermissions
 }
 
 // NewServiceFactory returns a factory function for framework registration via WithService.
@@ -37,6 +47,7 @@ func NewServiceFactory(opts Options) func(*core.Core) (any, error) {
 		return &Service{
 			ServiceRuntime: core.NewServiceRuntime(c, opts),
 			sidecar:        NewSidecar(opts),
+			desiredModules: make(map[string]moduleSpec),
 		}, nil
 	}
 }
@@ -45,7 +56,7 @@ func NewServiceFactory(opts Options) func(*core.Core) (any, error) {
 //
 // Sequence: medium → store → server → manifest → gRPC listener → sidecar.
 func (s *Service) OnStartup(ctx context.Context) error {
-	opts := s.Opts()
+	opts := s.Options()
 
 	// 1. Create sandboxed Medium (or mock if no AppRoot)
 	var medium io.Medium
@@ -96,39 +107,45 @@ func (s *Service) OnStartup(ctx context.Context) error {
 	}()
 
 	// cleanupGRPC tears down the listener on early-return errors.
-	cleanupGRPC := func() {
+	cleanupGRPC := func(wait bool) {
 		grpcCancel()
-		<-s.grpcDone
+		if wait {
+			<-s.grpcDone
+		}
 	}
 
 	// 6. Start sidecar (if args provided)
 	if len(opts.SidecarArgs) > 0 {
+		supervisorCtx, supervisorCancel := context.WithCancel(ctx)
+		s.supervisorCancel = supervisorCancel
+		s.supervisorDone = make(chan struct{})
+
 		// Wait for core socket so sidecar can connect to our gRPC server
-		if err := waitForSocket(ctx, opts.SocketPath, 5*time.Second); err != nil {
-			cleanupGRPC()
+		if err := waitForGRPCSocket(ctx, opts.SocketPath, 5*time.Second, s.grpcDone); err != nil {
+			supervisorCancel()
+			cleanupGRPC(false)
 			return fmt.Errorf("coredeno: core socket: %w", err)
 		}
 
-		if err := s.sidecar.Start(ctx, opts.SidecarArgs...); err != nil {
-			cleanupGRPC()
+		if err := s.sidecar.Start(supervisorCtx, opts.SidecarArgs...); err != nil {
+			supervisorCancel()
+			cleanupGRPC(true)
 			return fmt.Errorf("coredeno: sidecar: %w", err)
 		}
 
 		// 7. Wait for Deno's server and connect as client
 		if opts.DenoSocketPath != "" {
-			if err := waitForSocket(ctx, opts.DenoSocketPath, 10*time.Second); err != nil {
-				_ = s.sidecar.Stop()
-				cleanupGRPC()
-				return fmt.Errorf("coredeno: deno socket: %w", err)
-			}
-			dc, err := DialDeno(opts.DenoSocketPath)
+			dc, err := dialDenoReady(supervisorCtx, opts.DenoSocketPath, 10*time.Second)
 			if err != nil {
 				_ = s.sidecar.Stop()
-				cleanupGRPC()
+				supervisorCancel()
+				cleanupGRPC(true)
 				return fmt.Errorf("coredeno: deno client: %w", err)
 			}
-			s.denoClient = dc
+			s.setDenoClient(dc)
 		}
+
+		go s.superviseSidecar(supervisorCtx)
 	}
 
 	// 8. Create installer and auto-load installed modules
@@ -146,7 +163,9 @@ func (s *Service) OnStartup(ctx context.Context) error {
 						Net:   mod.Permissions.Net,
 						Run:   mod.Permissions.Run,
 					}
-					s.denoClient.LoadModule(mod.Code, mod.EntryPoint, perms)
+					if _, err := s.LoadModule(mod.Code, mod.EntryPoint, perms); err != nil {
+						return fmt.Errorf("coredeno: autoload %s: %w", mod.Code, err)
+					}
 				}
 			}
 		}
@@ -157,10 +176,15 @@ func (s *Service) OnStartup(ctx context.Context) error {
 
 // OnShutdown stops the CoreDeno subsystem. Called by the framework on app shutdown.
 func (s *Service) OnShutdown(_ context.Context) error {
-	// Close Deno client connection
-	if s.denoClient != nil {
-		s.denoClient.Close()
+	if s.supervisorCancel != nil {
+		s.supervisorCancel()
+		if s.supervisorDone != nil {
+			<-s.supervisorDone
+		}
 	}
+
+	// Close Deno client connection
+	s.closeDenoClient()
 
 	// Stop sidecar
 	_ = s.sidecar.Stop()
@@ -192,6 +216,8 @@ func (s *Service) GRPCServer() *Server {
 // DenoClient returns the DenoService client for calling the Deno sidecar.
 // Returns nil if the sidecar was not started or has no DenoSocketPath.
 func (s *Service) DenoClient() *DenoClient {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.denoClient
 }
 
@@ -199,6 +225,217 @@ func (s *Service) DenoClient() *DenoClient {
 // Returns nil if AppRoot was not set.
 func (s *Service) Installer() *marketplace.Installer {
 	return s.installer
+}
+
+// LoadModule registers module permissions on the Go side, then loads the module in Deno.
+func (s *Service) LoadModule(code, entryPoint string, perms ModulePermissions) (*LoadModuleResponse, error) {
+	if s.grpcServer == nil {
+		return nil, fmt.Errorf("coredeno: gRPC server not started")
+	}
+	client := s.DenoClient()
+	if client == nil {
+		return nil, fmt.Errorf("coredeno: Deno client not connected")
+	}
+
+	s.grpcServer.RegisterModule(&manifest.Manifest{
+		Code: code,
+		Permissions: manifest.Permissions{
+			Read:  perms.Read,
+			Write: perms.Write,
+			Net:   perms.Net,
+			Run:   perms.Run,
+		},
+	})
+
+	resp, err := client.LoadModule(code, entryPoint, perms)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Ok {
+		s.rememberModule(code, entryPoint, perms)
+	}
+	return resp, nil
+}
+
+// UnloadModule unloads a module from the Deno runtime.
+func (s *Service) UnloadModule(code string) (*UnloadModuleResponse, error) {
+	client := s.DenoClient()
+	if client == nil {
+		return nil, fmt.Errorf("coredeno: Deno client not connected")
+	}
+	resp, err := client.UnloadModule(code)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Ok {
+		s.forgetModule(code)
+	}
+	return resp, nil
+}
+
+// ModuleStatus queries a module's status from the Deno runtime.
+func (s *Service) ModuleStatus(code string) (*ModuleStatusResponse, error) {
+	client := s.DenoClient()
+	if client == nil {
+		return nil, fmt.Errorf("coredeno: Deno client not connected")
+	}
+	return client.ModuleStatus(code)
+}
+
+func (s *Service) setDenoClient(client *DenoClient) {
+	s.mu.Lock()
+	old := s.denoClient
+	s.denoClient = client
+	s.mu.Unlock()
+
+	if old != nil && old != client {
+		_ = old.Close()
+	}
+}
+
+func (s *Service) closeDenoClient() {
+	s.setDenoClient(nil)
+}
+
+func (s *Service) rememberModule(code, entryPoint string, perms ModulePermissions) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.desiredModules[code] = moduleSpec{
+		EntryPoint:  entryPoint,
+		Permissions: perms,
+	}
+}
+
+func (s *Service) forgetModule(code string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.desiredModules, code)
+}
+
+func (s *Service) desiredModuleSnapshot() map[string]moduleSpec {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	snapshot := make(map[string]moduleSpec, len(s.desiredModules))
+	for code, spec := range s.desiredModules {
+		snapshot[code] = spec
+	}
+	return snapshot
+}
+
+func (s *Service) superviseSidecar(ctx context.Context) {
+	defer close(s.supervisorDone)
+
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if !s.sidecar.IsRunning() {
+				_ = s.restartSidecar(ctx)
+				continue
+			}
+
+			client := s.DenoClient()
+			if s.Options().DenoSocketPath == "" {
+				continue
+			}
+			if client == nil {
+				_ = s.reconnectDeno(ctx)
+				continue
+			}
+			if err := client.Ping(); err != nil {
+				s.closeDenoClient()
+				_ = s.reconnectDeno(ctx)
+			}
+		}
+	}
+}
+
+func (s *Service) restartSidecar(ctx context.Context) error {
+	s.closeDenoClient()
+
+	if err := s.sidecar.Start(ctx, s.Options().SidecarArgs...); err != nil {
+		return err
+	}
+
+	if err := s.reconnectDeno(ctx); err != nil {
+		_ = s.sidecar.Stop()
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) reconnectDeno(ctx context.Context) error {
+	if s.Options().DenoSocketPath == "" {
+		return nil
+	}
+
+	dc, err := dialDenoReady(ctx, s.Options().DenoSocketPath, 10*time.Second)
+	if err != nil {
+		return err
+	}
+	s.setDenoClient(dc)
+
+	return s.reloadDesiredModules()
+}
+
+func (s *Service) reloadDesiredModules() error {
+	client := s.DenoClient()
+	if client == nil {
+		return fmt.Errorf("coredeno: Deno client not connected")
+	}
+
+	for code, spec := range s.desiredModuleSnapshot() {
+		resp, err := client.LoadModule(code, spec.EntryPoint, spec.Permissions)
+		if err != nil {
+			return err
+		}
+		if !resp.Ok {
+			return fmt.Errorf("coredeno: reload %s: %s", code, resp.Error)
+		}
+	}
+	return nil
+}
+
+func dialDenoReady(ctx context.Context, socketPath string, timeout time.Duration) (*DenoClient, error) {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+
+	for time.Now().Before(deadline) {
+		if err := waitForSocket(ctx, socketPath, 250*time.Millisecond); err == nil {
+			client, err := DialDeno(socketPath)
+			if err == nil {
+				if pingErr := client.Ping(); pingErr == nil {
+					return client, nil
+				} else {
+					lastErr = pingErr
+				}
+				_ = client.Close()
+			} else {
+				lastErr = err
+			}
+		} else if ctx.Err() != nil {
+			return nil, ctx.Err()
+		} else {
+			lastErr = err
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+
+	if lastErr == nil {
+		lastErr = fmt.Errorf("timeout waiting for Deno sidecar")
+	}
+	return nil, lastErr
 }
 
 // waitForSocket polls until a Unix socket file appears or the context/timeout expires.
@@ -212,6 +449,28 @@ func waitForSocket(ctx context.Context, path string, timeout time.Duration) erro
 			return fmt.Errorf("timeout waiting for socket %s", path)
 		}
 		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+}
+
+func waitForGRPCSocket(ctx context.Context, path string, timeout time.Duration, done <-chan error) error {
+	deadline := time.Now().Add(timeout)
+	for {
+		if _, err := os.Stat(path); err == nil {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for socket %s", path)
+		}
+		select {
+		case err := <-done:
+			if err != nil {
+				return err
+			}
+			return fmt.Errorf("gRPC listener stopped before socket became ready")
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(50 * time.Millisecond):
