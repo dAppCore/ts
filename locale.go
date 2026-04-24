@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	pb "dappco.re/go/core/ts/proto"
+	pb "dappco.re/go/ts/proto"
 )
 
 // LocaleGet implements CoreService.LocaleGet by discovering shared locale files

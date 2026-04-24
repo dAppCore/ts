@@ -1,20 +1,20 @@
-module dappco.re/go/core/ts
+module dappco.re/go/ts
 
 go 1.26.0
 
 require (
-	dappco.re/go/core v0.5.0
-	dappco.re/go/core/io v0.2.0
-	dappco.re/go/core/scm v0.4.0
+	dappco.re/go/core v0.8.0-alpha.1
+	dappco.re/go/io v0.8.0-alpha.1
+	dappco.re/go/scm v0.8.0-alpha.1
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 )
 
-require forge.lthn.ai/core/go-log v0.0.4 // indirect
+require dappco.re/go/log v0.8.0-alpha.1 // indirect
 
 require (
-	dappco.re/go/core/log v0.1.0 // indirect
+	dappco.re/go/log v0.8.0-alpha.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect

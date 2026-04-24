@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	pb "dappco.re/go/core/ts/proto"
+	pb "dappco.re/go/ts/proto"
 	"google.golang.org/grpc"
 )
 

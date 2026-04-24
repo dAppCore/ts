@@ -15,10 +15,10 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	io "dappco.re/go/core/io"
-	"dappco.re/go/core/io/store"
-	"dappco.re/go/core/scm/manifest"
-	"dappco.re/go/core/scm/marketplace"
+	io "dappco.re/go/io"
+	"dappco.re/go/io/store"
+	"dappco.re/go/scm/manifest"
+	"dappco.re/go/scm/marketplace"
 )
 
 // Service wraps the CoreDeno sidecar as a framework service.
