@@ -145,6 +145,7 @@ src/
     ├── router.ts            # Hash router with core:// handling
     ├── i18n.ts              # Shared i18n API
     ├── components.ts        # Web Component base classes
+    ├── layout.ts            # core-layout HLCRF Web Component
     ├── wasm.ts              # go-html WASM loader
     ├── events.ts            # Event bus
     ├── result.ts            # Result helpers

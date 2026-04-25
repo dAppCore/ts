@@ -266,6 +266,7 @@ The browser package provides:
 - `options.ts` -- shared runtime options shape
 - `i18n.ts` -- stable translation helpers (`_`, `T`, `S`)
 - `components.ts` -- Web Component base classes and registration helpers
+- `layout.ts` -- `core-layout` HLCRF Web Component with nested slot parsing
 - `wasm.ts` -- go-html WASM loading helpers
 - `router.ts` -- hash router with `core://` scheme handling
 - `storage.ts` -- storage, cookie, cache, bucket, and OPFS polyfills

@@ -43,4 +43,8 @@ Deno.test("CoreTS module entrypoint exports the browser helpers", () => {
     typeof mod.CoreNatTraversal === "function",
     "NAT traversal helper should be exported",
   );
+  assert(
+    typeof mod.CoreLayout === "function",
+    "core-layout Web Component should be exported",
+  );
 });

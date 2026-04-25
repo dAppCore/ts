@@ -9,31 +9,82 @@ export interface CoreComponentOptions {
 
 type FallbackNode = { innerHTML?: string };
 
-const HTMLElementBase = globalThis.HTMLElement ?? class {
-  isConnected = false;
-  shadowRoot: { innerHTML: string; replaceChildren(...nodes: Array<string | Node>): void } | null = null;
+const HTMLElementBase = globalThis.HTMLElement ??
+  class {
+    #attributes = new Map<string, string>();
+    isConnected = false;
+    shadowRoot: {
+      innerHTML: string;
+      replaceChildren(...nodes: Array<string | Node>): void;
+    } | null = null;
 
-  attachShadow(): { innerHTML: string; replaceChildren(...nodes: Array<string | Node>): void } {
-    const shadowRoot = {
-      innerHTML: "",
-      replaceChildren: (...nodes: Array<string | Node>) => {
-        shadowRoot.innerHTML = nodes.map((node) => {
-          if (typeof node === "string") {
-            return node;
+    attachShadow(): {
+      innerHTML: string;
+      replaceChildren(...nodes: Array<string | Node>): void;
+    } {
+      const shadowRoot = {
+        innerHTML: "",
+        replaceChildren: (...nodes: Array<string | Node>) => {
+          shadowRoot.innerHTML = nodes
+            .map((node) => {
+              if (typeof node === "string") {
+                return node;
+              }
+              return (node as FallbackNode).innerHTML ?? "";
+            })
+            .join("");
+        },
+      };
+      this.shadowRoot = shadowRoot;
+      return shadowRoot;
+    }
+
+    getAttribute(name: string): string | null {
+      return this.#attributes.get(name) ?? null;
+    }
+
+    hasAttribute(name: string): boolean {
+      return this.#attributes.has(name);
+    }
+
+    setAttribute(name: string, value: string): void {
+      const oldValue = this.getAttribute(name);
+      const nextValue = String(value);
+      this.#attributes.set(name, nextValue);
+      if (oldValue !== nextValue) {
+        (
+          this as {
+            attributeChangedCallback?: (
+              name: string,
+              oldValue: string | null,
+              newValue: string | null,
+            ) => void;
           }
-          return (node as FallbackNode).innerHTML ?? "";
-        }).join("");
-      },
-    };
-    this.shadowRoot = shadowRoot;
-    return shadowRoot;
-  }
+        ).attributeChangedCallback?.(name, oldValue, nextValue);
+      }
+    }
 
-  remove(): void {
-    this.isConnected = false;
-    (this as { disconnectedCallback?: () => void }).disconnectedCallback?.();
-  }
-};
+    removeAttribute(name: string): void {
+      const oldValue = this.getAttribute(name);
+      if (!this.#attributes.delete(name)) {
+        return;
+      }
+      (
+        this as {
+          attributeChangedCallback?: (
+            name: string,
+            oldValue: string | null,
+            newValue: string | null,
+          ) => void;
+        }
+      ).attributeChangedCallback?.(name, oldValue, null);
+    }
+
+    remove(): void {
+      this.isConnected = false;
+      (this as { disconnectedCallback?: () => void }).disconnectedCallback?.();
+    }
+  };
 const fallbackCustomElements = new Map<string, CustomElementConstructor>();
 let fallbackCreateElementPatched = false;
 
@@ -63,13 +114,17 @@ export abstract class CoreComponent<
     this.onDisconnect();
   }
 
-  protected setState(patch: Partial<TState> | ((state: Readonly<TState>) => Partial<TState>)): void {
+  protected setState(
+    patch: Partial<TState> | ((state: Readonly<TState>) => Partial<TState>),
+  ): void {
     const nextPatch = typeof patch === "function" ? patch(this.state) : patch;
     this.state = { ...this.state, ...nextPatch };
     this.render();
   }
 
-  protected abstract template(context: CoreComponentRenderContext): string | Node | Array<string | Node>;
+  protected abstract template(
+    context: CoreComponentRenderContext,
+  ): string | Node | Array<string | Node>;
 
   protected onConnect(): void {}
 
@@ -110,7 +165,10 @@ function flattenRenderOutput(
   }
 
   if (typeof value === "string") {
-    if (typeof document === "undefined" || typeof document.createElement !== "function") {
+    if (
+      typeof document === "undefined" ||
+      typeof document.createElement !== "function"
+    ) {
       return [value];
     }
     return fragmentNodes(value);
@@ -131,7 +189,10 @@ function patchFallbackCreateElement(): void {
   }
 
   const originalCreateElement = document.createElement.bind(document);
-  document.createElement = ((tagName: string, options?: ElementCreationOptions) => {
+  document.createElement = ((
+    tagName: string,
+    options?: ElementCreationOptions,
+  ) => {
     const ctor = fallbackCustomElements.get(tagName);
     if (ctor) {
       const element = new ctor() as HTMLElement & {
