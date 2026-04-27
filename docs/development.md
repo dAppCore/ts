@@ -106,7 +106,7 @@ The Deno side loads the `.proto` file dynamically at runtime via `@grpc/proto-lo
 ## Project Structure
 
 ```
-forge.lthn.ai/core/ts/
+dappco.re/go/core/ts/
 ├── coredeno.go          # Options, Permissions, Sidecar types
 ├── coredeno_test.go     # Unit tests for options and sidecar creation
 ├── lifecycle.go         # Sidecar Start/Stop/IsRunning
@@ -138,6 +138,18 @@ forge.lthn.ai/core/ts/
     ├── deno.lock            # Lock file
     └── testdata/
         └── test-module.ts   # Test fixture for integration tests
+src/
+    ├── mod.ts               # Browser/runtime entry point
+    ├── storage.ts           # Storage polyfills and bridge contracts
+    ├── electron.ts          # Electron compatibility shim
+    ├── router.ts            # Hash router with core:// handling
+    ├── i18n.ts              # Shared i18n API
+    ├── components.ts        # Web Component base classes
+    ├── layout.ts            # core-layout HLCRF Web Component
+    ├── wasm.ts              # go-html WASM loader
+    ├── events.ts            # Event bus
+    ├── result.ts            # Result helpers
+    └── options.ts           # Shared option types
 ```
 
 ## Writing a TypeScript Module
@@ -188,10 +200,10 @@ All operations are relayed through the Go gRPC server and checked against the mo
 ## Dependency Graph
 
 ```
-forge.lthn.ai/core/ts
-├── forge.lthn.ai/core/go        (DI container, ServiceRuntime)
-├── forge.lthn.ai/core/go-io     (Sandboxed Medium, MockMedium, Store)
-├── forge.lthn.ai/core/go-scm    (Manifest loading, Marketplace installer)
+dappco.re/go/core/ts
+├── dappco.re/go/core            (DI container, ServiceRuntime)
+├── dappco.re/go/core/io         (Sandboxed Medium, MockMedium, Store)
+├── dappco.re/go/core/scm        (Manifest loading, Marketplace installer)
 ├── google.golang.org/grpc       (gRPC server + client)
 └── google.golang.org/protobuf   (Protocol buffer runtime)
 ```

@@ -5,11 +5,11 @@ description: Go service that manages a Deno TypeScript runtime as a sandboxed si
 
 # CoreTS
 
-CoreTS (`forge.lthn.ai/core/ts`) is a Go package that embeds a **Deno TypeScript runtime** as a managed sidecar process. It provides a bidirectional communication bridge between Go and Deno over Unix sockets, with fine-grained permission gating for filesystem, key-value store, and process operations.
+CoreTS (`dappco.re/go/core/ts`) is a Go package that embeds a **Deno TypeScript runtime** as a managed sidecar process. It provides a bidirectional communication bridge between Go and Deno over Unix sockets, with fine-grained permission gating for filesystem, key-value store, and process operations.
 
 The Go side exposes a **CoreService** gRPC server that Deno calls for I/O. The Deno side exposes a **DenoService** JSON-RPC server that Go calls for module lifecycle management. TypeScript modules run in isolated Deno Workers with per-module permission sandboxing.
 
-**Module path:** `forge.lthn.ai/core/ts`
+**Module path:** `dappco.re/go/core/ts`
 
 **Licence:** EUPL-1.2
 
@@ -20,8 +20,8 @@ Register CoreTS as a service in a Core application:
 ```go
 import (
     "context"
-    core "forge.lthn.ai/core/go/pkg/core"
-    ts "forge.lthn.ai/core/ts"
+    core "dappco.re/go/core"
+    ts "dappco.re/go/core/ts"
 )
 
 opts := ts.Options{
@@ -61,6 +61,8 @@ On startup, the service will:
 | `runtime/worker-entry.ts` | TypeScript | Worker bootstrap -- loaded as entry point for every module Worker |
 | `runtime/polyfill.ts` | TypeScript | Patches for Deno 2.x http2/grpc-js compatibility issues |
 | `runtime/testdata/` | TypeScript | Test fixtures for integration tests |
+| `src/mod.ts` | TypeScript | Browser/runtime entry point that re-exports the client-side helpers |
+| `src/*.ts` | TypeScript | Browser runtime modules: i18n, components, HLCRF layout, events, router, storage, Electron shim, WASM loader, and shared result/options types |
 
 ## Go Source Files
 
@@ -78,11 +80,11 @@ On startup, the service will:
 
 | Module | Purpose |
 |--------|---------|
-| `forge.lthn.ai/core/go` | Core framework (DI container, `ServiceRuntime`, lifecycle interfaces) |
-| `forge.lthn.ai/core/go-io` | Sandboxed filesystem I/O (`Medium` interface, `MockMedium`) |
-| `forge.lthn.ai/core/go-io/store` | SQLite-backed key-value store |
-| `forge.lthn.ai/core/go-scm/manifest` | Module manifest loading and ed25519 verification |
-| `forge.lthn.ai/core/go-scm/marketplace` | Module installation from Git repositories |
+| `dappco.re/go/core` | Core framework (DI container, `ServiceRuntime`, lifecycle interfaces) |
+| `dappco.re/go/core/io` | Sandboxed filesystem I/O (`Medium` interface, `MockMedium`) |
+| `dappco.re/go/core/io/store` | SQLite-backed key-value store |
+| `dappco.re/go/core/scm/manifest` | Module manifest loading and ed25519 verification |
+| `dappco.re/go/core/scm/marketplace` | Module installation from Git repositories |
 | `google.golang.org/grpc` | gRPC server and client |
 | `google.golang.org/protobuf` | Protocol buffer runtime |
 | `github.com/stretchr/testify` | Test assertions (dev only) |
@@ -110,7 +112,7 @@ type Options struct {
 }
 ```
 
-If `SocketPath` is not set, it defaults to `$XDG_RUNTIME_DIR/core/deno.sock` (or `/tmp/core/deno.sock` on macOS).
+If `SocketPath` is not set, it defaults to `$XDG_RUNTIME_DIR/core/core.sock` (or `/tmp/core/core.sock` on macOS).
 
 If `DenoSocketPath` is not set, it defaults to the same directory as `SocketPath` with filename `deno.sock`.
 

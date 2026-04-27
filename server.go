@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
+	"sync"
 
-	io "forge.lthn.ai/core/go-io"
-	"forge.lthn.ai/core/go-io/store"
-	"forge.lthn.ai/core/go-scm/manifest"
-	pb "forge.lthn.ai/core/ts/proto"
+	io "dappco.re/go/core/io"
+	"dappco.re/go/core/io/store"
+	"dappco.re/go/core/scm/manifest"
+	pb "dappco.re/go/core/ts/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -35,43 +37,76 @@ type ProcessInfo struct {
 // Every I/O request is checked against the calling module's declared permissions.
 type Server struct {
 	pb.UnimplementedCoreServiceServer
-	medium    io.Medium
-	store     *store.Store
-	manifests map[string]*manifest.Manifest
-	processes ProcessRunner
+	mu            sync.RWMutex
+	medium        io.Medium
+	store         *store.Store
+	manifests     map[string]*manifest.Manifest
+	processOwners map[string]string
+	processes     ProcessRunner
 }
 
 // NewServer creates a CoreService server backed by the given Medium and Store.
 func NewServer(medium io.Medium, st *store.Store) *Server {
 	return &Server{
-		medium:    medium,
-		store:     st,
-		manifests: make(map[string]*manifest.Manifest),
+		medium:        medium,
+		store:         st,
+		manifests:     make(map[string]*manifest.Manifest),
+		processOwners: make(map[string]string),
 	}
 }
 
 // RegisterModule adds a module's manifest to the permission registry.
 func (s *Server) RegisterModule(m *manifest.Manifest) {
+	if m == nil || strings.TrimSpace(m.Code) == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.manifests[m.Code] = m
+}
+
+// UnregisterModule removes a module from the permission registry.
+func (s *Server) UnregisterModule(code string) {
+	if strings.TrimSpace(code) == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.manifests, code)
+
+	// Clear any process ownership entries tied to this module so unloads do not
+	// leave stale authorisation state behind.
+	for processID, ownerCode := range s.processOwners {
+		if ownerCode == code {
+			delete(s.processOwners, processID)
+		}
+	}
 }
 
 // getManifest looks up a module and returns an error if unknown.
 func (s *Server) getManifest(code string) (*manifest.Manifest, error) {
-	m, ok := s.manifests[code]
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	moduleManifest, ok := s.manifests[code]
 	if !ok {
-		return nil, fmt.Errorf("unknown module: %s", code)
+		return nil, status.Errorf(codes.NotFound, "unknown module: %s", code)
 	}
-	return m, nil
+	return moduleManifest, nil
+}
+
+// Ping implements CoreService.Ping for sidecar health checks.
+func (s *Server) Ping(_ context.Context, _ *pb.PingRequest) (*pb.PingResponse, error) {
+	return &pb.PingResponse{Ok: true}, nil
 }
 
 // FileRead implements CoreService.FileRead with permission gating.
 func (s *Server) FileRead(_ context.Context, req *pb.FileReadRequest) (*pb.FileReadResponse, error) {
-	m, err := s.getManifest(req.ModuleCode)
+	moduleManifest, err := s.getManifest(req.ModuleCode)
 	if err != nil {
 		return nil, err
 	}
-	if !CheckPath(req.Path, m.Permissions.Read) {
-		return nil, fmt.Errorf("permission denied: %s cannot read %s", req.ModuleCode, req.Path)
+	if !CheckPath(req.Path, moduleManifest.Permissions.Read) {
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot read %s", req.ModuleCode, req.Path)
 	}
 	content, err := s.medium.Read(req.Path)
 	if err != nil {
@@ -82,12 +117,12 @@ func (s *Server) FileRead(_ context.Context, req *pb.FileReadRequest) (*pb.FileR
 
 // FileWrite implements CoreService.FileWrite with permission gating.
 func (s *Server) FileWrite(_ context.Context, req *pb.FileWriteRequest) (*pb.FileWriteResponse, error) {
-	m, err := s.getManifest(req.ModuleCode)
+	moduleManifest, err := s.getManifest(req.ModuleCode)
 	if err != nil {
 		return nil, err
 	}
-	if !CheckPath(req.Path, m.Permissions.Write) {
-		return nil, fmt.Errorf("permission denied: %s cannot write %s", req.ModuleCode, req.Path)
+	if !CheckPath(req.Path, moduleManifest.Permissions.Write) {
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot write %s", req.ModuleCode, req.Path)
 	}
 	if err := s.medium.Write(req.Path, req.Content); err != nil {
 		return nil, err
@@ -97,12 +132,12 @@ func (s *Server) FileWrite(_ context.Context, req *pb.FileWriteRequest) (*pb.Fil
 
 // FileList implements CoreService.FileList with permission gating.
 func (s *Server) FileList(_ context.Context, req *pb.FileListRequest) (*pb.FileListResponse, error) {
-	m, err := s.getManifest(req.ModuleCode)
+	moduleManifest, err := s.getManifest(req.ModuleCode)
 	if err != nil {
 		return nil, err
 	}
-	if !CheckPath(req.Path, m.Permissions.Read) {
-		return nil, fmt.Errorf("permission denied: %s cannot list %s", req.ModuleCode, req.Path)
+	if !CheckPath(req.Path, moduleManifest.Permissions.Read) {
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot list %s", req.ModuleCode, req.Path)
 	}
 	entries, err := s.medium.List(req.Path)
 	if err != nil {
@@ -117,17 +152,20 @@ func (s *Server) FileList(_ context.Context, req *pb.FileListRequest) (*pb.FileL
 			Size:  info.Size(),
 		})
 	}
+	sort.SliceStable(pbEntries, func(i, j int) bool {
+		return pbEntries[i].Name < pbEntries[j].Name
+	})
 	return &pb.FileListResponse{Entries: pbEntries}, nil
 }
 
 // FileDelete implements CoreService.FileDelete with permission gating.
 func (s *Server) FileDelete(_ context.Context, req *pb.FileDeleteRequest) (*pb.FileDeleteResponse, error) {
-	m, err := s.getManifest(req.ModuleCode)
+	moduleManifest, err := s.getManifest(req.ModuleCode)
 	if err != nil {
 		return nil, err
 	}
-	if !CheckPath(req.Path, m.Permissions.Write) {
-		return nil, fmt.Errorf("permission denied: %s cannot delete %s", req.ModuleCode, req.Path)
+	if !CheckPath(req.Path, moduleManifest.Permissions.Write) {
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot delete %s", req.ModuleCode, req.Path)
 	}
 	if err := s.medium.Delete(req.Path); err != nil {
 		return nil, err
@@ -137,8 +175,8 @@ func (s *Server) FileDelete(_ context.Context, req *pb.FileDeleteRequest) (*pb.F
 
 // storeGroupAllowed checks that the requested group is not a reserved system namespace.
 // Groups prefixed with "_" are reserved for internal use (e.g. _coredeno, _modules).
-// TODO: once the proto carries module_code on store requests, enforce per-module namespace isolation.
-func storeGroupAllowed(group string) error {
+// The caller's module code is included for audit/context only; non-reserved groups are allowed.
+func storeGroupAllowed(group, _ string) error {
 	if strings.HasPrefix(group, "_") {
 		return status.Errorf(codes.PermissionDenied, "reserved store group: %s", group)
 	}
@@ -147,7 +185,7 @@ func storeGroupAllowed(group string) error {
 
 // StoreGet implements CoreService.StoreGet with reserved namespace protection.
 func (s *Server) StoreGet(_ context.Context, req *pb.StoreGetRequest) (*pb.StoreGetResponse, error) {
-	if err := storeGroupAllowed(req.Group); err != nil {
+	if err := storeGroupAllowed(req.Group, req.ModuleCode); err != nil {
 		return nil, err
 	}
 	val, err := s.store.Get(req.Group, req.Key)
@@ -162,7 +200,7 @@ func (s *Server) StoreGet(_ context.Context, req *pb.StoreGetRequest) (*pb.Store
 
 // StoreSet implements CoreService.StoreSet with reserved namespace protection.
 func (s *Server) StoreSet(_ context.Context, req *pb.StoreSetRequest) (*pb.StoreSetResponse, error) {
-	if err := storeGroupAllowed(req.Group); err != nil {
+	if err := storeGroupAllowed(req.Group, req.ModuleCode); err != nil {
 		return nil, err
 	}
 	if err := s.store.Set(req.Group, req.Key, req.Value); err != nil {
@@ -181,18 +219,31 @@ func (s *Server) ProcessStart(ctx context.Context, req *pb.ProcessStartRequest) 
 	if s.processes == nil {
 		return nil, status.Error(codes.Unimplemented, "process service not available")
 	}
-	m, err := s.getManifest(req.ModuleCode)
+	if strings.TrimSpace(req.ModuleCode) == "" {
+		return nil, status.Error(codes.PermissionDenied, "permission denied: module code required to start processes")
+	}
+	if strings.TrimSpace(req.Command) == "" {
+		return nil, status.Error(codes.InvalidArgument, "process command required")
+	}
+	moduleManifest, err := s.getManifest(req.ModuleCode)
 	if err != nil {
 		return nil, err
 	}
-	if !CheckRun(req.Command, m.Permissions.Run) {
-		return nil, fmt.Errorf("permission denied: %s cannot run %s", req.ModuleCode, req.Command)
+	if !CheckRun(req.Command, moduleManifest.Permissions.Run) {
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot run %s", req.ModuleCode, req.Command)
 	}
-	proc, err := s.processes.Start(ctx, req.Command, req.Args...)
+	processHandle, err := s.processes.Start(ctx, req.Command, req.Args...)
 	if err != nil {
+		if errors.Is(err, errProcessUnavailable) {
+			return nil, status.Error(codes.Unimplemented, "process service not available")
+		}
 		return nil, fmt.Errorf("process start: %w", err)
 	}
-	return &pb.ProcessStartResponse{ProcessId: proc.Info().ID}, nil
+	processID := processHandle.Info().ID
+	s.mu.Lock()
+	s.processOwners[processID] = req.ModuleCode
+	s.mu.Unlock()
+	return &pb.ProcessStartResponse{ProcessId: processID}, nil
 }
 
 // ProcessStop implements CoreService.ProcessStop.
@@ -200,8 +251,35 @@ func (s *Server) ProcessStop(_ context.Context, req *pb.ProcessStopRequest) (*pb
 	if s.processes == nil {
 		return nil, status.Error(codes.Unimplemented, "process service not available")
 	}
+	if strings.TrimSpace(req.ModuleCode) == "" {
+		return nil, status.Error(codes.PermissionDenied, "permission denied: module code required to stop processes")
+	}
+	if strings.TrimSpace(req.ProcessId) == "" {
+		return nil, status.Error(codes.InvalidArgument, "process id required")
+	}
+
+	s.mu.RLock()
+	owner, ok := s.processOwners[req.ProcessId]
+	s.mu.RUnlock()
+	if !ok {
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
+	}
+	if owner != req.ModuleCode {
+		return nil, status.Errorf(codes.PermissionDenied, "permission denied: %s cannot stop %s", req.ModuleCode, req.ProcessId)
+	}
+
 	if err := s.processes.Kill(req.ProcessId); err != nil {
+		if errors.Is(err, errProcessUnavailable) {
+			return nil, status.Error(codes.Unimplemented, "process service not available")
+		}
 		return nil, fmt.Errorf("process stop: %w", err)
 	}
+	s.clearProcessOwner(req.ProcessId)
 	return &pb.ProcessStopResponse{Ok: true}, nil
+}
+
+func (s *Server) clearProcessOwner(processID string) {
+	s.mu.Lock()
+	delete(s.processOwners, processID)
+	s.mu.Unlock()
 }

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	io "forge.lthn.ai/core/go-io"
-	"forge.lthn.ai/core/go-io/store"
-	pb "forge.lthn.ai/core/ts/proto"
+	io "dappco.re/go/core/io"
+	"dappco.re/go/core/io/store"
+	pb "dappco.re/go/core/ts/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -17,7 +17,7 @@ import (
 )
 
 func TestListenGRPC_Good(t *testing.T) {
-	sockDir := t.TempDir()
+	sockDir := shortSocketDir(t)
 	sockPath := filepath.Join(sockDir, "test.sock")
 
 	medium := io.NewMockMedium()
@@ -37,6 +37,12 @@ func TestListenGRPC_Good(t *testing.T) {
 
 	// Wait for socket to appear
 	require.Eventually(t, func() bool {
+		select {
+		case err := <-errCh:
+			t.Fatalf("ListenGRPC returned early: %v", err)
+			return false
+		default:
+		}
 		_, err := os.Stat(sockPath)
 		return err == nil
 	}, 2*time.Second, 10*time.Millisecond, "socket should appear")
@@ -78,9 +84,7 @@ func TestListenGRPC_Good(t *testing.T) {
 func TestListenGRPC_Bad_StaleSocket(t *testing.T) {
 	// Use a short temp dir — macOS limits Unix socket paths to 104 bytes (sun_path)
 	// and t.TempDir() + this test's long name can exceed that.
-	sockDir, err := os.MkdirTemp("", "grpc")
-	require.NoError(t, err)
-	t.Cleanup(func() { os.RemoveAll(sockDir) })
+	sockDir := shortSocketDir(t)
 	sockPath := filepath.Join(sockDir, "s.sock")
 
 	// Create a stale regular file where the socket should go
@@ -119,4 +123,115 @@ func TestListenGRPC_Bad_StaleSocket(t *testing.T) {
 
 	cancel()
 	<-errCh
+}
+
+func TestListenGRPC_Good_CreatesSocketDir(t *testing.T) {
+	baseDir := shortSocketDir(t)
+	sockPath := filepath.Join(baseDir, "nested", "core.sock")
+
+	medium := io.NewMockMedium()
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	defer st.Close()
+
+	srv := NewServer(medium, st)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ListenGRPC(ctx, sockPath, srv)
+	}()
+
+	require.Eventually(t, func() bool {
+		select {
+		case err := <-errCh:
+			t.Fatalf("ListenGRPC returned early: %v", err)
+			return false
+		default:
+		}
+		_, err := os.Stat(sockPath)
+		return err == nil
+	}, 2*time.Second, 10*time.Millisecond, "socket should appear in a nested directory")
+
+	cancel()
+	<-errCh
+}
+
+func TestListenGRPC_Good_SocketPermissions(t *testing.T) {
+	sockDir := shortSocketDir(t)
+	sockPath := filepath.Join(sockDir, "perm.sock")
+
+	medium := io.NewMockMedium()
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	defer st.Close()
+
+	srv := NewServer(medium, st)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ListenGRPC(ctx, sockPath, srv)
+	}()
+
+	require.Eventually(t, func() bool {
+		select {
+		case err := <-errCh:
+			t.Fatalf("ListenGRPC returned early: %v", err)
+			return false
+		default:
+		}
+		info, err := os.Stat(sockPath)
+		if err != nil {
+			return false
+		}
+		return info.Mode().Perm() == 0600
+	}, 2*time.Second, 10*time.Millisecond, "socket should be owner-only")
+
+	cancel()
+	<-errCh
+}
+
+func TestListenGRPC_Bad_CannotCreateSocketDir(t *testing.T) {
+	baseDir := t.TempDir()
+	blocker := filepath.Join(baseDir, "blocked")
+	require.NoError(t, os.WriteFile(blocker, []byte("file-in-the-way"), 0644))
+
+	sockPath := filepath.Join(blocker, "core.sock")
+
+	medium := io.NewMockMedium()
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	defer st.Close()
+
+	srv := NewServer(medium, st)
+
+	err = ListenGRPC(context.Background(), sockPath, srv)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a directory")
+}
+
+func TestListenGRPC_Bad_SocketDirSymlink(t *testing.T) {
+	baseDir := t.TempDir()
+	targetDir := filepath.Join(baseDir, "target")
+	linkDir := filepath.Join(baseDir, "link")
+	require.NoError(t, os.MkdirAll(targetDir, 0755))
+	if err := os.Symlink(targetDir, linkDir); err != nil {
+		t.Skipf("symlinks are not available: %v", err)
+	}
+
+	medium := io.NewMockMedium()
+	st, err := store.New(":memory:")
+	require.NoError(t, err)
+	defer st.Close()
+
+	srv := NewServer(medium, st)
+
+	err = ListenGRPC(context.Background(), filepath.Join(linkDir, "core.sock"), srv)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "symlink")
 }

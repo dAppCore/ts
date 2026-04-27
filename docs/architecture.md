@@ -101,7 +101,7 @@ type Server struct {
 | `StoreGet` | Reserved namespace (`_` prefix blocked) | Get a key-value pair |
 | `StoreSet` | Reserved namespace (`_` prefix blocked) | Set a key-value pair |
 | `ProcessStart` | `CheckRun(cmd, manifest.Run)` | Start a subprocess |
-| `ProcessStop` | None (by process ID) | Stop a subprocess |
+| `ProcessStop` | `module_code` required and ownership checked | Stop a subprocess |
 
 Store groups prefixed with `_` (e.g. `_coredeno`, `_modules`) are reserved for internal use and blocked from module access.
 
@@ -254,6 +254,25 @@ Must be imported before `@grpc/grpc-js`. Patches three Deno 2.x Node.js compatib
 1. `http2.getDefaultSettings` is not implemented -- provides a stub
 2. Already-connected Unix sockets never emit `connect`, causing http2 session hangs -- intercepts `net.connect` to create fresh sockets
 3. Deno's http2 client never fires `remoteSettings` -- emits it synthetically after `connect`
+
+## Browser Runtime Package
+
+The browser-side CoreTS library lives in `src/` and is exported from `src/mod.ts`. It is separate from the Deno sidecar runtime under `runtime/`.
+
+The browser package provides:
+
+- `events.ts` -- event bus primitives shared by the browser runtime
+- `result.ts` -- `ok` / `err` result helpers
+- `options.ts` -- shared runtime options shape
+- `i18n.ts` -- stable translation helpers (`_`, `T`, `S`)
+- `components.ts` -- Web Component base classes and registration helpers
+- `layout.ts` -- `core-layout` HLCRF Web Component with nested slot parsing
+- `wasm.ts` -- go-html WASM loading helpers
+- `router.ts` -- hash router with `core://` scheme handling
+- `storage.ts` -- storage, cookie, cache, bucket, and OPFS polyfills
+- `electron.ts` -- Electron compatibility shim and `require()` proxy
+
+These modules are designed for injection into a WebView before page JavaScript runs, which keeps browser runtime behaviour aligned with the RFC's CoreGUI integration model.
 
 ## Module Manifest
 

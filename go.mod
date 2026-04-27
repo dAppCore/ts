@@ -1,18 +1,20 @@
-module forge.lthn.ai/core/ts
+module dappco.re/go/core/ts
 
 go 1.26.0
 
 require (
-	forge.lthn.ai/core/go v0.3.1
-	forge.lthn.ai/core/go-io v0.1.5
-	forge.lthn.ai/core/go-scm v0.3.4
+	dappco.re/go/core v0.5.0
+	dappco.re/go/core/io v0.2.0
+	dappco.re/go/core/scm v0.4.0
 	github.com/stretchr/testify v1.11.1
-	google.golang.org/grpc v1.79.2
+	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 )
 
+require forge.lthn.ai/core/go-log v0.0.4 // indirect
+
 require (
-	forge.lthn.ai/core/go-log v0.0.4 // indirect
+	dappco.re/go/core/log v0.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -30,5 +32,5 @@ require (
 	modernc.org/libc v1.70.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.46.2 // indirect
+	modernc.org/sqlite v1.47.0 // indirect
 )

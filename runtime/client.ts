@@ -1,8 +1,7 @@
 // CoreService gRPC client — Deno calls Go for I/O operations.
 // All filesystem, store, and process operations route through this client.
 
-import * as grpc from "@grpc/grpc-js";
-import * as protoLoader from "@grpc/proto-loader";
+import { grpc, protoLoader } from "./grpc.ts";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,7 +14,7 @@ function getProto(): any {
   if (!packageDef) {
     packageDef = protoLoader.loadSync(PROTO_PATH, {
       keepCase: true,
-      longs: String,
+      longs: Number,
       enums: String,
       defaults: true,
       oneofs: true,
@@ -26,14 +25,38 @@ function getProto(): any {
 
 export interface CoreClient {
   raw: any;
-  storeGet(group: string, key: string): Promise<{ value: string; found: boolean }>;
-  storeSet(group: string, key: string, value: string): Promise<{ ok: boolean }>;
+  ping(): Promise<{ ok: boolean }>;
+  localeGet(locale: string): Promise<{ found: boolean; content: string }>;
+  storeGet(
+    group: string,
+    key: string,
+    moduleCode?: string,
+  ): Promise<{ value: string; found: boolean }>;
+  storeSet(
+    group: string,
+    key: string,
+    value: string,
+    moduleCode?: string,
+  ): Promise<{ ok: boolean }>;
   fileRead(path: string, moduleCode: string): Promise<{ content: string }>;
-  fileWrite(path: string, content: string, moduleCode: string): Promise<{ ok: boolean }>;
-  fileList(path: string, moduleCode: string): Promise<{ entries: Array<{ name: string; is_dir: boolean; size: number }> }>;
+  fileWrite(
+    path: string,
+    content: string,
+    moduleCode: string,
+  ): Promise<{ ok: boolean }>;
+  fileList(
+    path: string,
+    moduleCode: string,
+  ): Promise<
+    { entries: Array<{ name: string; is_dir: boolean; size: number }> }
+  >;
   fileDelete(path: string, moduleCode: string): Promise<{ ok: boolean }>;
-  processStart(command: string, args: string[], moduleCode: string): Promise<{ process_id: string }>;
-  processStop(processId: string): Promise<{ ok: boolean }>;
+  processStart(
+    command: string,
+    args: string[],
+    moduleCode: string,
+  ): Promise<{ process_id: string }>;
+  processStop(processId: string, moduleCode: string): Promise<{ ok: boolean }>;
   close(): void;
 }
 
@@ -49,19 +72,36 @@ function promisify<T>(client: any, method: string, request: any): Promise<T> {
 export function createCoreClient(socketPath: string): CoreClient {
   const proto = getProto();
   const client = new proto.CoreService(
-    `unix:${socketPath}`,
+    `unix://${socketPath}`,
     grpc.credentials.createInsecure(),
   );
 
   return {
     raw: client,
 
-    storeGet(group: string, key: string) {
-      return promisify(client, "StoreGet", { group, key });
+    ping() {
+      return promisify(client, "Ping", {});
     },
 
-    storeSet(group: string, key: string, value: string) {
-      return promisify(client, "StoreSet", { group, key, value });
+    localeGet(locale: string) {
+      return promisify(client, "LocaleGet", { locale });
+    },
+
+    storeGet(group: string, key: string, moduleCode = "") {
+      return promisify(client, "StoreGet", {
+        group,
+        key,
+        module_code: moduleCode,
+      });
+    },
+
+    storeSet(group: string, key: string, value: string, moduleCode = "") {
+      return promisify(client, "StoreSet", {
+        group,
+        key,
+        value,
+        module_code: moduleCode,
+      });
     },
 
     fileRead(path: string, moduleCode: string) {
@@ -69,7 +109,11 @@ export function createCoreClient(socketPath: string): CoreClient {
     },
 
     fileWrite(path: string, content: string, moduleCode: string) {
-      return promisify(client, "FileWrite", { path, content, module_code: moduleCode });
+      return promisify(client, "FileWrite", {
+        path,
+        content,
+        module_code: moduleCode,
+      });
     },
 
     fileList(path: string, moduleCode: string) {
@@ -81,11 +125,18 @@ export function createCoreClient(socketPath: string): CoreClient {
     },
 
     processStart(command: string, args: string[], moduleCode: string) {
-      return promisify(client, "ProcessStart", { command, args, module_code: moduleCode });
+      return promisify(client, "ProcessStart", {
+        command,
+        args,
+        module_code: moduleCode,
+      });
     },
 
-    processStop(processId: string) {
-      return promisify(client, "ProcessStop", { process_id: processId });
+    processStop(processId: string, moduleCode: string) {
+      return promisify(client, "ProcessStop", {
+        process_id: processId,
+        module_code: moduleCode,
+      });
     },
 
     close() {

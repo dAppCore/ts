@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"forge.lthn.ai/core/go-scm/marketplace"
-	core "forge.lthn.ai/core/go/pkg/core"
-	pb "forge.lthn.ai/core/ts/proto"
+	core "dappco.re/go/core"
+	"dappco.re/go/core/scm/marketplace"
+	pb "dappco.re/go/core/ts/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -51,6 +51,24 @@ func testModulePath(t *testing.T) string {
 	return abs
 }
 
+// fileOpsModulePath returns the absolute path to runtime/testdata/file-ops-module.ts.
+func fileOpsModulePath(t *testing.T) string {
+	t.Helper()
+	abs, err := filepath.Abs("runtime/testdata/file-ops-module.ts")
+	require.NoError(t, err)
+	require.FileExists(t, abs)
+	return abs
+}
+
+// localeModulePath returns the absolute path to runtime/testdata/locale-module.ts.
+func localeModulePath(t *testing.T) string {
+	t.Helper()
+	abs, err := filepath.Abs("runtime/testdata/locale-module.ts")
+	require.NoError(t, err)
+	require.FileExists(t, abs)
+	return abs
+}
+
 func TestIntegration_FullBoot_Good(t *testing.T) {
 	denoPath := findDeno(t)
 
@@ -78,8 +96,7 @@ permissions:
 		SidecarArgs: []string{"run", "-A", entryPoint},
 	}
 
-	c, err := core.New()
-	require.NoError(t, err)
+	c := core.New()
 
 	factory := NewServiceFactory(opts)
 	result, err := factory(c)
@@ -157,8 +174,7 @@ permissions:
 		SidecarArgs:    []string{"run", "-A", "--unstable-worker-options", entryPoint},
 	}
 
-	c, err := core.New()
-	require.NoError(t, err)
+	c := core.New()
 
 	factory := NewServiceFactory(opts)
 	result, err := factory(c)
@@ -190,7 +206,7 @@ permissions:
 
 	// Test Go → Deno: LoadModule with real Worker
 	modPath := testModulePath(t)
-	loadResp, err := svc.DenoClient().LoadModule("test-module", modPath, ModulePermissions{
+	loadResp, err := svc.LoadModule("test-module", modPath, ModulePermissions{
 		Read: []string{filepath.Dir(modPath) + "/"},
 	})
 	require.NoError(t, err)
@@ -217,7 +233,7 @@ permissions:
 	require.NoError(t, err)
 	assert.Equal(t, "STOPPED", statusResp2.Status)
 
-	// Verify CoreService gRPC still works (Deno wrote health check data)
+	// Verify CoreService health ping works end to end.
 	conn, err := grpc.NewClient(
 		"unix://"+sockPath,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -226,14 +242,97 @@ permissions:
 	defer conn.Close()
 
 	coreClient := pb.NewCoreServiceClient(conn)
-	getResp, err := coreClient.StoreGet(ctx, &pb.StoreGetRequest{
-		Group: "_coredeno", Key: "status",
-	})
+	pingResp, err := coreClient.Ping(ctx, &pb.PingRequest{})
 	require.NoError(t, err)
-	assert.True(t, getResp.Found)
-	assert.Equal(t, "connected", getResp.Value, "Deno should have written health check")
+	assert.True(t, pingResp.Ok)
 
 	// Clean shutdown
+	err = svc.OnShutdown(context.Background())
+	assert.NoError(t, err)
+	assert.False(t, svc.sidecar.IsRunning(), "Deno sidecar should be stopped")
+}
+
+func TestIntegration_Tier2_LocaleBridge_Good(t *testing.T) {
+	denoPath := findDeno(t)
+
+	tmpDir := t.TempDir()
+	sockPath := filepath.Join(tmpDir, "core.sock")
+	denoSockPath := filepath.Join(tmpDir, "deno.sock")
+
+	// Write a manifest and shared locale file.
+	coreDir := filepath.Join(tmpDir, ".core")
+	require.NoError(t, os.MkdirAll(coreDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(coreDir, "view.yml"), []byte(`
+code: locale-test
+name: Locale Test
+version: "1.0"
+permissions:
+  read: ["./data/"]
+`), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(coreDir, "locales"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(coreDir, "locales", "en.json"), []byte(`{"hello":"world"}`), 0644))
+
+	entryPoint := runtimeEntryPoint(t)
+	modPath := localeModulePath(t)
+
+	opts := Options{
+		DenoPath:       denoPath,
+		SocketPath:     sockPath,
+		DenoSocketPath: denoSockPath,
+		AppRoot:        tmpDir,
+		StoreDBPath:    ":memory:",
+		SidecarArgs:    []string{"run", "-A", "--unstable-worker-options", entryPoint},
+	}
+
+	c := core.New()
+
+	factory := NewServiceFactory(opts)
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err = svc.OnStartup(ctx)
+	require.NoError(t, err)
+
+	loadResp, err := svc.LoadModule("locale-mod", modPath, ModulePermissions{
+		Read: []string{filepath.Dir(modPath) + "/"},
+	})
+	require.NoError(t, err)
+	assert.True(t, loadResp.Ok)
+
+	require.Eventually(t, func() bool {
+		resp, err := svc.DenoClient().ModuleStatus("locale-mod")
+		return err == nil && resp.Status == "RUNNING"
+	}, 10*time.Second, 100*time.Millisecond, "module should be RUNNING")
+
+	conn, err := grpc.NewClient(
+		"unix://"+sockPath,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	coreClient := pb.NewCoreServiceClient(conn)
+	require.Eventually(t, func() bool {
+		foundResp, foundErr := coreClient.StoreGet(ctx, &pb.StoreGetRequest{
+			Group: "locale-mod", Key: "found",
+		})
+		contentResp, contentErr := coreClient.StoreGet(ctx, &pb.StoreGetRequest{
+			Group: "locale-mod", Key: "content",
+		})
+		return foundErr == nil && contentErr == nil &&
+			foundResp.Found && contentResp.Found &&
+			foundResp.Value == "true" &&
+			contentResp.Value == `{"hello":"world"}`
+	}, 5*time.Second, 100*time.Millisecond, "module should read shared locale content")
+
+	unloadResp, err := svc.DenoClient().UnloadModule("locale-mod")
+	require.NoError(t, err)
+	assert.True(t, unloadResp.Ok)
+
 	err = svc.OnShutdown(context.Background())
 	assert.NoError(t, err)
 	assert.False(t, svc.sidecar.IsRunning(), "Deno sidecar should be stopped")
@@ -269,8 +368,7 @@ permissions:
 		SidecarArgs:    []string{"run", "-A", "--unstable-worker-options", entryPoint},
 	}
 
-	c, err := core.New()
-	require.NoError(t, err)
+	c := core.New()
 
 	factory := NewServiceFactory(opts)
 	result, err := factory(c)
@@ -292,7 +390,7 @@ permissions:
 	require.NotNil(t, svc.DenoClient(), "DenoClient should be connected")
 
 	// Load a real module — it writes to store via I/O bridge
-	loadResp, err := svc.DenoClient().LoadModule("test-mod", modPath, ModulePermissions{
+	loadResp, err := svc.LoadModule("test-mod", modPath, ModulePermissions{
 		Read: []string{filepath.Dir(modPath) + "/"},
 	})
 	require.NoError(t, err)
@@ -336,6 +434,194 @@ permissions:
 	err = svc.OnShutdown(context.Background())
 	assert.NoError(t, err)
 	assert.False(t, svc.sidecar.IsRunning(), "Deno sidecar should be stopped")
+}
+
+func TestIntegration_Tier3_FileBridge_Good(t *testing.T) {
+	denoPath := findDeno(t)
+
+	tmpDir := t.TempDir()
+	sockPath := filepath.Join(tmpDir, "core.sock")
+	denoSockPath := filepath.Join(tmpDir, "deno.sock")
+	dataDir := filepath.Join(tmpDir, "sandbox")
+
+	require.NoError(t, os.MkdirAll(dataDir, 0755))
+
+	coreDir := filepath.Join(tmpDir, ".core")
+	require.NoError(t, os.MkdirAll(coreDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(coreDir, "view.yml"), []byte(`
+code: tier3-file-test
+name: Tier 3 File Bridge Test
+version: "1.0"
+permissions:
+  read: ["./sandbox/"]
+  write: ["./sandbox/"]
+`), 0644))
+
+	entryPoint := runtimeEntryPoint(t)
+	modPath := fileOpsModulePath(t)
+
+	opts := Options{
+		DenoPath:       denoPath,
+		SocketPath:     sockPath,
+		DenoSocketPath: denoSockPath,
+		AppRoot:        tmpDir,
+		StoreDBPath:    ":memory:",
+		SidecarArgs:    []string{"run", "-A", "--unstable-worker-options", entryPoint},
+	}
+
+	c := core.New()
+
+	factory := NewServiceFactory(opts)
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err = svc.OnStartup(ctx)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		_, err := os.Stat(denoSockPath)
+		return err == nil
+	}, 10*time.Second, 50*time.Millisecond, "deno socket should appear")
+
+	loadResp, err := svc.LoadModule("file-mod", modPath, ModulePermissions{
+		Read:  []string{"./sandbox/"},
+		Write: []string{"./sandbox/"},
+	})
+	require.NoError(t, err)
+	assert.True(t, loadResp.Ok)
+
+	require.Eventually(t, func() bool {
+		resp, err := svc.ModuleStatus("file-mod")
+		return err == nil && resp.Status == "RUNNING"
+	}, 10*time.Second, 100*time.Millisecond, "module should be RUNNING")
+
+	conn, err := grpc.NewClient(
+		"unix://"+sockPath,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	coreClient := pb.NewCoreServiceClient(conn)
+	require.Eventually(t, func() bool {
+		listing, listErr := coreClient.StoreGet(ctx, &pb.StoreGetRequest{
+			Group: "file-mod", Key: "listing",
+		})
+		content, contentErr := coreClient.StoreGet(ctx, &pb.StoreGetRequest{
+			Group: "file-mod", Key: "content",
+		})
+		deleted, deletedErr := coreClient.StoreGet(ctx, &pb.StoreGetRequest{
+			Group: "file-mod", Key: "deleted",
+		})
+		return listErr == nil && contentErr == nil && deletedErr == nil &&
+			listing.Found && content.Found && deleted.Found &&
+			listing.Value == "demo.txt" &&
+			content.Value == "hello from module" &&
+			deleted.Value == "yes"
+	}, 5*time.Second, 100*time.Millisecond, "module should complete file bridge operations")
+
+	_, err = os.Stat(filepath.Join(dataDir, "demo.txt"))
+	require.Error(t, err)
+	assert.True(t, os.IsNotExist(err), "module should delete its sandbox file")
+
+	unloadResp, err := svc.UnloadModule("file-mod")
+	require.NoError(t, err)
+	assert.True(t, unloadResp.Ok)
+
+	err = svc.OnShutdown(context.Background())
+	assert.NoError(t, err)
+}
+
+func TestIntegration_Tier3_SidecarRestart_Good(t *testing.T) {
+	denoPath := findDeno(t)
+
+	tmpDir := t.TempDir()
+	sockPath := filepath.Join(tmpDir, "core.sock")
+	denoSockPath := filepath.Join(tmpDir, "deno.sock")
+
+	coreDir := filepath.Join(tmpDir, ".core")
+	require.NoError(t, os.MkdirAll(coreDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(coreDir, "view.yml"), []byte(`
+code: tier3-restart-test
+name: Tier 3 Restart Test
+version: "1.0"
+permissions:
+  read: ["./data/"]
+`), 0644))
+
+	entryPoint := runtimeEntryPoint(t)
+	modPath := testModulePath(t)
+
+	opts := Options{
+		DenoPath:       denoPath,
+		SocketPath:     sockPath,
+		DenoSocketPath: denoSockPath,
+		AppRoot:        tmpDir,
+		StoreDBPath:    ":memory:",
+		SidecarArgs:    []string{"run", "-A", "--unstable-worker-options", entryPoint},
+	}
+
+	c := core.New()
+
+	factory := NewServiceFactory(opts)
+	result, err := factory(c)
+	require.NoError(t, err)
+	svc := result.(*Service)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	err = svc.OnStartup(ctx)
+	require.NoError(t, err)
+
+	loadResp, err := svc.LoadModule("restart-mod", modPath, ModulePermissions{
+		Read: []string{filepath.Dir(modPath) + "/"},
+	})
+	require.NoError(t, err)
+	require.True(t, loadResp.Ok)
+
+	require.Eventually(t, func() bool {
+		resp, err := svc.ModuleStatus("restart-mod")
+		return err == nil && resp.Status == "RUNNING"
+	}, 10*time.Second, 100*time.Millisecond, "module should be RUNNING before restart")
+
+	svc.sidecar.mu.RLock()
+	require.NotNil(t, svc.sidecar.cmd)
+	require.NotNil(t, svc.sidecar.cmd.Process)
+	initialPID := svc.sidecar.cmd.Process.Pid
+	process := svc.sidecar.cmd.Process
+	svc.sidecar.mu.RUnlock()
+
+	require.NoError(t, process.Kill())
+
+	require.Eventually(t, func() bool {
+		svc.sidecar.mu.RLock()
+		cmd := svc.sidecar.cmd
+		restartedPID := 0
+		if cmd != nil && cmd.Process != nil {
+			restartedPID = cmd.Process.Pid
+		}
+		svc.sidecar.mu.RUnlock()
+
+		if restartedPID == 0 || restartedPID == initialPID {
+			return false
+		}
+
+		client := svc.DenoClient()
+		if client == nil || client.Ping() != nil {
+			return false
+		}
+
+		resp, err := svc.ModuleStatus("restart-mod")
+		return err == nil && resp.Status == "RUNNING"
+	}, 15*time.Second, 200*time.Millisecond, "sidecar should restart and reload modules")
+
+	err = svc.OnShutdown(context.Background())
+	require.NoError(t, err)
 }
 
 // createModuleRepo creates a git repo containing a test module with manifest + main.ts.
@@ -404,8 +690,7 @@ permissions:
 		SidecarArgs:    []string{"run", "-A", "--unstable-worker-options", entryPoint},
 	}
 
-	c, err := core.New()
-	require.NoError(t, err)
+	c := core.New()
 
 	factory := NewServiceFactory(opts)
 	result, err := factory(c)
@@ -448,7 +733,7 @@ permissions:
 
 	// Load the installed module into the Deno runtime
 	mod := installed[0]
-	loadResp, err := svc.DenoClient().LoadModule(mod.Code, mod.EntryPoint, ModulePermissions{
+	loadResp, err := svc.LoadModule(mod.Code, mod.EntryPoint, ModulePermissions{
 		Read: mod.Permissions.Read,
 	})
 	require.NoError(t, err)
