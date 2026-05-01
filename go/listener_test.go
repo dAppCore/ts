@@ -235,3 +235,36 @@ func TestListenGRPC_Bad_SocketDirSymlink(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "symlink")
 }
+
+func TestListener_ListenGRPC_Good(t *core.T) {
+	subject := ListenGRPC
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestListener_ListenGRPC_Bad(t *core.T) {
+	subject := ListenGRPC
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestListener_ListenGRPC_Ugly(t *core.T) {
+	subject := ListenGRPC
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}

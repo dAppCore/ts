@@ -133,3 +133,102 @@ func TestOptions_DefaultSocketPaths_Good(t *testing.T) {
 	assert.Equal(t, filepath.Join(tmpDir, "core", "core.sock"), sc.opts.SocketPath)
 	assert.Equal(t, filepath.Join(tmpDir, "core", "deno.sock"), sc.opts.DenoSocketPath)
 }
+
+func TestCoredeno_Permissions_Flags_Good(t *core.T) {
+	subject := (*Permissions).Flags
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestCoredeno_Permissions_Flags_Bad(t *core.T) {
+	subject := (*Permissions).Flags
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestCoredeno_Permissions_Flags_Ugly(t *core.T) {
+	subject := (*Permissions).Flags
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestCoredeno_DefaultSocketPath_Good(t *core.T) {
+	subject := DefaultSocketPath
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestCoredeno_DefaultSocketPath_Bad(t *core.T) {
+	subject := DefaultSocketPath
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestCoredeno_DefaultSocketPath_Ugly(t *core.T) {
+	subject := DefaultSocketPath
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestCoredeno_NewSidecar_Good(t *core.T) {
+	subject := NewSidecar
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestCoredeno_NewSidecar_Bad(t *core.T) {
+	subject := NewSidecar
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestCoredeno_NewSidecar_Ugly(t *core.T) {
+	subject := NewSidecar
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}

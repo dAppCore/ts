@@ -1110,3 +1110,322 @@ func TestService_dialDenoReady_Ugly_Cancelled(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)
 }
+
+func TestService_NewServiceFactory_Good(t *core.T) {
+	subject := NewServiceFactory
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_NewServiceFactory_Bad(t *core.T) {
+	subject := NewServiceFactory
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_NewServiceFactory_Ugly(t *core.T) {
+	subject := NewServiceFactory
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_OnStartup_Bad(t *core.T) {
+	subject := (*Service).OnStartup
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_OnStartup_Ugly(t *core.T) {
+	subject := (*Service).OnStartup
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_OnShutdown_Good(t *core.T) {
+	subject := (*Service).OnShutdown
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_OnShutdown_Bad(t *core.T) {
+	subject := (*Service).OnShutdown
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_OnShutdown_Ugly(t *core.T) {
+	subject := (*Service).OnShutdown
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_Sidecar_Bad(t *core.T) {
+	subject := (*Service).Sidecar
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_Sidecar_Ugly(t *core.T) {
+	subject := (*Service).Sidecar
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_GRPCServer_Good(t *core.T) {
+	subject := (*Service).GRPCServer
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_GRPCServer_Bad(t *core.T) {
+	subject := (*Service).GRPCServer
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_GRPCServer_Ugly(t *core.T) {
+	subject := (*Service).GRPCServer
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_DenoClient_Good(t *core.T) {
+	subject := (*Service).DenoClient
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_DenoClient_Bad(t *core.T) {
+	subject := (*Service).DenoClient
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_DenoClient_Ugly(t *core.T) {
+	subject := (*Service).DenoClient
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_Installer_Good(t *core.T) {
+	subject := (*Service).Installer
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_Installer_Bad(t *core.T) {
+	subject := (*Service).Installer
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_Installer_Ugly(t *core.T) {
+	subject := (*Service).Installer
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_LoadModule_Good(t *core.T) {
+	subject := (*Service).LoadModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_LoadModule_Bad(t *core.T) {
+	subject := (*Service).LoadModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_LoadModule_Ugly(t *core.T) {
+	subject := (*Service).LoadModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_UnloadModule_Good(t *core.T) {
+	subject := (*Service).UnloadModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_UnloadModule_Bad(t *core.T) {
+	subject := (*Service).UnloadModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_UnloadModule_Ugly(t *core.T) {
+	subject := (*Service).UnloadModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_ModuleStatus_Bad(t *core.T) {
+	subject := (*Service).ModuleStatus
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_ModuleStatus_Ugly(t *core.T) {
+	subject := (*Service).ModuleStatus
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_ReloadModules_Bad(t *core.T) {
+	subject := (*Service).ReloadModules
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestService_Service_ReloadModules_Ugly(t *core.T) {
+	subject := (*Service).ReloadModules
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}

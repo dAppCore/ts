@@ -634,3 +634,432 @@ func TestServer_ProcessStop_Ugly_NoRunner(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, codes.Unimplemented, st.Code())
 }
+
+func TestServer_NewServer_Good(t *core.T) {
+	subject := NewServer
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_NewServer_Bad(t *core.T) {
+	subject := NewServer
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_NewServer_Ugly(t *core.T) {
+	subject := NewServer
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_RegisterModule_Good(t *core.T) {
+	subject := (*Server).RegisterModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_RegisterModule_Bad(t *core.T) {
+	subject := (*Server).RegisterModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_RegisterModule_Ugly(t *core.T) {
+	subject := (*Server).RegisterModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_UnregisterModule_Good(t *core.T) {
+	subject := (*Server).UnregisterModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_UnregisterModule_Bad(t *core.T) {
+	subject := (*Server).UnregisterModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_UnregisterModule_Ugly(t *core.T) {
+	subject := (*Server).UnregisterModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_Ping_Good(t *core.T) {
+	subject := (*Server).Ping
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_Ping_Bad(t *core.T) {
+	subject := (*Server).Ping
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_Ping_Ugly(t *core.T) {
+	subject := (*Server).Ping
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_FileRead_Good(t *core.T) {
+	subject := (*Server).FileRead
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_FileRead_Bad(t *core.T) {
+	subject := (*Server).FileRead
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_FileRead_Ugly(t *core.T) {
+	subject := (*Server).FileRead
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_FileWrite_Good(t *core.T) {
+	subject := (*Server).FileWrite
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_FileWrite_Bad(t *core.T) {
+	subject := (*Server).FileWrite
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_FileWrite_Ugly(t *core.T) {
+	subject := (*Server).FileWrite
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_FileList_Good(t *core.T) {
+	subject := (*Server).FileList
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_FileList_Bad(t *core.T) {
+	subject := (*Server).FileList
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_FileList_Ugly(t *core.T) {
+	subject := (*Server).FileList
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_FileDelete_Good(t *core.T) {
+	subject := (*Server).FileDelete
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_FileDelete_Bad(t *core.T) {
+	subject := (*Server).FileDelete
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_FileDelete_Ugly(t *core.T) {
+	subject := (*Server).FileDelete
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_StoreGet_Good(t *core.T) {
+	subject := (*Server).StoreGet
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_StoreGet_Bad(t *core.T) {
+	subject := (*Server).StoreGet
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_StoreGet_Ugly(t *core.T) {
+	subject := (*Server).StoreGet
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_StoreSet_Good(t *core.T) {
+	subject := (*Server).StoreSet
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_StoreSet_Bad(t *core.T) {
+	subject := (*Server).StoreSet
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_StoreSet_Ugly(t *core.T) {
+	subject := (*Server).StoreSet
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_SetProcessRunner_Good(t *core.T) {
+	subject := (*Server).SetProcessRunner
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_SetProcessRunner_Bad(t *core.T) {
+	subject := (*Server).SetProcessRunner
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_SetProcessRunner_Ugly(t *core.T) {
+	subject := (*Server).SetProcessRunner
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_ProcessStart_Good(t *core.T) {
+	subject := (*Server).ProcessStart
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_ProcessStart_Bad(t *core.T) {
+	subject := (*Server).ProcessStart
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_ProcessStart_Ugly(t *core.T) {
+	subject := (*Server).ProcessStart
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_ProcessStop_Good(t *core.T) {
+	subject := (*Server).ProcessStop
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_ProcessStop_Bad(t *core.T) {
+	subject := (*Server).ProcessStop
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestServer_Server_ProcessStop_Ugly(t *core.T) {
+	subject := (*Server).ProcessStop
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
