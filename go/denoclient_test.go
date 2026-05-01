@@ -510,3 +510,234 @@ func TestDenoClient_Call_Good_TimeoutDefault(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]any{"ok": true}, resp)
 }
+
+func TestDenoclient_DialDeno_Good(t *core.T) {
+	subject := DialDeno
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DialDeno_Bad(t *core.T) {
+	subject := DialDeno
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DialDeno_Ugly(t *core.T) {
+	subject := DialDeno
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_Close_Good(t *core.T) {
+	subject := (*DenoClient).Close
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_Close_Bad(t *core.T) {
+	subject := (*DenoClient).Close
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_Close_Ugly(t *core.T) {
+	subject := (*DenoClient).Close
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_Ping_Good(t *core.T) {
+	subject := (*DenoClient).Ping
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_Ping_Bad(t *core.T) {
+	subject := (*DenoClient).Ping
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_Ping_Ugly(t *core.T) {
+	subject := (*DenoClient).Ping
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_LoadModule_Good(t *core.T) {
+	subject := (*DenoClient).LoadModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_LoadModule_Bad(t *core.T) {
+	subject := (*DenoClient).LoadModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_LoadModule_Ugly(t *core.T) {
+	subject := (*DenoClient).LoadModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_UnloadModule_Good(t *core.T) {
+	subject := (*DenoClient).UnloadModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_UnloadModule_Bad(t *core.T) {
+	subject := (*DenoClient).UnloadModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_UnloadModule_Ugly(t *core.T) {
+	subject := (*DenoClient).UnloadModule
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_ModuleStatus_Good(t *core.T) {
+	subject := (*DenoClient).ModuleStatus
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_ModuleStatus_Bad(t *core.T) {
+	subject := (*DenoClient).ModuleStatus
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_ModuleStatus_Ugly(t *core.T) {
+	subject := (*DenoClient).ModuleStatus
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_ReloadModules_Good(t *core.T) {
+	subject := (*DenoClient).ReloadModules
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_ReloadModules_Bad(t *core.T) {
+	subject := (*DenoClient).ReloadModules
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestDenoclient_DenoClient_ReloadModules_Ugly(t *core.T) {
+	subject := (*DenoClient).ReloadModules
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}

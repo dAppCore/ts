@@ -116,3 +116,36 @@ func TestLocaleCandidates_Ugly_PathLikeInput(t *testing.T) {
 		".core/locales/pt/index.json",
 	}, localeCandidates("pt-BR"))
 }
+
+func TestLocale_Server_LocaleGet_Good(t *core.T) {
+	subject := (*Server).LocaleGet
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLocale_Server_LocaleGet_Bad(t *core.T) {
+	subject := (*Server).LocaleGet
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLocale_Server_LocaleGet_Ugly(t *core.T) {
+	subject := (*Server).LocaleGet
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}

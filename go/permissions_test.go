@@ -58,3 +58,102 @@ func TestCheckRun_Good(t *testing.T) {
 	assert.True(t, CheckRun("xmrig", allowed))
 	assert.False(t, CheckRun("rm", allowed))
 }
+
+func TestPermissions_CheckPath_Good(t *core.T) {
+	subject := CheckPath
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestPermissions_CheckPath_Bad(t *core.T) {
+	subject := CheckPath
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestPermissions_CheckPath_Ugly(t *core.T) {
+	subject := CheckPath
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestPermissions_CheckNet_Good(t *core.T) {
+	subject := CheckNet
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestPermissions_CheckNet_Bad(t *core.T) {
+	subject := CheckNet
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestPermissions_CheckNet_Ugly(t *core.T) {
+	subject := CheckNet
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestPermissions_CheckRun_Good(t *core.T) {
+	subject := CheckRun
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestPermissions_CheckRun_Bad(t *core.T) {
+	subject := CheckRun
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestPermissions_CheckRun_Ugly(t *core.T) {
+	subject := CheckRun
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}

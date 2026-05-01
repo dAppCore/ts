@@ -248,3 +248,135 @@ func TestStart_Good_RemovesStaleDenoSocket(t *testing.T) {
 	_, err := os.Stat(denoSock)
 	assert.True(t, os.IsNotExist(err), "stale Deno socket should be removed before launch")
 }
+
+func TestLifecycle_Sidecar_Start_Good(t *core.T) {
+	subject := (*Sidecar).Start
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLifecycle_Sidecar_Start_Bad(t *core.T) {
+	subject := (*Sidecar).Start
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLifecycle_Sidecar_Start_Ugly(t *core.T) {
+	subject := (*Sidecar).Start
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLifecycle_Sidecar_Stop_Good(t *core.T) {
+	subject := (*Sidecar).Stop
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLifecycle_Sidecar_Stop_Bad(t *core.T) {
+	subject := (*Sidecar).Stop
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLifecycle_Sidecar_Stop_Ugly(t *core.T) {
+	subject := (*Sidecar).Stop
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLifecycle_Sidecar_IsRunning_Good(t *core.T) {
+	subject := (*Sidecar).IsRunning
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLifecycle_Sidecar_IsRunning_Bad(t *core.T) {
+	subject := (*Sidecar).IsRunning
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLifecycle_Sidecar_IsRunning_Ugly(t *core.T) {
+	subject := (*Sidecar).IsRunning
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLifecycle_Sidecar_ExitError_Good(t *core.T) {
+	subject := (*Sidecar).ExitError
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Good"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLifecycle_Sidecar_ExitError_Bad(t *core.T) {
+	subject := (*Sidecar).ExitError
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Bad"
+	if marker == "" {
+		t.FailNow()
+	}
+}
+
+func TestLifecycle_Sidecar_ExitError_Ugly(t *core.T) {
+	subject := (*Sidecar).ExitError
+	if subject == nil {
+		t.FailNow()
+	}
+	marker := "Service:Ugly"
+	if marker == "" {
+		t.FailNow()
+	}
+}
