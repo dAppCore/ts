@@ -1,0 +1,13 @@
+# .core/go.yaml — Go subtree marker for the Lethean canon.
+# Presence of .core/ + go/ marks this repo as a managed canonical repo.
+# Audit-sweep + dispatch tooling discover via this marker.
+version: 1
+
+project:
+  name: ts
+  type: go
+
+go:
+  module: dappco.re/go/ts
+  subtree: go
+  go_version: "1.26.0"
