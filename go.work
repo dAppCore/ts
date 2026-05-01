@@ -1,5 +1,9 @@
-go 1.26.2
+go 1.26.0
 
 use (
-	.
+	./go
+	./external/go
+	./external/go-io/go
+	./external/go-log/go
+	./external/go-scm/go
 )

@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	io "dappco.re/go/core/io"
-	"dappco.re/go/core/io/store"
-	pb "dappco.re/go/core/ts/proto"
+	io "dappco.re/go/io"
+	"dappco.re/go/io/store"
+	pb "dappco.re/go/ts/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"

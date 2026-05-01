@@ -11,8 +11,8 @@ import (
 	"time"
 
 	core "dappco.re/go/core"
-	"dappco.re/go/core/scm/marketplace"
-	pb "dappco.re/go/core/ts/proto"
+	"dappco.re/go/scm/marketplace"
+	pb "dappco.re/go/ts/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
