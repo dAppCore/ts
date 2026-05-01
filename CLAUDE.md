@@ -61,6 +61,7 @@ All Go code lives in a single `ts` package (no subpackages).
 - `router.ts` — Hash router with `core://` scheme handling
 - `i18n.ts` — Shared translation API (`_`, `T`, `S`)
 - `components.ts` — Web Component base classes
+- `layout.ts` — `core-layout` HLCRF Web Component
 - `wasm.ts` — go-html WASM loader
 - `events.ts` — Event bus helpers
 - `result.ts` — Result helpers

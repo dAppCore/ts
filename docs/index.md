@@ -62,7 +62,7 @@ On startup, the service will:
 | `runtime/polyfill.ts` | TypeScript | Patches for Deno 2.x http2/grpc-js compatibility issues |
 | `runtime/testdata/` | TypeScript | Test fixtures for integration tests |
 | `src/mod.ts` | TypeScript | Browser/runtime entry point that re-exports the client-side helpers |
-| `src/*.ts` | TypeScript | Browser runtime modules: i18n, components, events, router, storage, Electron shim, WASM loader, and shared result/options types |
+| `src/*.ts` | TypeScript | Browser runtime modules: i18n, components, HLCRF layout, events, router, storage, Electron shim, WASM loader, and shared result/options types |
 
 ## Go Source Files
 
