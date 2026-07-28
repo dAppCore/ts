@@ -71,6 +71,7 @@
     "@std/io": "jsr:@std/io@^0.225.3",
     "@std/path": "jsr:@std/path@^1.1.6",
     "@std/streams": "jsr:@std/streams@^1.1.1",
+    "@zip-js/zip-js": "jsr:@zip-js/zip-js@2.8.34",
     "webdav": "npm:webdav",
     "https://deno.land/std/node/util.ts": "node:util",
     "https://deno.land/std/node/events.ts": "node:events",
