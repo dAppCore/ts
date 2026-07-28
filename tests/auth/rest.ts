@@ -2,7 +2,7 @@ import { assertEquals, expect, superoak } from "../../deps-test.ts";
 
 import { OpenPGPService } from "src/mod/cryptography/openpgp/openpgp.ts";
 import { QuasiSalt } from "src/mod/cryptography/hash/quasi-salt.ts";
-import { LetheanAccount } from "../../src/accounts/user.ts";
+import { CoreAccount } from "../../src/accounts/user.ts";
 import { FileSystemService } from "src/mod/io/storage/client.service.ts";
 import { AppController } from "../../src/app.controller.ts";
 
@@ -17,7 +17,7 @@ Deno.test("POST /auth/login -- good", async () => {
   const request = await superoak(app);
 
   // make user OpenPGP keys for user test with password test
-  await LetheanAccount.create("test", "test");
+  await CoreAccount.create("test", "test");
   // create signed message to send to the server
   const auth = await OpenPGPService.sign(
     `{"id":"${QuasiSalt.hash("test")}"}`,
@@ -33,7 +33,7 @@ Deno.test("POST /auth/login -- good", async () => {
 
   // test auth works without a REST interface
   assertEquals(
-    await LetheanAccount.login(encryptedTest),
+    await CoreAccount.login(encryptedTest),
     QuasiSalt.hash("test"),
   );
 
@@ -58,7 +58,7 @@ Deno.test("POST /auth/login -- good", async () => {
 
 Deno.test("POST /auth/login -- bad", async () => {
   const request = await superoak(app);
-  await LetheanAccount.create("test", "test");
+  await CoreAccount.create("test", "test");
 
   // create signed message using the wrong private key for the requested user
   const auth = await OpenPGPService.sign(
@@ -75,7 +75,7 @@ Deno.test("POST /auth/login -- bad", async () => {
 
   // test auth fails without a REST interface
   assertEquals(
-    await LetheanAccount.login(encryptedTest),
+    await CoreAccount.login(encryptedTest),
     false,
   );
 

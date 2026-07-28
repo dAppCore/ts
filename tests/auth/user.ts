@@ -1,4 +1,4 @@
-import { LetheanAccount } from "../../src/accounts/user.ts";
+import { CoreAccount } from "../../src/accounts/user.ts";
 import { FileSystemService } from "src/mod/io/storage/client.service.ts";
 import { QuasiSalt } from "src/mod/cryptography/hash/quasi-salt.ts";
 import { OpenPGPService } from "src/mod/cryptography/openpgp/openpgp.ts";
@@ -9,9 +9,9 @@ import { assertEquals } from "../../deps-test.ts";
  * files should live in `$(pwd)/users/${QuasiSalt.hash("test")}.lthn.pub`
  * password for arnmoured OpenPGP files
  */
-Deno.test("LetheanAccount.create", async () => {
-  const key: any = await LetheanAccount.create("test", "test");
-  await LetheanAccount.create("test2", "test");
+Deno.test("CoreAccount.create", async () => {
+  const key: any = await CoreAccount.create("test", "test");
+  await CoreAccount.create("test2", "test");
 
   assertEquals(
     FileSystemService.isFile(`users/${QuasiSalt.hash("test")}.lthn.pub`),
@@ -30,7 +30,7 @@ Deno.test("LetheanAccount.create", async () => {
 /**
  * Perform a login programmatically, the process is best described in the Rest test case
  */
-Deno.test("LetheanAccount.login - Good", async () => {
+Deno.test("CoreAccount.login - Good", async () => {
   if (!FileSystemService.isFile("users/server.lthn.pub")) {
     await OpenPGPService.createServerKeyPair();
   }
@@ -47,7 +47,7 @@ Deno.test("LetheanAccount.login - Good", async () => {
   );
 
   assertEquals(
-    await LetheanAccount.login(encryptedTest),
+    await CoreAccount.login(encryptedTest),
     QuasiSalt.hash("test"),
   );
 });
@@ -56,7 +56,7 @@ Deno.test("LetheanAccount.login - Good", async () => {
  * this should fail from the message inside the encrypted payload being signed by the wrong key
  * than the hash requested
  */
-Deno.test("LetheanAccount.login - Bad Not signed by req user", async () => {
+Deno.test("CoreAccount.login - Bad Not signed by req user", async () => {
   if (!FileSystemService.isFile("users/server.lthn.pub")) {
     await OpenPGPService.createServerKeyPair();
   }
@@ -72,13 +72,13 @@ Deno.test("LetheanAccount.login - Bad Not signed by req user", async () => {
     auth2,
   );
 
-  assertEquals(await LetheanAccount.login(encryptedTest2), false);
+  assertEquals(await CoreAccount.login(encryptedTest2), false);
 });
 
 /**
  * fail because the system dosnt know this user
  */
-Deno.test("LetheanAccount.login - Bad Not known user", async () => {
+Deno.test("CoreAccount.login - Bad Not known user", async () => {
   if (!FileSystemService.isFile("users/server.lthn.pub")) {
     await OpenPGPService.createServerKeyPair();
   }
@@ -94,15 +94,15 @@ Deno.test("LetheanAccount.login - Bad Not known user", async () => {
     auth2,
   );
 
-  assertEquals(await LetheanAccount.login(encryptedTest2), false);
+  assertEquals(await CoreAccount.login(encryptedTest2), false);
 });
 
 /**
  * Clean up the test data (and test deleting)
  */
-Deno.test("LetheanAccount.delete", async () => {
-  await LetheanAccount.delete("test");
-  await LetheanAccount.delete("test2");
+Deno.test("CoreAccount.delete", async () => {
+  await CoreAccount.delete("test");
+  await CoreAccount.delete("test2");
 
   assertEquals(
     FileSystemService.isFile(`users/${QuasiSalt.hash("test")}.lthn.pub`),

@@ -3,7 +3,7 @@ import { Injectable, Logger } from "@danet/core";
 import { ensureDir } from "@std/fs";
 import {AppManagerConfig} from "./config.service.ts";
 import { ObjectService } from "../../config/object/object.service.ts";
-import {LetheanDownloadService} from "../../io/protocols/http/download/client.service.ts";
+import {CoreDownloadService} from "../../io/protocols/http/download/client.service.ts";
 import { ModIoFsLocalService } from "../../io/fs/local/service.ts";
 import {PluginConfig, PluginType} from "./pkg.interface.ts";
 
@@ -15,7 +15,7 @@ export class AppManagerInstaller {
   constructor(
     private configService: AppManagerConfig,
     private object: ObjectService,
-    private download: LetheanDownloadService,
+    private download: CoreDownloadService,
     private fileSystem: ModIoFsLocalService
   ) {
     this.log = new Logger("AppManagerInstaller");

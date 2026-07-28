@@ -15,7 +15,7 @@ import {DownloadDestination, DownloadedFile} from "./client.interface.ts";
  * Service to download files from the internet
  */
 @Injectable()
-export class LetheanDownloadService {
+export class CoreDownloadService {
   log: Logger;
 
   constructor(private fileService: ModIoFsLocalService, private emitter: EventEmitter) {

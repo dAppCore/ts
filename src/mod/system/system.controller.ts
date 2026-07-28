@@ -11,7 +11,7 @@ export class SystemController {
   constructor(private fileService: ModIoFsLocalService,
               private openpgp: OpenPGPService,
               private quasi: QuasiSaltService) {}
-  private logger: Logger = new Logger('LetheanServer');
+  private logger: Logger = new Logger('CoreServer');
   @Get("check")
   @ReturnedType(String)
   async checkServer(): Promise<string> {

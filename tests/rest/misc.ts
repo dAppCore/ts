@@ -1,7 +1,7 @@
 
 import { FileSystemService } from "src/mod/io/storage/client.service.ts";
 
-import { LetheanAccount } from "../../src/accounts/user.ts";
+import { CoreAccount } from "../../src/accounts/user.ts";
 import { OpenPGPService } from "src/mod/cryptography/openpgp/openpgp.ts";
 import { QuasiSalt } from "src/mod/cryptography/hash/quasi-salt.ts";
 import { Context } from "../../deps.ts";
@@ -27,7 +27,7 @@ const app = AppControl.app
 
   const authRequest = await superoak(app);
 
-  await LetheanAccount.create("test", "test");
+  await CoreAccount.create("test", "test");
   const auth = await OpenPGPService.sign(
     `{"id":"${QuasiSalt.hash("test")}"}`,
     QuasiSalt.hash("test"),
@@ -41,7 +41,7 @@ const app = AppControl.app
 
 
   assertEquals(
-    await LetheanAccount.login(encryptedTest),
+    await CoreAccount.login(encryptedTest),
     QuasiSalt.hash("test"),
   );
 

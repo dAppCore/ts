@@ -16,7 +16,7 @@
 //Deno.test("DockerService.createContainer", async () => {
 //  try {
 //    const docker = new DockerService();
-//    const container = await docker.createContainer("LetheanTest", { Image: "lthn/chain:latest" });
+//    const container = await docker.createContainer("CoreTest", { Image: "lthn/chain:latest" });
 //    console.log(container);
 //  } catch (e) {
 //

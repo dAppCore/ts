@@ -25,7 +25,7 @@ import { EventEmitter, OnWebSocketMessage, WebSocket, WebSocketController } from
  * framework's router instead of parsing frames by hand.
  */
 @WebSocketController("/ws")
-export class LetheanWebSocketController {
+export class CoreWebSocketController {
   constructor(private readonly emitter: EventEmitter) {}
 
   /**

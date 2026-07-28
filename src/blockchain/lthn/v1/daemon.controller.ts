@@ -4,7 +4,7 @@ import {ProcessService} from "../../../mod/process/process.service.ts";
 import {ApiProperty, ReturnedType, Tag} from "@danet/swagger/decorators";
 import {ModIoFsLocalService} from "../../../mod/io/fs/local/service.ts";
 import {ServerResponse} from "../../../interfaces/http.ts";
-import { LetheanDownloadService } from "../../../mod/io/protocols/http/download/client.service.ts";
+import { CoreDownloadService } from "../../../mod/io/protocols/http/download/client.service.ts";
 import * as path from "@std/path";
 import {IniService} from "../../../mod/config/ini/ini.service.ts";
 export class BlockchainLetheanDaemonStartDTO {
@@ -40,9 +40,9 @@ export class BlockchainLTHNV1DaemonController {
 
     constructor(private process: ProcessService,
                 private fileSystem: ModIoFsLocalService,
-                private download: LetheanDownloadService,
+                private download: CoreDownloadService,
                 private ini: IniService) {
-        this.log = new Logger('LetheanDaemonController');
+        this.log = new Logger('CoreDaemonController');
     }
 
     @Get('')

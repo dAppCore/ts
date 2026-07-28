@@ -1,5 +1,5 @@
 import { Module } from "@danet/core";
-import { LetheanWebSocketController } from "./websocket.controller.ts";
+import { CoreWebSocketController } from "./websocket.controller.ts";
 
 /**
  * The realtime socket, kept in its own module so it can be registered after the
@@ -17,6 +17,6 @@ import { LetheanWebSocketController } from "./websocket.controller.ts";
  * and a working socket.
  */
 @Module({
-  controllers: [LetheanWebSocketController],
+  controllers: [CoreWebSocketController],
 })
 export class WebSocketModule {}
