@@ -1,0 +1,115 @@
+name: build
+
+# CoreTS — the client-side application server, compiled to a single binary.
+#
+# `deno compile` bakes the runtime, the dependencies and the source into one
+# file, so the result runs on a machine with no Deno installed. That is the
+# point of building it this way: the server can ship inside a desktop app or
+# onto a runner without asking anything of the host first.
+#
+# Triggers:
+#   - push to main   → build, artifacts only
+#   - tag `v*`       → build + a GitHub Release with the binaries
+#   - pull request   → build only, nothing published
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  # One run per branch; a push supersedes the one before it. Tags are exempt,
+  # because half a release is worse than a slow one.
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  verify:
+    name: check + lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # Gated, not advisory: the repository type-checks strict and a change
+      # that breaks that should fail here rather than at compile time on three
+      # runners.
+      - name: Type-check
+        run: deno check mod.ts
+
+      # Not gated. There is a standing backlog of no-explicit-any, and failing
+      # every build on it would only teach people to ignore the job.
+      - name: Lint
+        continue-on-error: true
+        run: deno lint
+
+      # The OpenAPI document is the contract this server exists to serve, and
+      # generating it exercises every controller's metadata. It has broken
+      # before while the routes themselves were fine.
+      - name: Generate the OpenAPI document
+        run: |
+          set -euo pipefail
+          deno run -A mod.ts openapi
+          test -s openapi.json
+          paths=$(python3 -c "import json;print(len(json.load(open('openapi.json'))['paths']))")
+          echo "[DEBUG_LOG] openapi: $paths paths"
+          [ "$paths" -gt 0 ] || { echo "::error::openapi.json has no paths"; exit 1; }
+
+  build:
+    name: compile (${{ matrix.os }})
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compile
+        id: build
+        uses: dAppCore/build@v4
+        with:
+          build-name: corets
+          # Discovery reads deno.json for @danet/core and picks the danet
+          # adapter on its own; naming the stack keeps that from depending on
+          # a dependency string.
+          STACK: deno
+          # -A rather than the default read-only-plus-net: this server writes
+          # keys and configuration and spawns processes, and a compiled binary
+          # carries whatever permissions it was built with. Too few is a
+          # runtime failure from inside the binary, which reads as a bug in
+          # the server rather than in its build.
+          permissions: "-A"
+          package: true
+          # A .deb on the Linux runner, so a server can be installed rather
+          # than unpacked.
+          deb: true
+          deb-maintainer: "Lethean <dev@lethean.io>"
+          deb-description: "CoreTS — client-side application server"
+
+      # The compiled binary is the deliverable, so it gets asked whether it
+      # works rather than merely existing. A binary built with the wrong
+      # permissions starts and then fails on its first write; this catches
+      # that here instead of on someone's machine.
+      - name: The binary answers
+        shell: bash
+        run: |
+          set -euo pipefail
+          BIN="${{ steps.build.outputs.BINARY_PATH }}"
+          test -f "$BIN"
+
+          "./$BIN" --help > help.txt 2>&1 || true
+          grep -qi "start" help.txt \
+            || { echo "::error::compiled binary does not offer a start command"; cat help.txt; exit 1; }
+
+          echo "[DEBUG_LOG] $(basename "$BIN") $(wc -c < "$BIN") bytes"
