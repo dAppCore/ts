@@ -1,12 +1,11 @@
 import { decompress } from "https://deno.land/x/zip/mod.ts";
-import { Untar } from "https://deno.land/x/std/archive/mod.ts";
-import { copy, readerFromStreamReader } from "https://deno.land/x/std/streams/mod.ts";
-import  * as path from "https://deno.land/x/std/path/mod.ts";
-import { Injectable, Logger } from "https://deno.land/x/danet/mod.ts";
-import { ensureDir, ensureDirSync } from "https://deno.land/x/std/fs/mod.ts"
+import { Untar } from "@std/archive";
+import { copy, readerFromStreamReader } from "@std/io";
+import  * as path from "@std/path";
+import { EventEmitter, Injectable, Logger } from "@danet/core";
+import { ensureDir, ensureDirSync } from "@std/fs"
 import { ModIoFsLocalService } from "../../../fs/local/service.ts";
 import {DownloadDestination, DownloadedFile} from "./client.interface.ts";
-import {ZeroMQServerService} from "../../websocket/zeromq/server.service.ts";
 
 
 
@@ -19,7 +18,7 @@ import {ZeroMQServerService} from "../../websocket/zeromq/server.service.ts";
 export class LetheanDownloadService {
   log: Logger;
 
-  constructor(private fileService: ModIoFsLocalService) {
+  constructor(private fileService: ModIoFsLocalService, private emitter: EventEmitter) {
     this.log = new Logger("DownloadService");
   }
   /**
@@ -103,7 +102,7 @@ export class LetheanDownloadService {
     let total = 0;
     for await (const chunk of response.body!) {
       total += chunk.byteLength;
-      ZeroMQServerService.sendPubMessage(
+      this.emitter.emit(
         "download",
         JSON.stringify({
           file: file,
@@ -171,23 +170,25 @@ export class LetheanDownloadService {
       }
       reader.close();
     } else if (fullPath.endsWith(".tar.bz2")) {
-      const process = await Deno.run({
-        cmd: Deno.build.os === "windows"
-          ? [
-            "PowerShell",
-            "Expand-Archive",
-            "-Path",
-            fullPath,
-            "-DestinationPath",
-            dir,
-          ]
-          : ["tar", "xjC", dir, "-f", fullPath],
+      // Deno.run went in Deno 2. Deno.Command takes the binary apart from its
+      // arguments, and output() waits for exit rather than needing a separate
+      // status() and close().
+      const [bin, ...args] = Deno.build.os === "windows"
+        ? [
+          "PowerShell",
+          "Expand-Archive",
+          "-Path",
+          fullPath,
+          "-DestinationPath",
+          dir,
+        ]
+        : ["tar", "xjC", dir, "-f", fullPath];
+
+      const status = await new Deno.Command(bin, {
+        args,
         stdout: "inherit",
         stderr: "inherit",
-      });
-
-      const status = await process.status();
-      await process.close();
+      }).output();
       console.log(status);
     }
 

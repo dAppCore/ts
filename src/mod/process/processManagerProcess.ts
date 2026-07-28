@@ -1,93 +1,89 @@
 import { ProcessManagerRequest } from "./process.interface.ts";
-import { readLines } from "https://deno.land/std@0.220.0/io/mod.ts";
-import { EventEmitterModule, EventEmitter } from 'https://deno.land/x/danet/mod.ts'
-const eventEmitter = new EventEmitter()
-/**
- * Interacts with the external binary directly handling its stdIn, stdOut, stdErr
- * its a async event emitter that mimicks NodeJs's event emitter
- */
-export class ProcessManagerProcess  {
-  private request;
+import { TextLineStream } from "@std/streams";
+import { EventEmitter } from "@danet/core";
 
-  public process: any;
+/**
+ * Interacts with the external binary directly, handling its stdIn, stdOut and
+ * stdErr, and publishing each output line as an event.
+ *
+ * Migrated from Deno.run, removed in Deno 2, to Deno.Command. The two differ
+ * in more than name: Deno.run took the binary and its arguments as one `cmd`
+ * array, Deno.Command takes the binary separately; and the child's streams are
+ * now web ReadableStreams rather than readers, so lines come off a
+ * TextDecoderStream piped into TextLineStream instead of std's readLines,
+ * which no longer exists.
+ */
+export class ProcessManagerProcess {
+  private request: ProcessManagerRequest;
+
+  public process: Deno.ChildProcess | undefined;
 
   /**
-   * @param {ProcessManagerRequest} request
+   * @param request what to run, and which of its streams to capture
+   * @param emitter the application's emitter. Passed in rather than
+   *   constructed here: this module used to hold its own `new EventEmitter()`
+   *   at module scope, so everything it published went to an instance nothing
+   *   else held, and no subscriber ever heard a line.
    */
-  constructor(request: ProcessManagerRequest) {
-
+  constructor(request: ProcessManagerRequest, private emitter: EventEmitter) {
     this.request = request;
   }
 
   /**
-   * Starts the src
+   * Starts the process and pumps its output until it ends.
    */
-  public async run() {
-    const processArgs: any = {
-      cmd: this.request.command,
-    };
-
-    // check if we have a stdIn
-    if (this.request.stdIn) {
-      processArgs["stdin"] = "piped";
-    }
-    // check if we have a stdOut
-    if (this.request.stdOut) {
-      processArgs["stdout"] = "piped";
-    }
-    // check if we have a stdIn
-    if (this.request.stdErr) {
-      processArgs["stderr"] = "piped";
-    }
-    console.log(processArgs);
+  public async run(): Promise<Deno.ChildProcess | undefined> {
+    // Deno.run took ["bin", "arg", ...]; Deno.Command wants them apart.
+    const [bin, ...args] = Array.isArray(this.request.command)
+      ? this.request.command
+      : [this.request.command];
 
     try {
-      const process = Deno.run(processArgs);
-      // const sock = new Sub();
-      const that = this;
-      // sock.connect("ws://127.0.0.1:36910/pub");
-      // await sock.subscribe(`${this.request.key}-stdIn`);
-      // console.log(`Subscribed to ${this.request.key}-stdIn/pub`);
-      // sock.on("message", function (endpoint, topic, message) {
-      //   if (topic.toString() === `${that.request.key}-stdIn`) {
-      //     //console.log(that.src);
-      //     if (process.stdin) {
-      //       that.request.stdOut(message.toString());
-      //       process.stdin.write(message);
-      //     }
-      //   }
-      // });
-      if (this.request.stdOut) {
-        //@ts-ignore
-        for await (const line of readLines(process.stdout)) {
-          if (line.trim()) {
-            console.log(line.toString());
-            eventEmitter.emit("stdout", line);
-            // that.request.stdOut();
-            //  ZeroMQServerService.sendPubMessage(that.request.key, line);
-            // super.emit("stdout", line);
-          }
-        }
+      const command = new Deno.Command(bin, {
+        args,
+        stdin: this.request.stdIn ? "piped" : "null",
+        stdout: this.request.stdOut ? "piped" : "null",
+        stderr: this.request.stdErr ? "piped" : "null",
+      });
+
+      const process = command.spawn();
+      this.process = process;
+
+      // Both pumps run without awaiting: stderr would otherwise not be read
+      // until stdout closed, and a child that fills its stderr pipe while
+      // writing to stdout would deadlock.
+      if (this.request.stdOut && process.stdout) {
+        this.pump(process.stdout, "stdout");
+      }
+      if (this.request.stdErr && process.stderr) {
+        this.pump(process.stderr, "stderr");
       }
 
-      if (this.request.stdErr) {
-        //@ts-ignore
-        for await (const line of readLines(process.stderr)) {
-          if (line.trim()) {
-            console.error(line.toString());
-            eventEmitter.emit("stderr", line);
-            // that.request.stdErr(line.toString());
-            //  ZeroMQServerService.sendPubMessage(that.request.key, line);
-            //super.emit("stderr", line);
-          }
-        }
-      }
-
-      //  super.emit("end", 0);
       return process;
-    } catch (e) {
-      console.log(e);
-      //e.preventDefault();
+    } catch (error) {
+      console.error(`failed to start ${bin}:`, error);
+      return undefined;
+    }
+  }
+
+  /**
+   * Reads a child stream line by line and publishes each one.
+   *
+   * Events carry the process key, so a subscriber can ask for one daemon's
+   * output rather than filtering everything. The websocket controller
+   * subscribes to `daemon.<key>`.
+   */
+  private async pump(stream: ReadableStream<Uint8Array>, channel: "stdout" | "stderr") {
+    const lines = stream
+      .pipeThrough(new TextDecoderStream())
+      .pipeThrough(new TextLineStream());
+
+    for await (const line of lines) {
+      if (!line.trim()) {
+        continue;
+      }
+      this.emitter.emit(`daemon.${this.request.key}`, line);
+      this.emitter.emit(`daemon.${this.request.key}.${channel}`, line);
     }
   }
 }

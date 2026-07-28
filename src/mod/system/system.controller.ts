@@ -1,5 +1,5 @@
-import { Get, Controller, Logger } from "https://deno.land/x/danet/mod.ts";
-import { Tag } from "https://deno.land/x/danet_swagger/decorators.ts";
+import { Get, Controller, Logger } from "@danet/core";
+import { Tag, ReturnedType } from "@danet/swagger/decorators";
 import {ModIoFsLocalService} from "../io/fs/local/service.ts";
 import {OpenPGPService} from "../cryptography/openpgp/openpgp.service.ts";
 import {QuasiSaltService} from "../cryptography/hash/quasi-salt.service.ts";
@@ -13,6 +13,7 @@ export class SystemController {
               private quasi: QuasiSaltService) {}
   private logger: Logger = new Logger('LetheanServer');
   @Get("check")
+  @ReturnedType(String)
   async checkServer(): Promise<string> {
     try {
 

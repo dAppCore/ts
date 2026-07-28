@@ -1,6 +1,6 @@
 import {
     OnEvent
-} from "https://deno.land/x/danet/mod.ts";
+} from "@danet/core";
 
 export class ProcessListener {
 

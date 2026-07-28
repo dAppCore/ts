@@ -1,7 +1,7 @@
 import { AppManager } from "./manager.service.ts";
 import { AppManagerConfig } from "../pkg/config.service.ts";
-import { Body, Controller, Get, Query, Post, Logger } from "https://deno.land/x/danet/mod.ts";
-import { Tag, ReturnedType } from "https://deno.land/x/danet_swagger/decorators.ts";
+import { Body, Controller, Get, Query, Post, Logger } from "@danet/core";
+import { Tag, ReturnedType } from "@danet/swagger/decorators";
 import { ServerResponse } from "../../../interfaces/http.ts";
 import { HTTP_STATUS } from "../../../interfaces/status-codes.ts";
 

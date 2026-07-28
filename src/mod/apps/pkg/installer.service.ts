@@ -1,6 +1,6 @@
-import * as path from "https://deno.land/std/path/mod.ts";
-import { Injectable, Logger } from "https://deno.land/x/danet/mod.ts";
-import { ensureDir } from "https://deno.land/std/fs/mod.ts";
+import * as path from "@std/path";
+import { Injectable, Logger } from "@danet/core";
+import { ensureDir } from "@std/fs";
 import {AppManagerConfig} from "./config.service.ts";
 import { ObjectService } from "../../config/object/object.service.ts";
 import {LetheanDownloadService} from "../../io/protocols/http/download/client.service.ts";

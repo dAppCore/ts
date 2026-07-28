@@ -1,6 +1,6 @@
 
 //import {S3Client} from "s3Client"
- import { Injectable } from "https://deno.land/x/danet/mod.ts";
+ import { Injectable } from "@danet/core";
 import {S3Client} from "https://deno.land/x/s3_lite_client/mod.ts";
 
 @Injectable()

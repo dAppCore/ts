@@ -1,7 +1,5 @@
-import { Controller, Get, Res } from "https://deno.land/x/danet/mod.ts";
-import { Tag } from "https://deno.land/x/danet_swagger/decorators.ts";
-import { ZeroMQServerService } from "./mod/io/protocols/websocket/zeromq/server.service.ts";
-import { LetheanWebsocketServer } from "./mod/io/protocols/websocket/websocket.server.ts";
+import { Controller, Get, Res } from "@danet/core";
+import { Tag } from "@danet/swagger/decorators";
 import {ModIoFsLocalService} from "./mod/io/fs/local/service.ts";
 
 /**
@@ -12,9 +10,6 @@ import {ModIoFsLocalService} from "./mod/io/fs/local/service.ts";
 export class BaseController {
 
   constructor(private fs: ModIoFsLocalService) {
-    ZeroMQServerService.startServer();
-    LetheanWebsocketServer.startServer();
-
   }
   @Tag("Info")
   @Get("/h")

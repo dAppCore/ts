@@ -1,4 +1,4 @@
-import { ApiProperty } from "https://deno.land/x/danet_swagger/decorators.ts";
+import { ApiProperty } from "@danet/swagger/decorators";
 
 export interface ProcessManagerRequest {
   key: string;

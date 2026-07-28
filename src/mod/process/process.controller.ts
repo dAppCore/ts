@@ -1,9 +1,9 @@
-import { Controller, Post, Body, Param, WebSocket } from "https://deno.land/x/danet/mod.ts";
-import { WebSocketController } from "https://deno.land/x/danet/src/router/websocket/decorator.ts";
-import { Tag } from "https://deno.land/x/danet_swagger/decorators.ts";
+import { Controller, Post, Body, Param, WebSocket } from "@danet/core";
+import { WebSocketController } from "@danet/core";
+import { Tag, ReturnedType } from "@danet/swagger/decorators";
 import { ProcessService } from "./process.service.ts";
 import { ProcessAddDTO, ProcessKillDTO, ProcessRunDTO, ProcessStartDTO, ProcessStopDTO } from "./process.interface.ts";
-import {OnWebSocketMessage} from "https://deno.land/x/danet@2.3.0/src/router/websocket/decorator.ts";
+import {OnWebSocketMessage} from "@danet/core";
 
 @Tag( "Process" )
 @Controller("process" )
@@ -16,6 +16,7 @@ export class ProcessController  {
    * @returns {ProcessManagerProcess | Promise<void>}
    */
   @Post("run")
+  @ReturnedType(Object)
   async runProcess(@Body() body: ProcessRunDTO) {
     const { code, stdout, stderr } = await this.process.run(body.command);
     return { code, out: new TextDecoder().decode(stdout), error: new TextDecoder().decode(stderr) };

@@ -1,4 +1,4 @@
-import {Injectable} from "https://deno.land/x/danet/mod.ts";
+import {Injectable} from "@danet/core";
 import Docker from "https://deno.land/x/docker_deno/mod.ts";
 import { type ContainerCreate } from "https://deno.land/x/docker_deno/mod.ts";
 

@@ -1,5 +1,5 @@
 
-import { Injectable, Logger } from "https://deno.land/x/danet/mod.ts";
+import { Injectable, Logger } from "@danet/core";
 import {ObjectService} from "../../config/object/object.service.ts";
 import {ModIoFsLocalService} from "../../io/fs/local/service.ts";
 @Injectable()

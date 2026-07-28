@@ -1,4 +1,4 @@
-import { Injectable, DanetMiddleware , HttpContext, NextFunction, Logger} from "https://deno.land/x/danet/mod.ts";
+import { Injectable, DanetMiddleware , HttpContext, NextFunction, Logger} from "@danet/core";
 
 /**
  * Logger middleware, Please first in the middleware list

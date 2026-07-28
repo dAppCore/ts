@@ -1,4 +1,4 @@
-import { Module, EventEmitter, EventEmitterModule } from "https://deno.land/x/danet/mod.ts";
+import { Module, EventEmitter, EventEmitterModule } from "@danet/core";
 import { BaseController } from "./app.controller.ts";
 import { IOModule } from "./mod/io/io.module.ts";
 import { SystemController } from "./mod/system/system.controller.ts";

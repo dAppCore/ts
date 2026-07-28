@@ -1,9 +1,10 @@
 import {AppModule} from './app.module.ts';
+import {WebSocketModule} from './mod/io/protocols/websocket/websocket.module.ts';
 import { bundle, transpile } from "https://deno.land/x/emit/mod.ts";
-import * as path from "https://deno.land/x/std/path/mod.ts";
-import {DanetApplication, Logger} from "https://deno.land/x/danet/mod.ts";
-import {SpecBuilder, SwaggerModule} from "https://deno.land/x/danet_swagger/mod.ts";
-import { expandGlob } from "https://deno.land/x/std/fs/expand_glob.ts";
+import * as path from "@std/path";
+import {DanetApplication, Logger} from "@danet/core";
+import {SpecBuilder, SwaggerModule} from "@danet/swagger";
+import { expandGlob } from "@std/fs/expand-glob";
 
 export const bootstrap = async () => {
     const application = new DanetApplication();
@@ -48,6 +49,11 @@ export const bootstrap = async () => {
         .build();
     const document = await SwaggerModule.createDocument(application, spec);
     await SwaggerModule.setup('api', application, document);
+
+    // After the document, deliberately. swagger walks every controller it is
+    // given as an HTTP one, and a websocket controller has no path or verb for
+    // it to read — see WebSocketModule.
+    await application.bootstrap(WebSocketModule);
 
     return application;
 }

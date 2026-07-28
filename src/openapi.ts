@@ -1,6 +1,6 @@
 import { AppModule } from "./app.module.ts";
-import { DanetApplication } from "https://deno.land/x/danet/mod.ts";
-import { SpecBuilder, SwaggerModule } from "https://deno.land/x/danet_swagger/mod.ts";
+import { DanetApplication } from "@danet/core";
+import { SpecBuilder, SwaggerModule } from "@danet/swagger";
 export const buildSpec = async () => {
   const application = new DanetApplication();
   // LoggerMiddleware must be the first middleware

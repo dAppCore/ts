@@ -1,6 +1,6 @@
-import  * as path from "https://deno.land/x/std/path/mod.ts";
-import { ensureDirSync } from "https://deno.land/x/std/fs/mod.ts"
-import { Injectable } from "https://deno.land/x/danet/mod.ts";
+import  * as path from "@std/path";
+import { ensureDirSync } from "@std/fs"
+import { Injectable } from "@danet/core";
 import DirEntry = Deno.DirEntry;
 
 /**

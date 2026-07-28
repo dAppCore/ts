@@ -1,4 +1,4 @@
-import { Injectable } from "https://deno.land/x/danet/mod.ts";
+import { Injectable } from "@danet/core";
 import { INIObject } from "./ini.interface.ts";
 
 // the user facing ini object

@@ -1,5 +1,6 @@
-import { crypto, toHashString, DigestAlgorithm } from "https://deno.land/x/std/crypto/mod.ts";
-import { Injectable } from "https://deno.land/x/danet/mod.ts";
+import { crypto, DigestAlgorithm } from "@std/crypto";
+import { encodeHex } from "@std/encoding/hex";
+import { Injectable } from "@danet/core";
 @Injectable()
 export class HashService {
 
@@ -8,6 +9,6 @@ export class HashService {
       algorithm,
       new TextEncoder().encode(input),
     );
-    return toHashString(hash);
+    return encodeHex(hash);
   }
 }

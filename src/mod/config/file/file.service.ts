@@ -1,6 +1,6 @@
 import { renderFile, render } from "https://deno.land/x/mustache/mod.ts";
-import  * as path from "https://deno.land/x/std/path/mod.ts";
-import { Injectable } from "https://deno.land/x/danet/mod.ts";
+import  * as path from "@std/path";
+import { Injectable } from "@danet/core";
 import {ModIoFsLocalService} from "../../io/fs/local/service.ts";
 
 @Injectable()

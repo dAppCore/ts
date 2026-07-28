@@ -1,6 +1,6 @@
-import * as openpgp from "../../../../lib/openpgp.mjs";
-import * as path from "https://deno.land/std/path/mod.ts";
-import { Injectable } from "https://deno.land/x/danet/mod.ts";
+import * as openpgp from "openpgp";
+import * as path from "@std/path";
+import { Injectable } from "@danet/core";
 import {ModIoFsLocalService} from "../../io/fs/local/service.ts";
 import {QuasiSaltService} from "../hash/quasi-salt.service.ts";
 
@@ -32,13 +32,15 @@ export class OpenPGPService {
     if (passphrase) {
       signingKey = await this.getPrivateKey(id, passphrase);
     }
+    // Armoured output over a non-stream message is a string; the WebStream
+    // arm of the union only applies to streamed input, which this is not.
     return await openpgp.encrypt({
       message: await openpgp.createMessage({
         text: data
       }),
       encryptionKeys: key,
       signingKeys: signingKey
-    });
+    }) as string;
   }
 
   /**
@@ -142,7 +144,7 @@ export class OpenPGPService {
   async readMessage(data: string) {
     return await openpgp.readMessage({
       armoredMessage: data
-    }) as openpgp.Message;
+    }) as openpgp.Message<string>;
   }
 
   async readSignedMessage(data: string) {
@@ -213,7 +215,9 @@ export class OpenPGPService {
       signingKeys: await this.getPrivateKey(privateKey, passphrase)
     };
 
-    return await openpgp.sign(options);
+    // Armoured output over a cleartext message is a string; the WebStream arm
+    // of openpgp's union only applies to streamed input, which this is not.
+    return await openpgp.sign(options) as string;
   }
 
   async verify(data: any, publicKey: string) {

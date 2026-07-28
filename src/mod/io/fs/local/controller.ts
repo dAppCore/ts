@@ -1,7 +1,7 @@
 import { ModIoFsLocalService } from "./service.ts";
 import { CreateFileDTO, FilePathCheckDTO, FilePathDTO } from "./interfaces.ts";
-import { ReturnedType, Tag } from "https://deno.land/x/danet_swagger/decorators.ts";
-import { Body, Controller, Post } from "https://deno.land/x/danet/mod.ts";
+import { ReturnedType, Tag } from "@danet/swagger/decorators";
+import { Body, Controller, Post } from "@danet/core";
 
 
 @Tag( "Input/Output" )

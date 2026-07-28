@@ -1,5 +1,5 @@
 import { type ContainerCreate } from "https://deno.land/x/docker_deno/mod.ts";
-import {ApiProperty} from "https://deno.land/x/danet_swagger/decorators.ts";
+import {ApiProperty} from "@danet/swagger/decorators";
 export interface ContainerCreateRequest {
     name: string;
     container: ContainerCreate;

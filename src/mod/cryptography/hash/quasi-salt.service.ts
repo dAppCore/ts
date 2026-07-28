@@ -1,5 +1,6 @@
-import { crypto, toHashString, } from "https://deno.land/x/std/crypto/mod.ts";
-import { Injectable } from "https://deno.land/x/danet/mod.ts";
+import { crypto } from "@std/crypto";
+import { encodeHex } from "@std/encoding/hex";
+import { Injectable } from "@danet/core";
 @Injectable()
 export class QuasiSaltService {
   constructor() {}
@@ -43,7 +44,7 @@ export class QuasiSaltService {
       "SHA-256",
       new TextEncoder().encode(input + this.createSalt(input)),
     );
-    return toHashString(hash);
+    return encodeHex(hash);
   }
 
   /**

@@ -1,4 +1,4 @@
-import { Module } from "https://deno.land/x/danet/mod.ts";
+import { Module } from "@danet/core";
 import {ObjectController} from "./object/object.controller.ts";
 import { FileController } from "./file/file.controller.ts";
 import {IniController} from "./ini/ini.controller.ts";

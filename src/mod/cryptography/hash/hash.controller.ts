@@ -1,5 +1,5 @@
-import { Body, Controller, Post } from "https://deno.land/x/danet/mod.ts";
-import { Tag } from "https://deno.land/x/danet_swagger/decorators.ts";
+import { Body, Controller, Post } from "@danet/core";
+import { Tag } from "@danet/swagger/decorators";
 import {QuasiSaltService} from "./quasi-salt.service.ts";
 import {HashService} from "./hash.service.ts";
 import {QuasiSaltHashDTO, QuasiSaltHashVerifyDTO} from "./quasi-salt.interface.ts";

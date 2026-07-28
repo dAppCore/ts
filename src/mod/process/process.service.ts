@@ -1,6 +1,6 @@
 import { ProcessManagerRequest } from "./process.interface.ts";
 import { ProcessManagerProcess } from "./processManagerProcess.ts";
-import { Injectable } from "https://deno.land/x/danet/mod.ts";
+import { EventEmitter, Injectable } from "@danet/core";
 
 /**
  * Lethean ProcessManager handles all aspects of running external binaries
@@ -17,6 +17,8 @@ import { Injectable } from "https://deno.land/x/danet/mod.ts";
  */
 @Injectable()
 export class ProcessService {
+  constructor(private emitter: EventEmitter) {}
+
   /**
    * Turns on console.log with 1 or 0
    *
@@ -149,7 +151,7 @@ export class ProcessService {
     if (ProcessService.process && ProcessService.process[process.key]) {
       return ProcessService.process[process.key];
     }
-    return ProcessService.process[process.key] = new ProcessManagerProcess(process);
+    return ProcessService.process[process.key] = new ProcessManagerProcess(process, this.emitter);
   }
 
   /**

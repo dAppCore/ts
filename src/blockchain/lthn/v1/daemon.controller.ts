@@ -1,11 +1,11 @@
-import {Body, Controller, Logger} from "https://deno.land/x/danet/mod.ts";
-import {Get, Post} from "https://deno.land/x/danet_swagger@2.0.0/deps.ts";
+import {Body, Controller, Logger} from "@danet/core";
+import {Get, Post} from "@danet/core";
 import {ProcessService} from "../../../mod/process/process.service.ts";
-import {ApiProperty, ReturnedType, Tag} from "https://deno.land/x/danet_swagger@2.0.0/decorators.ts";
+import {ApiProperty, ReturnedType, Tag} from "@danet/swagger/decorators";
 import {ModIoFsLocalService} from "../../../mod/io/fs/local/service.ts";
 import {ServerResponse} from "../../../interfaces/http.ts";
 import { LetheanDownloadService } from "../../../mod/io/protocols/http/download/client.service.ts";
-import * as path from "https://deno.land/x/std/path/mod.ts";
+import * as path from "@std/path";
 import {IniService} from "../../../mod/config/ini/ini.service.ts";
 export class BlockchainLetheanDaemonStartDTO {
     @ApiProperty()
@@ -46,6 +46,7 @@ export class BlockchainLTHNV1DaemonController {
     }
 
     @Get('')
+    @ReturnedType(Object)
     async getDaemonStatus() {
         return {
             status: "running"
@@ -56,6 +57,7 @@ export class BlockchainLTHNV1DaemonController {
      * @description Start the Lethean Blockchain Daemon
      */
     @Post()
+    @ReturnedType(Object)
     async start() {
         const { code } =  await this.process.start('apps/blockchain/lthn/bin/letheand' )
         return { code, msg: "Daemon started" }

@@ -1,7 +1,14 @@
-import  * as path from "https://deno.land/x/std/path/mod.ts";
+import  * as path from "@std/path";
 import { bootstrap } from "./src/bootstrap.ts";
 import { buildSpec } from "./src/openapi.ts";
-import { Command, HelpCommand, CompletionsCommand, UpgradeCommand, GithubProvider, DenoLandProvider } from "https://deno.land/x/cliffy/command/mod.ts";
+import { Command } from "@cliffy/command";
+// cliffy v1 splits what was one module into submodule exports; the names are
+// unchanged, only where they live.
+import { HelpCommand } from "@cliffy/command/help";
+import { CompletionsCommand } from "@cliffy/command/completions";
+import { UpgradeCommand } from "@cliffy/command/upgrade";
+import { GithubProvider } from "@cliffy/command/upgrade/provider/github";
+import { DenoLandProvider } from "@cliffy/command/upgrade/provider/deno-land";
 import packageFile from "./package.json" with { type: "json" };
 import {ModIoFsLocalService} from "./src/mod/io/fs/local/service.ts";
 const fs = new ModIoFsLocalService();

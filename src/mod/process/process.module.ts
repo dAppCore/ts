@@ -1,4 +1,4 @@
-import { Module, EventEmitterModule } from "https://deno.land/x/danet/mod.ts";
+import { Module, EventEmitterModule } from "@danet/core";
 import { ProcessController } from "./process.controller.ts";
 import { ProcessService } from "./process.service.ts";
 import {ProcessListener} from "./process.listener.ts";

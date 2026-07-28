@@ -1,4 +1,4 @@
-import { Injectable, DanetMiddleware , HttpContext, NextFunction} from "https://deno.land/x/danet/mod.ts";
+import { Injectable, DanetMiddleware , HttpContext, NextFunction} from "@danet/core";
 
 /**
  * Response time middleware, wraps the request in a timer and sets the X-Response-Time header

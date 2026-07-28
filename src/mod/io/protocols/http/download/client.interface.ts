@@ -1,4 +1,4 @@
-import { ApiProperty, Optional } from "https://deno.land/x/danet_swagger/decorators.ts";
+import { ApiProperty, Optional } from "@danet/swagger/decorators";
 
 export class DownloadDestination implements DownloadDestination{
   /**

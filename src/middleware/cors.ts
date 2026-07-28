@@ -1,4 +1,4 @@
-import {  DanetMiddleware, HttpContext, NextFunction, Injectable } from "https://deno.land/x/danet/mod.ts";
+import {  DanetMiddleware, HttpContext, NextFunction, Injectable } from "@danet/core";
 @Injectable()
 export class CorsMiddleware implements DanetMiddleware {
   async action(ctx: HttpContext, next: NextFunction) {

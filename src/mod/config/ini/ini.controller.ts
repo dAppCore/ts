@@ -1,6 +1,6 @@
 
-import { Body, Controller, Post } from "https://deno.land/x/danet/mod.ts";
-import { Tag } from "https://deno.land/x/danet_swagger/decorators.ts";
+import { Body, Controller, Post } from "@danet/core";
+import { Tag } from "@danet/swagger/decorators";
 import {IniService} from "./ini.service.ts";
 import {INIObjectParseJSONDTO} from "./ini.interface.ts";
 
