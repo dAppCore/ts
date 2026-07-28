@@ -84,6 +84,11 @@ jobs:
           # adapter on its own; naming the stack keeps that from depending on
           # a dependency string.
           STACK: deno
+          # Named, not probed. The build step probes run.ts, main.ts, mod.ts
+          # and so on, but only when nothing upstream supplies an entry — and
+          # the danet adapter always supplies run.ts, which is what the Danet
+          # CLI scaffolds. This server predates that convention.
+          entry: mod.ts
           # -A rather than the default read-only-plus-net: this server writes
           # keys and configuration and spawns processes, and a compiled binary
           # carries whatever permissions it was built with. Too few is a
