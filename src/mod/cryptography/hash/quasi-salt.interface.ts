@@ -2,12 +2,12 @@ import { ApiProperty } from "@danet/swagger/decorators";
 
 export class QuasiSaltHashDTO {
   @ApiProperty()
-  input: string;
+  input!: string;
 }
 
 export class QuasiSaltHashVerifyDTO {
   @ApiProperty()
-  input: string;
+  input!: string;
   @ApiProperty()
-  hash: string;
+  hash!: string;
 }

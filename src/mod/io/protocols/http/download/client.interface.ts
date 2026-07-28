@@ -5,12 +5,12 @@ export class DownloadDestination implements DownloadDestination{
    * The destination directory
    */
   @ApiProperty()
-  dir: string;
+  dir!: string;
   /**
    * The destination filename
    */
   @ApiProperty()
-  file: string;
+  file!: string;
   /**
    * The destination storage mode
    */
@@ -29,19 +29,19 @@ export class DownloadedFile {
   /**
    * The name of the storage
    */
-  file: string;
+  file!: string;
   /**
    * The path to the storage
    */
-  dir: string;
+  dir!: string;
   /**
    * The mode of the storage
    */
-  fullPath: string;
+  fullPath!: string;
   /**
    * The mode of the storage
    */
-  size: number;
+  size!: number;
 
   constructor(file: string, dir: string, fullPath: string, size: number) {
     this.file = file;
@@ -56,13 +56,13 @@ export class FileDownloadRequest {
    * The url to download
    */
   @ApiProperty()
-  url: string;
+  url!: string;
 
   @ApiProperty()
-  file: string;
+  file!: string;
 
   @ApiProperty()
-  dir: string;
+  dir!: string;
 
   @ApiProperty()
   @Optional()

@@ -9,7 +9,7 @@ import { HTTP_STATUS } from "../../../interfaces/status-codes.ts";
 @Tag("Apps")
 @Controller("apps")
 export class AppManagerController {
-  log: any;
+  log!: any;
 
   constructor(private apps: AppManager, private appConfig: AppManagerConfig) {
     this.log = new Logger("AppManagerController");
@@ -24,7 +24,7 @@ export class AppManagerController {
   @Get("marketplace")
   @ReturnedType(String)
   getMarketPlaceApps(@Query() q?: {dir?: string }) {
-    if (q.dir) {
+    if (q?.dir) {
       return this.apps.getMarketPlaceApps({ dir: q.dir });
     } else {
       return this.apps.getMarketPlaceApps();

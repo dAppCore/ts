@@ -18,10 +18,9 @@
     "test": "deno test -A tests"
   },
   "compilerOptions": {
-    "strict": false,
+    "strict": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "strictPropertyInitialization": false
+    "emitDecoratorMetadata": true
   },
   "lint": {
     "include": [

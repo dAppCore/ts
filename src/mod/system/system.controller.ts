@@ -75,7 +75,7 @@ export class SystemController {
 
 
     } catch (error) {
-      this.logger.error(error.toString());
+      this.logger.error(String(error));
       this.logger.error("[SECURITY] Failed to ensure safe environment, shutting down...");
       Deno.exit(1);
     }

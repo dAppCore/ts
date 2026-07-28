@@ -9,7 +9,7 @@ export class QuasiSaltService {
    * Holds the defult mapping swaps
    * @private
    */
-  private _keyMap = {
+  private _keyMap: Record<string, string> = {
     "o": "0",
     "l": "1",
     "e": "3",

@@ -4,8 +4,8 @@ import {ObjectService} from "../../config/object/object.service.ts";
 import {ModIoFsLocalService} from "../../io/fs/local/service.ts";
 @Injectable()
 export class AppManagerConfig {
-  apps: any;
-  log: Logger;
+  apps!: any;
+  log!: Logger;
 
   constructor(private object: ObjectService,
               private fileSystem: ModIoFsLocalService) {
@@ -24,7 +24,7 @@ export class AppManagerConfig {
       this.apps = JSON.parse(this.apps);
     } catch (e) {
       this.apps = {};
-      this.log.error(e);
+      this.log.error(String(e));
       if (!this.fileSystem.isFile("data/objects/conf/installed-apps.json")) {
         this.object.setObject( "conf", "installed-apps",  JSON.stringify(this.apps));
       } else {

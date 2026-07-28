@@ -17,8 +17,8 @@ export class AppManager {
       "https://raw.githubusercontent.com/letheanVPN/lthn-app-setup/main/lthn.json"
   };
   apps: { [key: string]: string | boolean } = {};
-  private config: AppManagerConfig;
-  log: any;
+  private config!: AppManagerConfig;
+  log!: any;
 
   /**
    * Init a plugin on the system
@@ -65,11 +65,17 @@ export class AppManager {
     if (!this.apps[name]) {
       this.apps[name] = pkg ? pkg : true;
     }
+    // install needs somewhere to install from; without a package reference
+    // there is nothing to fetch, which is a refusal rather than a crash.
+    if (!pkg) {
+      this.log.error(`No package reference for ${name}`);
+      return false;
+    }
     try {
       this.log.log(`Installing ${name}`);
       return await this.installer.install(name, pkg);
     } catch (e) {
-      this.log.error(e);
+      this.log.error(String(e));
       return false;
     }
   }
@@ -87,7 +93,7 @@ export class AppManager {
         this.configService.removeConfigKey(name);
         return true;
       } catch (e) {
-        this.log.error(e);
+        this.log.error(String(e));
       }
     }
     return false;
@@ -112,7 +118,7 @@ export class AppManager {
       try {
         return await postReq.json();
       } catch (e) {
-        this.log.error(e);
+        this.log.error(String(e));
         return false;
       }
 

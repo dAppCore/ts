@@ -5,7 +5,7 @@ import { S3Client } from "@bradenmacdonald/s3-lite-client";
 
 @Injectable()
 export class ModIoFsS3Service {
-    client: S3Client;
+    client!: S3Client;
 
     options: {
         connect:
@@ -39,7 +39,7 @@ export class ModIoFsS3Service {
         this.client = new S3Client(this.options.connect)
     }
 
-    async list(options) {
+    async list(options: { prefix?: string }) {
         const ret = []
         for await (const object of this.client.listObjects(options)) {
             ret.push(object)

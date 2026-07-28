@@ -1,4 +1,10 @@
 import Mustache from "mustache";
+
+// mustache ships a default export whose members do not survive Deno's npm
+// type resolution as callable. The signature used here is stated once.
+const render = (Mustache as unknown as {
+  render: (template: string, view: unknown) => string;
+}).render;
 import  * as path from "@std/path";
 import { Injectable } from "@danet/core";
 import {ModIoFsLocalService} from "../../io/fs/local/service.ts";
@@ -25,7 +31,7 @@ export class ConfigFileService {
     const template = this.fileSystem.read(
       path.join("conf", "templates", file),
     );
-    return Mustache.render(String(template ?? ""), modelArg);
+    return render(String(template ?? ""), modelArg);
   }
 
   /**
@@ -35,7 +41,7 @@ export class ConfigFileService {
    * @returns {Promise<any>}
    */
   public async renderTemplateString( template: string, model: any ) {
-    return Mustache.render(template, model);
+    return render(template, model);
   }
 
   /**

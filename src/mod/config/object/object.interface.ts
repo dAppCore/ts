@@ -2,33 +2,33 @@ import { ApiProperty } from "@danet/swagger/decorators";
 
 export class ConfigObjectGetDTO {
   @ApiProperty()
-  group: string;
+  group!: string;
   @ApiProperty()
-  object: string;
+  object!: string;
 }
 
 export class ConfigObjectSetDTO {
   @ApiProperty()
-  group: string;
+  group!: string;
   @ApiProperty()
-  object: string;
+  object!: string;
   @ApiProperty()
-  data: string;
+  data!: string;
 }
 
 export class ConfigObjectRemoveDTO {
   @ApiProperty()
-  group: string;
+  group!: string;
   @ApiProperty()
-  object: string;
+  object!: string;
 }
 
 export class ConfigObjectClearDTO {
   @ApiProperty()
-  group: string;
+  group!: string;
 }
 
 export class ConfigObjectCountDTO {
   @ApiProperty()
-  group: string;
+  group!: string;
 }

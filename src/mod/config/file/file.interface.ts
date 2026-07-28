@@ -3,26 +3,26 @@ import {ConfigObjectGetDTO} from "../object/object.interface.ts";
 
 export class ConfigFileRenderDTO {
   @ApiProperty()
-  file: string;
+  file!: string;
   @ApiProperty()
-  model: any;
+  model!: any;
 }
 
 export class ConfigFileRenderAndLoadDTO {
   @ApiProperty()
-  file: string;
+  file!: string;
   @ApiProperty()
-  model: ConfigObjectGetDTO;
+  model!: ConfigObjectGetDTO;
 }
 
 export class ConfigFileRenderStringDTO {
   @ApiProperty()
-  template: string;
+  template!: string;
   @ApiProperty()
-  model: any;
+  model!: any;
 }
 
 export class ConfigFileLoadDTO {
   @ApiProperty()
-  filename: string;
+  filename!: string;
 }

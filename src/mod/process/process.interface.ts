@@ -10,35 +10,35 @@ export interface ProcessManagerRequest {
 
 export class ProcessKillDTO {
   @ApiProperty()
-  key: string;
+  key!: string;
 }
 
 export class ProcessStopDTO {
   @ApiProperty()
-  key: string;
+  key!: string;
 }
 
 export class ProcessStartDTO {
   @ApiProperty()
-  key: string;
+  key!: string;
 }
 
 export class ProcessAddDTO implements ProcessManagerRequest {
   @ApiProperty()
-  key: string;
+  key!: string;
   @ApiProperty()
-  command: string;
+  command!: string;
   @ApiProperty()
-  stdOut: any;
+  stdOut!: any;
   @ApiProperty()
-  stdIn: any;
+  stdIn!: any;
   @ApiProperty()
-  stdErr: any;
+  stdErr!: any;
 }
 
 export class ProcessRunDTO {
   @ApiProperty()
-  command: string;
+  command!: string;
   @ApiProperty()
-  args: { [name: string]: any };
+  args!: { [name: string]: any };
 }

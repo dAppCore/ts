@@ -3,25 +3,25 @@ import { ApiProperty, Optional } from "@danet/swagger/decorators";
 
 export class OpenPGPCreateKeyPairDTO {
   @ApiProperty()
-  passphrase: string;
+  passphrase!: string;
   @ApiProperty()
-  name: string;
+  name!: string;
 }
 
 export class OpenPGPKeyPairDTO {
   @ApiProperty()
-  publicKey: string;
+  publicKey!: string;
   @ApiProperty()
-  privateKey: string;
+  privateKey!: string;
   @ApiProperty()
-  revocationCertificate: string;
+  revocationCertificate!: string;
 }
 
 export class OpenPGPEncryptBYIDDTO {
   @ApiProperty()
-  id: string;
+  id!: string;
   @ApiProperty()
-  message: string;
+  message!: string;
   @ApiProperty()
   @Optional()
   passphrase?: string;
@@ -29,11 +29,11 @@ export class OpenPGPEncryptBYIDDTO {
 
 export class OpenPGPDecryptBYIDDTO {
   @ApiProperty()
-  id: string;
+  id!: string;
   @ApiProperty()
-  message: string;
+  message!: string;
   @ApiProperty()
-  passphrase: string;
+  passphrase!: string;
   @ApiProperty()
   @Optional()
   signedBy?: string;
@@ -41,19 +41,19 @@ export class OpenPGPDecryptBYIDDTO {
 
 export class OpenPGPSignBYIDDTO {
   @ApiProperty()
-  id: string;
+  id!: string;
   @ApiProperty()
-  message: string;
+  message!: string;
   @ApiProperty()
-  passphrase: string;
+  passphrase!: string;
 }
 export class OpenPGPVerifyBYIDDTO {
   @ApiProperty()
-  id: string;
+  id!: string;
   @ApiProperty()
-  message: string;
+  message!: string;
 }
 export class OpenPGPGetPublicKeyDTO {
   @ApiProperty()
-  id: string;
+  id!: string;
 }

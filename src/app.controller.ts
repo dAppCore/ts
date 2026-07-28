@@ -13,7 +13,7 @@ export class BaseController {
   }
   @Tag("Info")
   @Get("/h")
-  welcomePage(@Res() res): string {
+  welcomePage(@Res() res: { headers: Headers }): string {
     const file = 'dappui/dist/dappui/browser/index.html'
     if(this.fs.isFile(file)){
         const html = this.fs.read(file);

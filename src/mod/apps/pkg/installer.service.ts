@@ -10,7 +10,7 @@ import {PluginConfig, PluginType} from "./pkg.interface.ts";
 @Injectable()
 export class AppManagerInstaller {
   public app: any = [];
-  log: any;
+  log!: any;
 
   constructor(
     private configService: AppManagerConfig,
@@ -183,7 +183,7 @@ export class AppManagerInstaller {
         }
         return this.object.setObject("conf", "menu", JSON.stringify(menu));
       } catch (e) {
-        this.log.error(e);
+        this.log.error(String(e));
       }
     } else {
       return this.object.setObject(
@@ -212,7 +212,7 @@ export class AppManagerInstaller {
         });
         return this.object.setObject("conf", menu, JSON.stringify(newMenu));
       } catch (e) {
-        this.log.error(e);
+        this.log.error(String(e));
         return false;
       }
     }

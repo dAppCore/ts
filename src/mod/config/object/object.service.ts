@@ -7,7 +7,7 @@ import { ModIoFsLocalService } from "../../io/fs/local/service.ts";
  */
 @Injectable()
 export class ObjectService {
-  log: Logger;
+  log!: Logger;
 
   constructor(private fileSystem: ModIoFsLocalService) {
     this.log = new Logger("ObjectService");
@@ -23,7 +23,7 @@ export class ObjectService {
     try {
       return this.fileSystem.read(path.join("data", "objects", group, object + ".json"))
     } catch (e) {
-      this.log.error(e);
+      this.log.error(String(e));
       return false;
     }
   }
@@ -39,7 +39,7 @@ export class ObjectService {
     try {
       return this.fileSystem.write(path.join("data", "objects", group, object + ".json"), data);
     } catch (e) {
-      this.log.error(e);
+      this.log.error(String(e));
       return false;
     }
   }
@@ -54,7 +54,7 @@ export class ObjectService {
     try {
       return this.fileSystem.delete(path.join("data", "objects", group, object + ".json"));
     } catch (e) {
-      this.log.error(e);
+      this.log.error(String(e));
       return false;
     }
   }
@@ -68,7 +68,7 @@ export class ObjectService {
     try {
       return this.fileSystem.delete(path.join("data", "objects", group), true);
     } catch (e) {
-      this.log.error(e);
+      this.log.error(String(e));
       return false;
     }
   }

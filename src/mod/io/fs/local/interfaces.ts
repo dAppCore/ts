@@ -15,7 +15,7 @@ export class CreateFileDTO {
 
 export class FilePathCheckDTO {
   @ApiProperty()
-  path: string;
+  path!: string;
   @ApiProperty()
-  result: boolean;
+  result!: boolean;
 }

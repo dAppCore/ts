@@ -16,7 +16,7 @@ import {DownloadDestination, DownloadedFile} from "./client.interface.ts";
  */
 @Injectable()
 export class CoreDownloadService {
-  log: Logger;
+  log!: Logger;
 
   constructor(private fileService: ModIoFsLocalService, private emitter: EventEmitter) {
     this.log = new Logger("DownloadService");

@@ -18,5 +18,5 @@ export interface INIObject {
 
 export class INIObjectParseJSONDTO {
   @ApiProperty()
-  data: string;
+  data!: string;
 }

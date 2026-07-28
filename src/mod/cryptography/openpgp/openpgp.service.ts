@@ -86,7 +86,7 @@ export class OpenPGPService {
         await data["signatures"][0].verified;
       }
     } catch (e) {
-      throw new Error("Signature could not be verified: " + e.message);
+      throw new Error("Signature could not be verified: " + String(e));
     }
 
     return data["data"];
