@@ -8,13 +8,12 @@
     "launch-server": "deno run -A mod.ts start",
     "dev-server": "deno run -A --watch mod.ts start",
     "build-openapi": "deno run -A mod.ts openapi",
-    "bundle": "deno bundle mod.ts bundle.js",
-    "compile": "deno bundle mod.ts bundle.js && deno compile -A --output build/dappserver bundle.js",
-    "compile-win": "deno bundle mod.ts bundle.js && deno compile -A --output build/dappserver.exe --target x86_64-pc-windows-msvc --no-terminal bundle.js",
-    "compile-lin": "deno bundle mod.ts bundle.js && deno compile -A --output build/dappserver --target x86_64-unknown-linux-gnu bundle.js",
-    "compile-lin-arm": "deno bundle mod.ts bundle.js && deno compile -A --output build/dappserver --target aarch64-unknown-linux-gnu bundle.js",
-    "compile-mac": "deno bundle mod.ts bundle.js && deno compile -A --output build/dappserver --target x86_64-apple-darwin bundle.js",
-    "compile-mac-m1": "deno bundle mod.ts bundle.js && deno compile -A --output build/dappserver --target aarch64-apple-darwin bundle.js",
+    "compile": "deno compile -A --output build/corets mod.ts",
+    "compile-win": "deno compile -A --target x86_64-pc-windows-msvc --no-terminal --output build/corets.exe mod.ts",
+    "compile-lin": "deno compile -A --target x86_64-unknown-linux-gnu --output build/corets mod.ts",
+    "compile-lin-arm": "deno compile -A --target aarch64-unknown-linux-gnu --output build/corets mod.ts",
+    "compile-mac": "deno compile -A --target x86_64-apple-darwin --output build/corets mod.ts",
+    "compile-mac-m1": "deno compile -A --target aarch64-apple-darwin --output build/corets mod.ts",
     "test": "deno test -A tests"
   },
   "compilerOptions": {
@@ -78,5 +77,6 @@
     "https://deno.land/std/node/assert.ts": "node:assert",
     "https://deno.land/std/node/url.ts": "node:url",
     "https://deno.land/std/node/stream.ts": "node:stream"
-  }
+  },
+  "nodeModulesDir": "auto"
 }

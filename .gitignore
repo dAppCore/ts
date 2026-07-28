@@ -16,3 +16,4 @@ lethean-server
 docs/sdk/
 /database.db
 /test.txt
+build/
