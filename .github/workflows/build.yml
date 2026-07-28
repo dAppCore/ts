@@ -97,7 +97,10 @@ jobs:
           permissions: "-A"
           package: true
           # A .deb on the Linux runner, so a server can be installed rather
-          # than unpacked.
+          # than unpacked. Release-only: it is built from the staged release
+          # assets, and those are staged on a tag, so a push to main uploads
+          # the zip and nothing else. That is the intent — a .deb per commit
+          # would be a package nobody asked for.
           deb: true
           deb-maintainer: "Lethean <dev@lethean.io>"
           deb-description: "CoreTS — client-side application server"
