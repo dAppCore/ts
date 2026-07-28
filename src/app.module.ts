@@ -6,7 +6,6 @@ import { ConfigModule } from "./mod/config/config.module.ts";
 import { CryptographyModule } from "./mod/cryptography/cryptography.module.ts";
 import { AppsModule } from "./mod/apps/apps.module.ts";
 import {ProcessModule} from "./mod/process/process.module.ts";
-import {DockerModule} from "./mod/docker/docker.module.ts";
 
 @Module({
   controllers: [BaseController, SystemController],
@@ -17,7 +16,6 @@ import {DockerModule} from "./mod/docker/docker.module.ts";
     ConfigModule,
     CryptographyModule,
     AppsModule,
-    ProcessModule,
-    DockerModule],
+    ProcessModule],
 })
 export class AppModule {}
