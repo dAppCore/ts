@@ -41,6 +41,7 @@
     "jsr:@std/semver@^1.0.8": "1.0.8",
     "jsr:@std/streams@^1.1.1": "1.1.1",
     "jsr:@std/text@^1.0.19": "1.0.19",
+    "jsr:@zip-js/zip-js@2.8.34": "2.8.34",
     "npm:@anatine/zod-openapi@2.2.6": "2.2.6_openapi3-ts@4.6.0_zod@3.23.8",
     "npm:@openapitools/openapi-generator-cli@^2.9.0": "2.40.1",
     "npm:awesome-phonenumber@7.1.0": "7.1.0",
@@ -230,6 +231,9 @@
     },
     "@std/text@1.0.19": {
       "integrity": "003a0e032d360e8c3a4e0410fb792c77a66bd6553fee9d60c6ec1bce30d29223"
+    },
+    "@zip-js/zip-js@2.8.34": {
+      "integrity": "65f9aff4ace08c738c3e3887975a206e4976ecfc7e1b62a876bc7c848ae5cb0b"
     }
   },
   "npm": {
@@ -1440,6 +1444,7 @@
       "jsr:@std/io@~0.225.3",
       "jsr:@std/path@^1.1.6",
       "jsr:@std/streams@^1.1.1",
+      "jsr:@zip-js/zip-js@2.8.34",
       "npm:webdav@*"
     ],
     "packageJson": {

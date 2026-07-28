@@ -1,4 +1,4 @@
-import { decompress } from "https://deno.land/x/zip/mod.ts";
+import { BlobReader, Uint8ArrayWriter, ZipReader } from "@zip-js/zip-js";
 import { Untar } from "@std/archive";
 import { copy, readerFromStreamReader } from "@std/io";
 import  * as path from "@std/path";
@@ -116,7 +116,7 @@ export class CoreDownloadService {
     }
 
     if (fullPath.endsWith(".zip")) {
-      await decompress(fullPath, dir, { includeFileName: false });
+      await this.unzip(fullPath, dir);
     } else if (fullPath.endsWith(".tar")) {
       const reader = await Deno.open(fullPath, { read: true });
       const untar = new Untar(reader);
@@ -205,5 +205,47 @@ export class CoreDownloadService {
 
     //Deno.writeFileSync(fullPath, unit8arr, mode);
     return Promise.resolve({ file, dir, fullPath, size });
+  }
+
+  /**
+   * Extracts a .zip archive into a directory.
+   *
+   * Reads the archive in-process rather than handing it to `unzip` or
+   * PowerShell. A compiled binary is meant to run on a host with nothing
+   * installed, so depending on an external extractor would make extraction
+   * work on the developer's machine and fail on the user's.
+   *
+   * @param {string} archive Path to the .zip file
+   * @param {string} dir Directory to extract into
+   * @returns {Promise<void>}
+   */
+  async unzip(archive: string, dir: string): Promise<void> {
+    const reader = new ZipReader(
+      new BlobReader(new Blob([await Deno.readFile(archive)])),
+    );
+    try {
+      const root = await Deno.realPath(dir);
+      for (const entry of await reader.getEntries()) {
+        // An archive names its own paths, and nothing stops one naming
+        // `../../etc/thing`. Resolve each entry and refuse any that lands
+        // outside the directory we were asked to extract into.
+        const target = path.resolve(root, entry.filename);
+        if (target !== root && !target.startsWith(root + path.SEPARATOR)) {
+          this.log.error(`refusing entry outside ${dir}: ${entry.filename}`);
+          continue;
+        }
+        if (entry.directory) {
+          await ensureDir(target);
+          continue;
+        }
+        await ensureDir(path.dirname(target));
+        // getData is optional on the type because an entry read from a
+        // stream may not carry one; entries from a Blob always do.
+        const data = await entry.getData!(new Uint8ArrayWriter());
+        await Deno.writeFile(target, data);
+      }
+    } finally {
+      await reader.close();
+    }
   }
 }

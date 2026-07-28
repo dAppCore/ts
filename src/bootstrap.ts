@@ -1,6 +1,5 @@
 import {AppModule} from './app.module.ts';
 import {WebSocketModule} from './mod/io/protocols/websocket/websocket.module.ts';
-import { bundle, transpile } from "https://deno.land/x/emit/mod.ts";
 import * as path from "@std/path";
 import {DanetApplication, Logger} from "@danet/core";
 import {SpecBuilder, SwaggerModule} from "@danet/swagger";
