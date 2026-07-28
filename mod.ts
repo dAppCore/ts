@@ -9,7 +9,7 @@ import { CompletionsCommand } from "@cliffy/command/completions";
 import { UpgradeCommand } from "@cliffy/command/upgrade";
 import { GithubProvider } from "@cliffy/command/upgrade/provider/github";
 import { DenoLandProvider } from "@cliffy/command/upgrade/provider/deno-land";
-import packageFile from "./package.json" with { type: "json" };
+import denoConfig from "./deno.json" with { type: "json" };
 import {ModIoFsLocalService} from "./src/mod/io/fs/local/service.ts";
 const fs = new ModIoFsLocalService();
 //const home = Deno.env.get('HOME') ? Deno.env.get('HOME') as string : Deno.cwd();
@@ -19,7 +19,7 @@ const fs = new ModIoFsLocalService();
 // }
 const cmds = await new Command()
     .name('lthn')
-    .version(`v${packageFile.version}`)
+    .version(`v${denoConfig.version}`)
     .command(
         "openapi",
         "Creates OpenAPI definition json file.",

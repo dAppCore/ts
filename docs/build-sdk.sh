@@ -16,7 +16,7 @@ do
     esac
 done
 
-PACKAGE_VERSION=$(cat "${BASE_DIR}/package.json" | grep version | head -1 | awk -F: '{ print $2 }' | sed 's/[",]//g' | tr -d '[[:space:]]')
+PACKAGE_VERSION=$(deno eval --quiet 'import c from "./deno.json" with { type: "json" }; console.log(c.version);')
 PACKAGES="${BASE_DIR}/docs/sdk-config/$package"
 for f in $PACKAGES
 do
