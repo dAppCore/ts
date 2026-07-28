@@ -1,4 +1,4 @@
-import { renderFile, render } from "https://deno.land/x/mustache/mod.ts";
+import Mustache from "mustache";
 import  * as path from "@std/path";
 import { Injectable } from "@danet/core";
 import {ModIoFsLocalService} from "../../io/fs/local/service.ts";
@@ -19,10 +19,13 @@ export class ConfigFileService {
       ...model, // user data
       dir: this.fileSystem.path( "conf"),
     };
-    return await renderFile(
-      this.fileSystem.path(path.join("conf", "templates", file)),
-      modelArg,
+    // npm:mustache renders strings only; renderFile was a deno.land/x
+    // addition. The read goes through the filesystem service, which is where
+    // every other file access in this repository already goes.
+    const template = this.fileSystem.read(
+      path.join("conf", "templates", file),
     );
+    return Mustache.render(String(template ?? ""), modelArg);
   }
 
   /**
@@ -32,10 +35,7 @@ export class ConfigFileService {
    * @returns {Promise<any>}
    */
   public async renderTemplateString( template: string, model: any ) {
-    return await render(
-      template,
-      model,
-    );
+    return Mustache.render(template, model);
   }
 
   /**

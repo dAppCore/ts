@@ -61,6 +61,7 @@
   },
   "imports": {
     "./mod.ts": "./mod.ts",
+    "@bradenmacdonald/s3-lite-client": "jsr:@bradenmacdonald/s3-lite-client@^0.9.6",
     "@cliffy/command": "jsr:@cliffy/command@1.2.1",
     "@danet/core": "jsr:@danet/core@2.11.3",
     "@danet/swagger": "jsr:@danet/swagger@2.3.2",

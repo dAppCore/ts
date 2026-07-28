@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@openapitools/openapi-generator-cli": "^2.9.0",
+    "mustache": "^4.2.0",
     "openpgp": "^5.11.3",
     "pem-ts": "^3.0.0"
   },

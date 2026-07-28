@@ -1,7 +1,7 @@
 
 //import {S3Client} from "s3Client"
  import { Injectable } from "@danet/core";
-import {S3Client} from "https://deno.land/x/s3_lite_client/mod.ts";
+import { S3Client } from "@bradenmacdonald/s3-lite-client";
 
 @Injectable()
 export class ModIoFsS3Service {
