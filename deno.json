@@ -1,4 +1,5 @@
 {
+  "version": "5.0.9",
   "unstable": [
     "cron",
     "fs",
@@ -73,6 +74,8 @@
     "@std/streams": "jsr:@std/streams@^1.1.1",
     "@zip-js/zip-js": "jsr:@zip-js/zip-js@2.8.34",
     "webdav": "npm:webdav",
+    "mustache": "npm:mustache@4.2.0",
+    "openpgp": "npm:openpgp@5.11.3",
     "https://deno.land/std/node/util.ts": "node:util",
     "https://deno.land/std/node/events.ts": "node:events",
     "https://deno.land/std/node/assert.ts": "node:assert",
