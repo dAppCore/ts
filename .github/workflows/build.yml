@@ -77,7 +77,7 @@ jobs:
 
       - name: Compile
         id: build
-        uses: dAppCore/build@v4
+        uses: dAppCore/build@v4.14.0
         with:
           build-name: corets
           # Discovery reads deno.json for @danet/core and picks the danet
